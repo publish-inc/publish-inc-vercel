@@ -1032,7 +1032,59 @@ async def upload_user_signature(user_id: str, file: UploadFile = File(...), user
     return {"url": uploaded["public_url"], "path": uploaded["storage_path"], "drive_url": uploaded.get("drive_web_url") or ""}
 
 
-DEFAULT_CONTENT = {}
+DEFAULT_CONTENT = {
+    "whatsapp_number": "6281234567890",
+    "hero": {
+        "eyebrow": "Penerbitan Buku Profesional & Terpercaya",
+        "title_line1": "Wujudkan Karya Impian Anda",
+        "title_line2": "Bersama Publish Inc.",
+        "description": "Layanan penerbitan buku lengkap mulai dari penyuntingan, tata letak (layout), desain sampul, pengurusan ISBN, hingga pencetakan dan distribusi ke seluruh Indonesia.",
+        "quote": "Buku adalah jendela dunia, dan setiap gagasan layak untuk dibaca.",
+        "cta_primary_text": "Konsultasi Gratis via WhatsApp",
+        "cta_secondary_text": "Lihat Layanan Kami",
+        "hero_image_url": "",
+    },
+    "about": {
+        "eyebrow": "Tentang Kami",
+        "title": "Mitra Terbaik Penulis & Akademisi",
+        "description": "Publish Inc. adalah rumah penerbitan profesional yang berdedikasi membantu para penulis, dosen, dan peneliti menerbitkan karya berkualitas tinggi sesuai standar nasional.",
+    },
+    "services": [
+        {"icon": "BookOpen", "title": "Penerbitan Buku Reguler & Cetak", "description": "Paket penerbitan lengkap dengan fasilitas ISBN, editing, layout, dan cetak.", "link": "#paket-penerbitan"},
+        {"icon": "PenTool", "title": "Konversi Karya Ilmiah", "description": "Ubah skripsi, tesis, atau disertasi menjadi buku referensi ber-ISBN.", "link": "#paket-konversi"},
+        {"icon": "Megaphone", "title": "Promosi & Distribusi", "description": "Bantu promosi buku ke marketplace dan jaringan toko buku nasional.", "link": "#buku-pilihan"},
+        {"icon": "GraduationCap", "title": "Penerbitan Buku Ajar / Dosen", "description": "Layanan khusus buku ajar, monograf, dan buku referensi akademik.", "link": "#layanan"},
+    ],
+    "stats": [
+        {"number": "1,500+", "label": "Judul Buku Diterbitkan"},
+        {"number": "1,200+", "label": "Penulis & Dosen Terdaftar"},
+        {"number": "99.8%", "label": "Kepuasan Pelanggan"},
+        {"number": "50+", "label": "Kota Jangkauan Distribusi"},
+    ],
+    "testimonials": [
+        {"name": "Dr. Ahmad Hidayat, M.Pd.", "role": "Dosen Universitas Negeri", "content": "Proses penerbitan buku ajar saya sangat cepat dan komunikatif. Hasil cetak dan layout sangat rapi!", "rating": 5},
+        {"name": "Siti Nurhaliza, S.T.", "role": "Penulis Buku Populer", "content": "Tim Publish Inc. sangat membantu dari proses editing hingga pendaftaran ISBN. Rekomended banget!", "rating": 5},
+    ],
+    "contact": {
+        "email": "info@publishinc.com",
+        "phone": "+62 812-3456-7890",
+        "address": "Jl. Utama Penerbitan No. 88, Jakarta - Indonesia",
+    },
+    "section_visibility": {
+        "rekap": True,
+        "tentang": True,
+        "layanan": True,
+        "paket_penerbitan": True,
+        "paket_konversi": True,
+        "paket_cetak": True,
+        "paket_ebook": True,
+        "promo": True,
+        "buku_pilihan": True,
+        "testimoni": True,
+        "tim": True,
+        "faq": True,
+    },
+}
 
 def deep_merge(dict1: dict[str, Any], dict2: dict[str, Any]) -> dict[str, Any]:
     result = dict1.copy()
