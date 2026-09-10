@@ -4,11 +4,15 @@ import { Logo } from "./Logo";
 
 export const Footer = ({ content }) => {
   const contact = content?.contact || {};
+  const brand = content?.brand || {};
+  const brandName = brand.name || "Publish Inc.";
+  const tagline = brand.tagline || "TERBIT CEPAT, TUMBUH HEBAT.";
+
   return (
     <footer className="bg-navy-950 border-t border-white/10 pt-16 pb-8" data-testid="footer">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-10">
         <div className="md:col-span-2">
-          <Logo />
+          <Logo brandName={brandName} tagline={tagline} />
           <p className="text-slate-400 mt-5 max-w-sm leading-relaxed">
             Rumah penerbitan modern yang menerbitkan gagasan Anda dengan cepat dan mengembangkan penulisnya
             melalui ekosistem author empowerment.
@@ -33,7 +37,7 @@ export const Footer = ({ content }) => {
         </div>
       </div>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 pt-6 border-t border-white/10 text-slate-500 text-sm">
-        © {new Date().getFullYear()} Publish Inc. — Terbit Cepat, Tumbuh Hebat.
+        © {new Date().getFullYear()} {brandName} — {tagline}
       </div>
     </footer>
   );

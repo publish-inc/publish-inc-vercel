@@ -18,13 +18,17 @@ export const PublicNav = () => {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [wa, setWa] = useState("6281234567890");
+  const [brand, setBrand] = useState({ name: "Publish Inc.", tagline: "TERBIT CEPAT, TUMBUH HEBAT." });
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", onScroll);
-    api.get("/content").then((r) => setWa(r.data.whatsapp_number || "6281234567890")).catch(() => {});
+    api.get("/content").then((r) => {
+      if (r.data?.whatsapp_number) setWa(r.data.whatsapp_number);
+      if (r.data?.brand) setBrand({ name: r.data.brand.name || "Publish Inc.", tagline: r.data.brand.tagline || "TERBIT CEPAT, TUMBUH HEBAT." });
+    }).catch(() => {});
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
@@ -47,7 +51,7 @@ export const PublicNav = () => {
   return (
     <nav className={`fixed top-0 w-full z-50 bg-white border-b border-slate-200 transition-shadow ${scrolled ? "shadow-md" : ""}`} data-testid="public-navbar">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-        <Logo dark />
+        <Logo dark brandName={brand.name} tagline={brand.tagline} />
         <div className="hidden lg:flex items-center gap-7">
           {links.map((l) => (
             <button

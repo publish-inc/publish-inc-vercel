@@ -85,7 +85,13 @@ export default function Landing() {
 
   useEffect(() => {
     api.get("/content").then((r) => setC(r.data)).catch(() => { });
-    api.get("/books", { params: { featured: true } }).then((r) => setFeatured(r.data.slice(0, 4))).catch(() => { });
+    api.get("/books", { params: { featured: true } }).then((r) => {
+      if (r.data && r.data.length > 0) {
+        setFeatured(r.data.slice(0, 4));
+      } else {
+        api.get("/books").then((all) => setFeatured((all.data || []).slice(0, 4))).catch(() => {});
+      }
+    }).catch(() => { });
     
     // Fetch events from spk_campaigns, site_content, or fallback to demo data
     const mapEventItem = (item) => ({
@@ -128,6 +134,13 @@ export default function Landing() {
   const { hero = {}, about = {}, services = [], stats = [], testimonials = [], team = [], contact = {}, whatsapp_number = "" } = c;
   const sv = c.section_visibility || {};
   const waLink = `https://wa.me/${whatsapp_number}?text=${encodeURIComponent("Halo Publish Inc., saya ingin konsultasi penerbitan buku.")}`;
+
+  const pkgPenerbitan = c.packages_penerbitan || { eyebrow: "PAKET PENERBITAN", title: "Pilihan Paket Terbit Sesuai Kebutuhan", description: "Pilih paket penerbitan buku yang paling tepat untuk karya Anda.", items: [] };
+  const pkgKonversi = c.packages_konversi || { eyebrow: "PAKET KONVERSI", title: "Konversi Karya Tulis Ilmiah Menjadi Buku", description: "Ubah skripsi, tesis, disertasi, atau laporan penelitian Anda menjadi buku ber-ISBN.", items: [] };
+  const pkgCetak = c.packages_cetak || { eyebrow: "PAKET CETAK", title: "Cetak Buku Kuantitas Fleksibel", description: "Cetak naskah yang sudah siap dengan kualitas kertas & jilid terbaik.", items: [] };
+  const pkgEbook = c.packages_ebook || { eyebrow: "TERBIT EBOOK", title: "Publikasi Digital & Ebook", description: "Jangkau pembaca digital melalui platform ebook terkemuka.", items: [] };
+  const promoData = c.promo || { eyebrow: "INFO PROMO", title: "Penawaran & Diskon Spesial", description: "Dapatkan penawaran terbatas untuk penerbitan buku bulan ini.", items: [] };
+  const faqData = c.faq || { eyebrow: "PERTANYAAN UMUM", title: "Frequently Asked Questions", items: [] };
 
   const localProfiles = getEmployeeProfiles();
   const rawTeam = (team && team.length > 0)
@@ -193,24 +206,24 @@ export default function Landing() {
             {hero.quote && <p className="italic text-slate-400 mt-5">"{hero.quote}"</p>}
             <div className="flex flex-wrap gap-4 mt-9">
               <a href={waLink} target="_blank" rel="noreferrer" data-testid="hero-cta-consult" className="group inline-flex items-center gap-2 bg-brand-orange hover:bg-brand-orange-dark text-white font-bold px-7 py-3.5 rounded-full transition-colors active:scale-95">
-                <MessageCircle size={18} /> {hero.cta_primary_text}
+                <MessageCircle size={18} /> {hero.cta_primary_text || "Konsultasi Gratis via WhatsApp"}
               </a>
               <button onClick={() => scrollTo("#layanan")} data-testid="hero-cta-services" className="inline-flex items-center gap-2 border border-white/20 hover:border-brand-orange text-white font-bold px-7 py-3.5 rounded-full transition-colors">
-                {hero.cta_secondary_text} <ArrowRight size={18} />
+                {hero.cta_secondary_text || "Lihat Layanan Kami"} <ArrowRight size={18} />
               </button>
             </div>
           </motion.div>
-          <FloatingBooks image={hero.image} />
+          <FloatingBooks image={hero.image || hero.hero_image_url} />
         </div>
       </section>
 
       {/* REKAP */}
-      {sv.rekap !== false && (
+      {sv.rekap !== false && (stats || []).length > 0 && (
         <section className="bg-navy-950 border-y border-white/10 py-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-2 lg:grid-cols-4 gap-8">
             {(stats || []).map((s, i) => (
               <div key={i} className="text-center" data-testid={`stat-${i}`}>
-                <div className="font-display font-extrabold text-4xl text-brand-orange">{s.value}</div>
+                <div className="font-display font-extrabold text-4xl text-brand-orange">{s.value || s.number}</div>
                 <div className="text-slate-400 mt-1 text-sm">{s.label}</div>
               </div>
             ))}
@@ -246,7 +259,7 @@ export default function Landing() {
       )}
 
       {/* LAYANAN */}
-      {sv.layanan !== false && (
+      {sv.layanan !== false && (services || []).length > 0 && (
         <section id="layanan" className="py-24 px-4 sm:px-6 lg:px-8 bg-navy-950">
           <div className="max-w-7xl mx-auto">
             <SectionHead center eyebrow="LAYANAN KAMI" title="Semua yang Anda Butuhkan untuk Terbit" />
@@ -272,52 +285,52 @@ export default function Landing() {
       )}
 
       {/* PAKET PENERBITAN */}
-      {sv.paket_penerbitan !== false && c.packages_penerbitan && (
+      {sv.paket_penerbitan !== false && (pkgPenerbitan.items || []).length > 0 && (
         <section id="paket-penerbitan" className="py-24 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
-            <SectionHead center eyebrow={c.packages_penerbitan.eyebrow} title={c.packages_penerbitan.title} description={c.packages_penerbitan.description} />
-            <PackageCards data={c.packages_penerbitan} waLink={waLink} testid="paket-penerbitan-cards" />
+            <SectionHead center eyebrow={pkgPenerbitan.eyebrow} title={pkgPenerbitan.title} description={pkgPenerbitan.description} />
+            <PackageCards data={pkgPenerbitan} waLink={waLink} testid="paket-penerbitan-cards" />
           </div>
         </section>
       )}
 
       {/* PAKET KONVERSI */}
-      {sv.paket_konversi !== false && c.packages_konversi && (
+      {sv.paket_konversi !== false && (pkgKonversi.items || []).length > 0 && (
         <section id="paket-konversi" className="py-24 px-4 sm:px-6 lg:px-8 bg-navy-950">
           <div className="max-w-7xl mx-auto">
-            <SectionHead center eyebrow={c.packages_konversi.eyebrow} title={c.packages_konversi.title} description={c.packages_konversi.description} />
-            <PackageCards data={c.packages_konversi} waLink={waLink} testid="paket-konversi-cards" />
+            <SectionHead center eyebrow={pkgKonversi.eyebrow} title={pkgKonversi.title} description={pkgKonversi.description} />
+            <PackageCards data={pkgKonversi} waLink={waLink} testid="paket-konversi-cards" />
           </div>
         </section>
       )}
 
       {/* PAKET CETAK */}
-      {sv.paket_cetak !== false && c.packages_cetak && (
+      {sv.paket_cetak !== false && (pkgCetak.items || []).length > 0 && (
         <section id="paket-cetak" className="py-24 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
-            <SectionHead center eyebrow={c.packages_cetak.eyebrow} title={c.packages_cetak.title} description={c.packages_cetak.description} />
-            <PackageCards data={c.packages_cetak} waLink={waLink} testid="paket-cetak-cards" />
+            <SectionHead center eyebrow={pkgCetak.eyebrow} title={pkgCetak.title} description={pkgCetak.description} />
+            <PackageCards data={pkgCetak} waLink={waLink} testid="paket-cetak-cards" />
           </div>
         </section>
       )}
 
       {/* TERBIT EBOOK */}
-      {sv.paket_ebook !== false && c.packages_ebook && (
+      {sv.paket_ebook !== false && (pkgEbook.items || []).length > 0 && (
         <section id="paket-ebook" className="py-24 px-4 sm:px-6 lg:px-8 bg-navy-950">
           <div className="max-w-7xl mx-auto">
-            <SectionHead center eyebrow={c.packages_ebook.eyebrow} title={c.packages_ebook.title} description={c.packages_ebook.description} />
-            <PackageCards data={c.packages_ebook} waLink={waLink} testid="paket-ebook-cards" />
+            <SectionHead center eyebrow={pkgEbook.eyebrow} title={pkgEbook.title} description={pkgEbook.description} />
+            <PackageCards data={pkgEbook} waLink={waLink} testid="paket-ebook-cards" />
           </div>
         </section>
       )}
 
       {/* INFO PROMO */}
-      {sv.promo !== false && c.promo && (
+      {sv.promo !== false && (promoData.items || []).length > 0 && (
         <section id="promo" className="py-24 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
-            <SectionHead center eyebrow={c.promo.eyebrow} title={c.promo.title} description={c.promo.description} />
+            <SectionHead center eyebrow={promoData.eyebrow} title={promoData.title} description={promoData.description} />
             <div className="grid md:grid-cols-2 gap-6" data-testid="promo-cards">
-              {(c.promo.items || []).map((p, i) => (
+              {(promoData.items || []).map((p, i) => (
                 <div key={i} className="relative rounded-2xl overflow-hidden border border-white/10 bg-navy-800 group">
                   {p.image ? (
                     <img src={p.image} alt={p.title} className="h-56 w-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -376,7 +389,7 @@ export default function Landing() {
               {testimonials.map((t, i) => (
                 <div key={i} data-testid={`testimonial-${i}`} className="bg-navy-800 border border-white/10 rounded-2xl p-8">
                   <Quote className="text-brand-orange mb-4" size={28} />
-                  <p className="text-slate-200 text-lg leading-relaxed italic">"{t.quote}"</p>
+                  <p className="text-slate-200 text-lg leading-relaxed italic">"{t.quote || t.content}"</p>
                   <div className="mt-6 flex items-center gap-3">
                     <div className="h-11 w-11 rounded-full bg-brand-orange/20 flex items-center justify-center text-brand-orange font-bold">{t.name?.[0]}</div>
                     <div>
@@ -483,12 +496,12 @@ export default function Landing() {
       )}
 
       {/* FAQ */}
-      {sv.faq !== false && c.faq && (
+      {sv.faq !== false && (faqData.items || []).length > 0 && (
         <section id="faq" className="py-24 px-4 sm:px-6 lg:px-8 bg-navy-950">
           <div className="max-w-3xl mx-auto">
-            <SectionHead center eyebrow={c.faq.eyebrow} title={c.faq.title} />
+            <SectionHead center eyebrow={faqData.eyebrow} title={faqData.title} />
             <div className="space-y-4">
-              {(c.faq.items || []).map((f, i) => <FaqItem key={i} q={f.question} a={f.answer} />)}
+              {(faqData.items || []).map((f, i) => <FaqItem key={i} q={f.question} a={f.answer} />)}
             </div>
           </div>
         </section>
