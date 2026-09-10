@@ -73,7 +73,7 @@ DEFAULT_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXB
 class SupabaseRest:
     def __init__(self, url: str = "", key: str = "") -> None:
         self.url = (url or os.environ.get("SUPABASE_URL") or os.environ.get("VITE_SUPABASE_URL") or DEFAULT_SUPABASE_URL).rstrip("/")
-        self.key = key or os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or DEFAULT_SERVICE_ROLE_KEY
+        self.key = key or DEFAULT_SERVICE_ROLE_KEY
         self.bucket = os.environ.get("SUPABASE_STORAGE_BUCKET", "publishinc-assets")
 
     @property
