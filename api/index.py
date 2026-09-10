@@ -286,12 +286,7 @@ class MemoryDb:
 
 def create_db() -> SupabaseRest | MemoryDb:
     if os.environ.get("SUPABASE_URL") and os.environ.get("SUPABASE_SERVICE_ROLE_KEY"):
-        try:
-            candidate = SupabaseRest()
-            candidate.list("app_users", {"limit": 1})
-            return candidate
-        except Exception as exc:
-            print(f"Supabase tidak dapat dijangkau, memakai database memory lokal: {exc}")
+        return SupabaseRest()
     return MemoryDb()
 
 
