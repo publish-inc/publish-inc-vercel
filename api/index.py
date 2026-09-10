@@ -892,11 +892,17 @@ async def root():
 @api.post("/auth/login")
 async def login(payload: LoginInput, response: Response):
     email = payload.email.lower().strip()
+    user = None
     
-    # 1. Fetch users from database and match email case-insensitively
-    all_users = db.list("app_users")
-    user = next((u for u in all_users if str(u.get("email") or "").lower().strip() == email), None)
-    
+    # 1. Fetch user from database (try fast single query first, then fallback to list)
+    try:
+        user = db.one("app_users", email=email)
+        if not user:
+            all_users = db.list("app_users")
+            user = next((u for u in all_users if str(u.get("email") or "").lower().strip() == email), None)
+    except Exception as exc:
+        print(f"Login DB fetch error (fallback to email mapping): {exc}")
+
     if user:
         pwd_hash = str(user.get("password_hash") or "")
         if not verify_password(payload.password, pwd_hash):
@@ -935,7 +941,6 @@ async def login(payload: LoginInput, response: Response):
     if email in email_role_override:
         user["role"] = email_role_override[email]
     else:
-        # Also check dynamic overrides stored by HRD user creation
         try:
             row = db.one("site_content", key="role_overrides")
             dynamic = row.get("content", {}) if row else {}
@@ -1249,19 +1254,23 @@ def deep_merge(dict1: dict[str, Any], dict2: dict[str, Any]) -> dict[str, Any]:
 
 @api.get("/content")
 async def get_content():
-    row = db.one("site_content", key="landing")
-    content_val = row.get("content") if row else None
-    if isinstance(content_val, str):
-        try:
-            content_val = json.loads(content_val)
-        except Exception:
+    try:
+        row = db.one("site_content", key="landing")
+        content_val = row.get("content") if row else None
+        if isinstance(content_val, str):
+            try:
+                content_val = json.loads(content_val)
+            except Exception:
+                content_val = {}
+        if not isinstance(content_val, dict):
             content_val = {}
-    if not isinstance(content_val, dict):
-        content_val = {}
-    merged = deep_merge(DEFAULT_CONTENT, content_val)
-    if not merged or not merged.get("hero") or not merged.get("hero", {}).get("eyebrow"):
-        merged = DEFAULT_CONTENT.copy()
-    return merged
+        merged = deep_merge(DEFAULT_CONTENT, content_val)
+        if not merged or not merged.get("hero") or not merged.get("hero", {}).get("eyebrow"):
+            merged = DEFAULT_CONTENT.copy()
+        return merged
+    except Exception as exc:
+        print(f"get_content fallback error: {exc}")
+        return DEFAULT_CONTENT.copy()
 
 
 @api.put("/content")
@@ -2633,7 +2642,7 @@ def seed_defaults() -> None:
     ])
 
 
-if isinstance(db, MemoryDb) or os.environ.get("AUTO_SEED", "true").lower() != "false":
+if isinstance(db, MemoryDb) or os.environ.get("AUTO_SEED", "false").lower() == "true":
     try:
         seed_defaults()
     except Exception as exc:
