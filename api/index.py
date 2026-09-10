@@ -134,7 +134,7 @@ class SupabaseRest:
                 "apikey": self.key,
                 "Authorization": f"Bearer {self.key}",
                 "Content-Type": content_type,
-                "x-upsert": "false",
+                "x-upsert": "true",
             },
             data=data,
             timeout=60,
@@ -559,24 +559,34 @@ def safe_upload_filename(filename: str, fallback_ext: str) -> str:
 def storage_upload(category: str, filename: str, data: bytes, content_type: str) -> dict[str, Any]:
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "bin"
     final_name = safe_upload_filename(filename, ext)
+    uploaded = None
     if drive_client.enabled:
-        uploaded = drive_client.upload(category, final_name, data, content_type)
-    else:
+        try:
+            uploaded = drive_client.upload(category, final_name, data, content_type)
+        except Exception as exc:
+            print(f"Google Drive upload fallback to Supabase: {exc}")
+
+    if not uploaded:
         path = f"{APP_NAME}/{category}/{final_name}"
         url = db.upload(path, data, content_type)
         uploaded = {"storage_path": path, "public_url": url, "drive_file_id": "", "drive_web_url": "", "drive_folder_id": ""}
-    db.insert("files", {
-        "storage_path": uploaded["storage_path"],
-        "public_url": uploaded["public_url"],
-        "drive_file_id": uploaded.get("drive_file_id") or "",
-        "drive_web_url": uploaded.get("drive_web_url") or "",
-        "drive_folder_id": uploaded.get("drive_folder_id") or "",
-        "category": category,
-        "original_filename": filename,
-        "content_type": content_type,
-        "size": len(data),
-        "created_at": now_iso(),
-    })
+
+    try:
+        db.insert("files", {
+            "storage_path": uploaded["storage_path"],
+            "public_url": uploaded["public_url"],
+            "drive_file_id": uploaded.get("drive_file_id") or "",
+            "drive_web_url": uploaded.get("drive_web_url") or "",
+            "drive_folder_id": uploaded.get("drive_folder_id") or "",
+            "category": category,
+            "original_filename": filename,
+            "content_type": content_type,
+            "size": len(data),
+            "created_at": now_iso(),
+        })
+    except Exception as exc:
+        print(f"File metadata DB insert skipped: {exc}")
+
     return uploaded
 
 
@@ -1252,10 +1262,13 @@ async def upload_file(
 @api.get("/files/{path:path}")
 async def serve_file(path: str):
     row = db.one("files", storage_path=path)
-    if not row or row.get("is_deleted"):
+    if row and row.get("is_deleted"):
         raise HTTPException(status_code=404, detail="File tidak ditemukan")
-    data, content_type = storage_download(path)
-    return RawResponse(content=data, media_type=row.get("content_type") or content_type)
+    try:
+        data, content_type = storage_download(path)
+        return RawResponse(content=data, media_type=(row.get("content_type") if row else None) or content_type)
+    except Exception:
+        raise HTTPException(status_code=404, detail="File tidak ditemukan")
 
 
 @api.get("/cs/packages")
