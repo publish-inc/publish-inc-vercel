@@ -129,11 +129,13 @@ export default function CMSEditor() {
   const save = async () => {
     setSaving(true);
     try {
-      const { data } = await api.put("/content", c);
+      const { data } = await api.put("/content", c, { timeout: 30000 });
       setC(data);
       toast.success("Konten landing page disimpan");
     } catch (err) {
-      toast.error(formatApiErrorDetail(err.response?.data?.detail));
+      console.error("Save CMS Error:", err);
+      const detail = err.response?.data?.detail || (err.code === "ECONNABORTED" ? "Koneksi lambat (timeout). Silakan coba lagi." : "Gagal menyimpan konten landing page.");
+      toast.error(formatApiErrorDetail(detail));
     } finally {
       setSaving(false);
     }

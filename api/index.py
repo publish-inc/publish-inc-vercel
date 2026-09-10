@@ -1292,13 +1292,17 @@ async def get_content():
 
 @api.put("/content")
 async def update_content(payload: dict[str, Any], user: dict[str, Any] = Depends(require_role("master_admin", "admin"))):
-    row = db.one("site_content", key="landing")
-    data = {"key": "landing", "content": payload, "updated_at": now_iso()}
-    if row:
-        db.update("site_content", data, key="landing")
-    else:
-        db.insert("site_content", data)
-    return deep_merge(DEFAULT_CONTENT, payload)
+    try:
+        row = db.one("site_content", key="landing")
+        data = {"key": "landing", "content": payload, "updated_at": now_iso()}
+        if row:
+            db.update("site_content", data, key="landing")
+        else:
+            db.insert("site_content", data)
+        return deep_merge(DEFAULT_CONTENT, payload)
+    except Exception as exc:
+        print(f"update_content error: {exc}")
+        raise HTTPException(status_code=400, detail=f"Gagal menyimpan konten: {str(exc)}")
 
 
 @api.put("/content/team/employee")
