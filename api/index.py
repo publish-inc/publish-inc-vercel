@@ -339,7 +339,8 @@ def now_iso() -> str:
 
 
 def jwt_secret() -> str:
-    return os.environ.get("JWT_SECRET", "local-dev-only-change-before-production")
+    secret = (os.environ.get("JWT_SECRET") or "").strip()
+    return secret if secret else "publishinc-fallback-secret-key-2026-secure-jwt"
 
 
 def hash_password(password: str) -> str:
@@ -1006,8 +1007,8 @@ async def login(payload: LoginInput, response: Response):
     except HTTPException:
         raise
     except Exception as exc:
-        import traceback
-        raise HTTPException(status_code=500, detail=f"Login Exception: {exc} | {traceback.format_exc()}")
+        print(f"Login unexpected exception: {exc}")
+        raise HTTPException(status_code=500, detail="Terjadi kesalahan pada sistem auth")
 
 
 @api.post("/auth/logout")
