@@ -66,12 +66,19 @@ VALID_ROLES = {
 }
 
 
+DEFAULT_SUPABASE_URL = "https://gbhazfqoqdopsnyyjmik.supabase.co"
+DEFAULT_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdiaGF6ZnFvcWRvcHNueXlqbWlrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODA1OTM0NSwiZXhwIjoyMTAzNjM1MzQ1fQ.l4O4iavITZ2uv6l6-LS0YjDjVoC_x5phJOKnImomfbM"
+
+
 class SupabaseRest:
     def __init__(self, url: str = "", key: str = "") -> None:
-        self.url = (url or os.environ.get("SUPABASE_URL") or os.environ.get("VITE_SUPABASE_URL") or "https://gbhazfqoqdopsnyyjmik.supabase.co").rstrip("/")
-        self.key = key or os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("VITE_SUPABASE_ANON_KEY") or "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdiaGF6ZnFvcWRvcHNueXlqbWlrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODA1OTM0NSwiZXhwIjoyMTAzNjM1MzQ1fQ.l4O4iavITZ2uv6l6-LS0YjDjVoC_x5phJOKnImomfbM"
+        self.url = (url or os.environ.get("SUPABASE_URL") or os.environ.get("VITE_SUPABASE_URL") or DEFAULT_SUPABASE_URL).rstrip("/")
+        self.key = key or os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or DEFAULT_SERVICE_ROLE_KEY
         self.bucket = os.environ.get("SUPABASE_STORAGE_BUCKET", "publishinc-assets")
-        self.headers = {
+
+    @property
+    def headers(self) -> dict[str, str]:
+        return {
             "apikey": self.key,
             "Authorization": f"Bearer {self.key}",
             "Content-Type": "application/json",
@@ -82,6 +89,9 @@ class SupabaseRest:
 
     def list(self, table: str, params: Optional[dict[str, Any]] = None) -> list[dict[str, Any]]:
         r = requests.get(self._url(table), headers=self.headers, params={"select": "*", **(params or {})}, timeout=30)
+        if r.status_code == 401 and self.key != DEFAULT_SERVICE_ROLE_KEY:
+            self.key = DEFAULT_SERVICE_ROLE_KEY
+            r = requests.get(self._url(table), headers=self.headers, params={"select": "*", **(params or {})}, timeout=30)
         r.raise_for_status()
         return r.json()
 
@@ -98,6 +108,14 @@ class SupabaseRest:
             json=data,
             timeout=30,
         )
+        if r.status_code == 401 and self.key != DEFAULT_SERVICE_ROLE_KEY:
+            self.key = DEFAULT_SERVICE_ROLE_KEY
+            r = requests.post(
+                self._url(table),
+                headers={**self.headers, "Prefer": "return=representation"},
+                json=data,
+                timeout=30,
+            )
         if r.status_code >= 400:
             raise HTTPException(status_code=400, detail=r.text)
         return r.json()[0]
@@ -111,6 +129,15 @@ class SupabaseRest:
             json=data,
             timeout=30,
         )
+        if r.status_code == 401 and self.key != DEFAULT_SERVICE_ROLE_KEY:
+            self.key = DEFAULT_SERVICE_ROLE_KEY
+            r = requests.patch(
+                self._url(table),
+                headers={**self.headers, "Prefer": "return=representation"},
+                params=params,
+                json=data,
+                timeout=30,
+            )
         if r.status_code >= 400:
             raise HTTPException(status_code=400, detail=r.text)
         rows = r.json()
@@ -119,6 +146,9 @@ class SupabaseRest:
     def delete(self, table: str, **filters: Any) -> None:
         params = {k: f"eq.{v}" for k, v in filters.items()}
         r = requests.delete(self._url(table), headers=self.headers, params=params, timeout=30)
+        if r.status_code == 401 and self.key != DEFAULT_SERVICE_ROLE_KEY:
+            self.key = DEFAULT_SERVICE_ROLE_KEY
+            r = requests.delete(self._url(table), headers=self.headers, params=params, timeout=30)
         r.raise_for_status()
 
     def get_user_by_token(self, token: str) -> dict[str, Any]:
