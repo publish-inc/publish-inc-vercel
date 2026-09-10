@@ -1098,9 +1098,29 @@ def deep_merge(dict1: dict[str, Any], dict2: dict[str, Any]) -> dict[str, Any]:
 @api.get("/content")
 async def get_content():
     row = db.one("site_content", key="landing")
-    if not row:
-        row = db.insert("site_content", {"key": "landing", "content": DEFAULT_CONTENT, "updated_at": now_iso()})
-    return deep_merge(DEFAULT_CONTENT, row.get("content") or {})
+    content_val = row.get("content") if row else None
+    if isinstance(content_val, str):
+        try:
+            content_val = json.loads(content_val)
+        except Exception:
+            content_val = {}
+    if not isinstance(content_val, dict):
+        content_val = {}
+    merged = deep_merge(DEFAULT_CONTENT, content_val)
+    if not merged or not merged.get("hero") or not merged.get("hero", {}).get("eyebrow"):
+        merged = DEFAULT_CONTENT.copy()
+    return merged
+
+
+@api.put("/content")
+async def update_content(payload: dict[str, Any], user: dict[str, Any] = Depends(require_role("master_admin", "admin"))):
+    row = db.one("site_content", key="landing")
+    data = {"key": "landing", "content": payload, "updated_at": now_iso()}
+    if row:
+        db.update("site_content", data, key="landing")
+    else:
+        db.insert("site_content", data)
+    return deep_merge(DEFAULT_CONTENT, payload)
 
 
 @api.put("/content/team/employee")
