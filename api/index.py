@@ -377,11 +377,14 @@ def google_drive_root_folder_id() -> str:
 
 def load_google_credentials() -> dict[str, Any]:
     raw = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
-    if raw:
+    if raw and raw != ".":
         try:
             return json.loads(raw)
-        except json.JSONDecodeError:
-            return json.loads(base64.b64decode(raw).decode("utf-8"))
+        except Exception:
+            try:
+                return json.loads(base64.b64decode(raw).decode("utf-8"))
+            except Exception:
+                pass
     path = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "").strip()
     if path and Path(path).exists():
         return json.loads(Path(path).read_text(encoding="utf-8"))
