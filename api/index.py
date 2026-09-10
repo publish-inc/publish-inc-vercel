@@ -67,9 +67,9 @@ VALID_ROLES = {
 
 
 class SupabaseRest:
-    def __init__(self) -> None:
-        self.url = os.environ["SUPABASE_URL"].rstrip("/")
-        self.key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+    def __init__(self, url: str = "", key: str = "") -> None:
+        self.url = (url or os.environ.get("SUPABASE_URL") or os.environ.get("VITE_SUPABASE_URL") or "https://gbhazfqoqdopsnyyjmik.supabase.co").rstrip("/")
+        self.key = key or os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("VITE_SUPABASE_ANON_KEY") or "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdiaGF6ZnFvcWRvcHNueXlqbWlrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODA1OTM0NSwiZXhwIjoyMTAzNjM1MzQ1fQ.l4O4iavITZ2uv6l6-LS0YjDjVoC_x5phJOKnImomfbM"
         self.bucket = os.environ.get("SUPABASE_STORAGE_BUCKET", "publishinc-assets")
         self.headers = {
             "apikey": self.key,
@@ -285,9 +285,11 @@ class MemoryDb:
 
 
 def create_db() -> SupabaseRest | MemoryDb:
-    if os.environ.get("SUPABASE_URL") and os.environ.get("SUPABASE_SERVICE_ROLE_KEY"):
+    try:
         return SupabaseRest()
-    return MemoryDb()
+    except Exception as exc:
+        print(f"create_db fallback to MemoryDb: {exc}")
+        return MemoryDb()
 
 
 db = create_db()
