@@ -982,8 +982,15 @@ async def logout(response: Response, user: dict[str, Any] = Depends(get_current_
 
 
 @api.get("/auth/me")
-async def me(user: dict[str, Any] = Depends(get_current_user)):
-    return user
+async def me(request: Request, user: dict[str, Any] = Depends(get_current_user)):
+    token = request.cookies.get("access_token")
+    auth_header = request.headers.get("Authorization", "")
+    if not token and auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+    res = dict(user)
+    if token:
+        res["token"] = token
+    return res
 
 
 @api.get("/users")

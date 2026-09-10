@@ -16,15 +16,27 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
         setUser((curr) => (curr === null ? false : curr));
       }
-    }, 4000);
+    }, 5000);
 
     api.get("/auth/me")
       .then((res) => {
-        if (alive) setUser(res.data);
+        if (alive) {
+          setUser(res.data);
+          if (res.data?.token) {
+            localStorage.setItem(TOKEN_KEY, res.data.token);
+          }
+        }
       })
-      .catch(() => {
-        localStorage.removeItem(TOKEN_KEY);
-        if (alive) setUser(false);
+      .catch((err) => {
+        if (alive) {
+          if (err.response?.status === 401) {
+            localStorage.removeItem(TOKEN_KEY);
+            setUser(false);
+          } else {
+            // Keep token in localStorage on temporary network glitches/timeouts
+            setUser((curr) => (curr === null ? false : curr));
+          }
+        }
       })
       .finally(() => {
         if (alive) setLoading(false);
