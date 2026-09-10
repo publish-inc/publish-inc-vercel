@@ -1655,6 +1655,8 @@ def normalize_doc(row: dict[str, Any], prefix: str) -> dict[str, Any]:
     if isinstance(pkg, dict):
         data.setdefault("service_type", pkg.get("service_type", "terbit"))
         data.setdefault("publisher", pkg.get("publisher", "Publish Inc."))
+    data.setdefault("cs_id", data.get("created_by"))
+    data.setdefault("cs_name", data.get("created_by_name"))
     return data
 
 
@@ -1694,8 +1696,23 @@ async def create_offer(payload: dict[str, Any], user: dict[str, Any] = Depends(r
         data.pop("service_type", None)
         data.pop("publisher", None)
 
-    data.update({"number": doc_number("PNW", next_seq("offer")), "status": "penawaran", "created_by": user["id"], "created_by_name": user.get("name"), "created_at": now_iso()})
-    return db.insert("offers", data)
+    cs_id = data.pop("cs_id", None)
+    cs_name = data.pop("cs_name", None)
+
+    creator_id = user.get("id")
+    if creator_id and not db.one("app_users", id=creator_id):
+        creator_id = cs_id if (cs_id and db.one("app_users", id=cs_id)) else None
+
+    creator_name = user.get("name") or cs_name or "CS"
+
+    data.update({
+        "number": doc_number("PNW", next_seq("offer")),
+        "status": "penawaran",
+        "created_by": creator_id,
+        "created_by_name": creator_name,
+        "created_at": now_iso()
+    })
+    return normalize_doc(db.insert("offers", data), "PNW")
 
 
 @api.put("/offers/{oid}")
@@ -1711,12 +1728,12 @@ async def update_offer(oid: str, payload: dict[str, Any], user: dict[str, Any] =
         data.pop("service_type", None)
         data.pop("publisher", None)
 
-    for k in ("number", "status", "created_at", "id"):
+    for k in ("number", "status", "created_at", "id", "cs_id", "cs_name"):
         data.pop(k, None)
     updated = db.update("offers", data, id=oid)
     if not updated:
         raise HTTPException(status_code=404, detail="Penawaran tidak ditemukan")
-    return updated
+    return normalize_doc(updated, "PNW")
 
 
 @api.put("/offers/{oid}/status")
@@ -1797,10 +1814,10 @@ async def update_invoice(iid: str, payload: dict[str, Any], user: dict[str, Any]
         data.pop("service_type", None)
         data.pop("publisher", None)
 
-    for k in ("number", "status", "created_at", "id", "offer_id", "paid_amount", "remaining"):
+    for k in ("number", "status", "created_at", "id", "offer_id", "paid_amount", "remaining", "cs_id", "cs_name"):
         data.pop(k, None)
     data["remaining"] = max(data["grand_total"] - int(inv.get("paid_amount") or 0), 0)
-    return db.update("invoices", data, id=iid)
+    return normalize_doc(db.update("invoices", data, id=iid), "INV")
 
 
 @api.put("/invoices/{iid}/status")
