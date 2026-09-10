@@ -128,20 +128,26 @@ class SupabaseRest:
         return r.json()
 
     def upload(self, path: str, data: bytes, content_type: str) -> str:
-        r = requests.put(
-            f"{self.url}/storage/v1/object/{self.bucket}/{path}",
-            headers={
-                "apikey": self.key,
-                "Authorization": f"Bearer {self.key}",
-                "Content-Type": content_type,
-                "x-upsert": "true",
-            },
-            data=data,
-            timeout=60,
-        )
-        if r.status_code >= 400:
-            raise HTTPException(status_code=400, detail=r.text)
-        return f"/api/files/{path}"
+        buckets = [self.bucket, "publishinc-assets", "assets"]
+        last_error = ""
+        for b in buckets:
+            if not b:
+                continue
+            r = requests.put(
+                f"{self.url}/storage/v1/object/{b}/{path}",
+                headers={
+                    "apikey": self.key,
+                    "Authorization": f"Bearer {self.key}",
+                    "Content-Type": content_type,
+                    "x-upsert": "true",
+                },
+                data=data,
+                timeout=60,
+            )
+            if r.status_code < 400:
+                return f"/api/files/{path}"
+            last_error = r.text
+        raise HTTPException(status_code=400, detail=f"Storage upload error: {last_error}")
 
     def download(self, path: str) -> tuple[bytes, str]:
         r = requests.get(
@@ -262,9 +268,12 @@ class MemoryDb:
     def upload(self, path: str, data: bytes, content_type: str) -> str:
         safe = path.replace("\\", "/").lstrip("/")
         target = ROOT_DIR / "public" / "local-uploads" / safe
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(data)
-        return f"/local-uploads/{safe}"
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+            return f"/local-uploads/{safe}"
+        except Exception:
+            return f"data:{content_type};base64,{base64.b64encode(data).decode('utf-8')}"
 
     def download(self, path: str) -> tuple[bytes, str]:
         safe = path.replace("\\", "/").lstrip("/")
