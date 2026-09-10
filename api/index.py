@@ -938,70 +938,76 @@ async def root():
 
 @api.post("/auth/login")
 async def login(payload: LoginInput, response: Response):
-    email = payload.email.lower().strip()
-    user = None
-    
-    # 1. Fetch user from database (try fast single query first, then fallback to list)
     try:
-        user = db.one("app_users", email=email)
-        if not user:
-            all_users = db.list("app_users")
-            user = next((u for u in all_users if str(u.get("email") or "").lower().strip() == email), None)
-    except Exception as exc:
-        print(f"Login DB fetch error (fallback to email mapping): {exc}")
-
-    if user:
-        pwd_hash = str(user.get("password_hash") or "")
-        if not verify_password(payload.password, pwd_hash):
-            role = str(user.get("role") or "")
-            prefix = email.split("@")[0]
-            if payload.password not in (f"{role}123", f"{prefix}123", "admin123", "master123", "password123"):
-                raise HTTPException(status_code=401, detail="Email atau password salah")
-    else:
-        role_from_email = email.split("@")[0]
-        mapped_role = "master_admin" if role_from_email in ("master", "master_admin") else "admin_marketplace" if role_from_email in ("adminmp", "marketplace") else "pic_editor" if role_from_email in ("pic.editor", "pedi") else "pic_layouter" if role_from_email in ("pic.layouter", "play") else role_from_email
-        if mapped_role in VALID_ROLES:
-            user = {
-                "id": f"system-{mapped_role}",
-                "email": email,
-                "name": f"{mapped_role.replace('_', ' ').title()} User",
-                "role": mapped_role,
-            }
-        else:
-            raise HTTPException(status_code=401, detail="Email atau password salah")
-
-    # 3. Override role by email if the DB constraint forced a different role during insert
-    email_role_override = {
-        "hrd@publishinc.com": "hrd",
-        "campaign@publishinc.com": "campaign",
-        "sosmed@publishinc.com": "sosmed",
-        "crm@publishinc.com": "crm",
-        "produksi@publishinc.com": "produksi",
-        "cco@publishinc.com": "cco",
-        "marketplace@publishinc.com": "admin_marketplace",
-        "pic.editor@publishinc.com": "pic_editor",
-        "pic.layouter@publishinc.com": "pic_layouter",
-        "editor@publishinc.com": "editor",
-        "layouter@publishinc.com": "layouter",
-        "finance@publishinc.com": "finance",
-    }
-    if email in email_role_override:
-        user["role"] = email_role_override[email]
-    else:
+        email = payload.email.lower().strip()
+        user = None
+        
+        # 1. Fetch user from database (try fast single query first, then fallback to list)
         try:
-            row = db.one("site_content", key="role_overrides")
-            dynamic = row.get("content", {}) if row else {}
-            if email in dynamic:
-                user["role"] = dynamic[email]
-        except Exception:
-            pass
+            user = db.one("app_users", email=email)
+            if not user:
+                all_users = db.list("app_users")
+                user = next((u for u in all_users if str(u.get("email") or "").lower().strip() == email), None)
+        except Exception as exc:
+            print(f"Login DB fetch error (fallback to email mapping): {exc}")
 
-    access = create_access_token(user["id"], email)
-    refresh = create_refresh_token(user["id"])
-    set_auth_cookies(response, access, refresh)
-    out = clean_user(user)
-    out["token"] = access
-    return out
+        if user:
+            pwd_hash = str(user.get("password_hash") or "")
+            if not verify_password(payload.password, pwd_hash):
+                role = str(user.get("role") or "")
+                prefix = email.split("@")[0]
+                if payload.password not in (f"{role}123", f"{prefix}123", "admin123", "master123", "password123"):
+                    raise HTTPException(status_code=401, detail="Email atau password salah")
+        else:
+            role_from_email = email.split("@")[0]
+            mapped_role = "master_admin" if role_from_email in ("master", "master_admin") else "admin_marketplace" if role_from_email in ("adminmp", "marketplace") else "pic_editor" if role_from_email in ("pic.editor", "pedi") else "pic_layouter" if role_from_email in ("pic.layouter", "play") else role_from_email
+            if mapped_role in VALID_ROLES:
+                user = {
+                    "id": f"system-{mapped_role}",
+                    "email": email,
+                    "name": f"{mapped_role.replace('_', ' ').title()} User",
+                    "role": mapped_role,
+                }
+            else:
+                raise HTTPException(status_code=401, detail="Email atau password salah")
+
+        # 3. Override role by email if the DB constraint forced a different role during insert
+        email_role_override = {
+            "hrd@publishinc.com": "hrd",
+            "campaign@publishinc.com": "campaign",
+            "sosmed@publishinc.com": "sosmed",
+            "crm@publishinc.com": "crm",
+            "produksi@publishinc.com": "produksi",
+            "cco@publishinc.com": "cco",
+            "marketplace@publishinc.com": "admin_marketplace",
+            "pic.editor@publishinc.com": "pic_editor",
+            "pic.layouter@publishinc.com": "pic_layouter",
+            "editor@publishinc.com": "editor",
+            "layouter@publishinc.com": "layouter",
+            "finance@publishinc.com": "finance",
+        }
+        if email in email_role_override:
+            user["role"] = email_role_override[email]
+        else:
+            try:
+                row = db.one("site_content", key="role_overrides")
+                dynamic = row.get("content", {}) if row else {}
+                if email in dynamic:
+                    user["role"] = dynamic[email]
+            except Exception:
+                pass
+
+        access = create_access_token(user["id"], email)
+        refresh = create_refresh_token(user["id"])
+        set_auth_cookies(response, access, refresh)
+        out = clean_user(user)
+        out["token"] = access
+        return out
+    except HTTPException:
+        raise
+    except Exception as exc:
+        import traceback
+        raise HTTPException(status_code=500, detail=f"Login Exception: {exc} | {traceback.format_exc()}")
 
 
 @api.post("/auth/logout")
