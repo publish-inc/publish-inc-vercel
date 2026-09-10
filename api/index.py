@@ -1255,8 +1255,13 @@ async def upload_file(
         raise HTTPException(status_code=400, detail="Format harus JPG, PNG, WEBP, GIF, PDF, DOCX, XLSX, CSV, MP4, atau MOV")
     safe_category = category if category in GOOGLE_DRIVE_FOLDER_MAP else "landing"
     data = await file.read()
-    uploaded = storage_upload(safe_category, file.filename or f"upload.{ext}", data, UPLOAD_MIME_TYPES[ext])
-    return {"url": uploaded["public_url"], "path": uploaded["storage_path"], "drive_url": uploaded.get("drive_web_url") or ""}
+    try:
+        uploaded = storage_upload(safe_category, file.filename or f"upload.{ext}", data, UPLOAD_MIME_TYPES.get(ext, "application/octet-stream"))
+        return {"url": uploaded["public_url"], "path": uploaded["storage_path"], "drive_url": uploaded.get("drive_web_url") or ""}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Gagal mengupload file: {exc}")
 
 
 @api.get("/files/{path:path}")

@@ -174,7 +174,7 @@ export default function PresensiPwa() {
     const fd = new FormData();
     fd.append("file", blob, filename);
     fd.append("category", category);
-    const { data } = await api.post("/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
+    const { data } = await api.post("/upload", fd);
     return data.url;
   };
 
@@ -271,7 +271,7 @@ export default function PresensiPwa() {
     fd.append("file", file);
     fd.append("category", "hrd_leave");
     try {
-      const { data } = await api.post("/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      const { data } = await api.post("/upload", fd);
       setLeaveForm((current) => ({ ...current, attachment_url: data.drive_url || data.url }));
       toast.success("Lampiran berhasil diupload.");
     } catch (error) {

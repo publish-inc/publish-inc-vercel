@@ -70,7 +70,7 @@ export default function DashboardSosmed({ mode = "combined" }) {
     fd.append("file", file);
     fd.append("category", "sosmed_content");
     try {
-      const { data } = await api.post("/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      const { data } = await api.post("/upload", fd);
       setForm((current) => ({ ...current, asset_url: data.url, drive_url: data.drive_url || "" }));
       toast.success("Aset konten berhasil diupload.");
     } catch (error) {

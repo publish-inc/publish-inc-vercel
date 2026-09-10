@@ -51,7 +51,7 @@ export default function BooksManager() {
     fd.append("file", file);
     fd.append("category", "marketplace_covers");
     try {
-      const { data } = await api.post("/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      const { data } = await api.post("/upload", fd);
       setForm((f) => ({ ...f, cover_url: data.url }));
       toast.success("Cover berhasil diupload");
     } catch (err) {

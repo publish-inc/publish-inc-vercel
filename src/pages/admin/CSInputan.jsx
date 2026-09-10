@@ -89,7 +89,7 @@ function SettingsPanel() {
     setUploading(true);
     const fd = new FormData(); fd.append("file", file);
     try {
-      const { data } = await api.post("/cs/settings/signature", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      const { data } = await api.post("/cs/settings/signature", fd);
       setSig(data.url); toast.success("Tanda tangan diupload & background dibersihkan");
     } catch (e2) { toast.error(formatApiErrorDetail(e2.response?.data?.detail)); }
     finally { setUploading(false); }

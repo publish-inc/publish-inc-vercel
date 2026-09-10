@@ -59,7 +59,7 @@ const ImageField = ({ label, value, onChange, category = "landing" }) => {
     fd.append("file", file);
     fd.append("category", category);
     try {
-      const { data } = await api.post("/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      const { data } = await api.post("/upload", fd);
       onChange(data.url);
       toast.success("Gambar berhasil diupload");
     } catch (err) {

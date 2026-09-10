@@ -90,7 +90,7 @@ export default function DashboardCampaign({ mode = "combined" }) {
     fd.append("file", file);
     fd.append("category", "campaign_poster");
     try {
-      const { data } = await api.post("/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      const { data } = await api.post("/upload", fd);
       setForm((current) => ({ ...current, image_url: data.url, drive_url: data.drive_url || "" }));
       toast.success("Poster event berhasil diupload.");
     } catch (error) {

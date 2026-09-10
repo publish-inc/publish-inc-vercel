@@ -86,7 +86,7 @@ export default function DashboardFinance() {
     fd.append("file", file);
     fd.append("category", "finance_cash_out");
     try {
-      const { data } = await api.post("/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      const { data } = await api.post("/upload", fd);
       setCoForm((current) => ({ ...current, proof_url: data.url, drive_url: data.drive_url || "" }));
       toast.success("Bukti Cash Out berhasil diupload.");
     } catch {

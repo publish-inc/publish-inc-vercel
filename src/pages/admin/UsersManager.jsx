@@ -172,7 +172,7 @@ export default function UsersManager() {
     const fd = new FormData();
     fd.append("file", file);
     try {
-      const { data } = await api.post(`/users/${editing}/signature`, fd, { headers: { "Content-Type": "multipart/form-data" } });
+      const { data } = await api.post(`/users/${editing}/signature`, fd);
       setForm((f) => ({ ...f, signature_url: data.url }));
       toast.success("Tanda tangan berhasil diupload");
       load();
@@ -191,7 +191,7 @@ export default function UsersManager() {
     fd.append("file", file);
     fd.append("category", "employee_photo");
     try {
-      const { data } = await api.post("/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      const { data } = await api.post("/upload", fd);
       setForm((f) => ({ ...f, photo_url: data.url, photo_drive_url: data.drive_url || "" }));
       toast.success("Foto karyawan berhasil diupload ke penyimpanan sistem.");
     } catch (err) {
