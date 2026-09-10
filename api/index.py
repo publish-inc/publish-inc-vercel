@@ -288,6 +288,13 @@ def create_db() -> SupabaseRest | MemoryDb:
 
 db = create_db()
 app = FastAPI(title="Publish Inc. API")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 api = APIRouter(prefix="/api")
 
 
