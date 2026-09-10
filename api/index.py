@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, Requ
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, Response as RawResponse
 from PIL import Image, ImageDraw
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
@@ -681,20 +681,20 @@ def require_role(*roles: str):
 
 
 class LoginInput(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 
 class UserInput(BaseModel):
     name: str
-    email: EmailStr
+    email: str
     password: str = ""
     role: str = "admin"
 
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     role: Optional[str] = None
     password: Optional[str] = None
 
