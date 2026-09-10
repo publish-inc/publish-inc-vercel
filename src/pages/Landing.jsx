@@ -84,7 +84,45 @@ export default function Landing() {
   const [events, setEvents] = useState([]);
 
   useEffect(() => {
-    api.get("/content").then((r) => setC(r.data)).catch(() => { });
+    api.get("/content").then((r) => setC(r.data)).catch(() => {
+      setC({
+        whatsapp_number: "6281234567890",
+        brand: { name: "Publish Inc.", tagline: "TERBIT CEPAT, TUMBUH HEBAT." },
+        hero: {
+          eyebrow: "Penerbitan Buku Profesional & Terpercaya",
+          title_line1: "Wujudkan Karya Impian Anda",
+          title_line2: "Bersama Publish Inc.",
+          description: "Layanan penerbitan buku lengkap mulai dari penyuntingan, tata letak (layout), desain sampul, pengurusan ISBN, hingga pencetakan dan distribusi ke seluruh Indonesia.",
+          quote: "Buku adalah jendela dunia, dan setiap gagasan layak untuk dibaca.",
+          cta_primary_text: "Konsultasi Gratis via WhatsApp",
+          cta_secondary_text: "Lihat Layanan Kami",
+        },
+        about: {
+          eyebrow: "Tentang Kami",
+          title: "Mitra Terbaik Penulis & Akademisi",
+          description: "Publish Inc. adalah rumah penerbitan profesional yang berdedikasi membantu para penulis, dosen, dan peneliti menerbitkan karya berkualitas tinggi sesuai standar nasional.",
+          points: ["Pengurusan ISBN Resmi Perpustakaan Nasional", "Tim Editor & Layouter Profesional Berpengalaman", "Cetak Berkualitas Tinggi Presisi & Tepat Waktu", "Distribusi & Promosi Marketplace Nasional"]
+        },
+        services: [
+          { icon: "BookOpen", title: "Penerbitan Buku Reguler & Cetak", description: "Paket penerbitan lengkap dengan fasilitas ISBN, editing, layout, dan cetak." },
+          { icon: "PenTool", title: "Konversi Karya Ilmiah", description: "Ubah skripsi, tesis, atau disertasi menjadi buku referensi ber-ISBN." },
+          { icon: "Megaphone", title: "Promosi & Distribusi", description: "Bantu promosi buku ke marketplace dan jaringan toko buku nasional." },
+          { icon: "GraduationCap", title: "Penerbitan Buku Ajar / Dosen", description: "Layanan khusus buku ajar, monograf, dan buku referensi akademik." }
+        ],
+        stats: [
+          { value: "1,500+", label: "Judul Buku Diterbitkan" },
+          { value: "1,200+", label: "Penulis & Dosen Terdaftar" },
+          { value: "99.8%", label: "Kepuasan Pelanggan" },
+          { value: "50+", label: "Kota Jangkauan Distribusi" }
+        ],
+        contact: {
+          email: "info@publishinc.com",
+          phone: "+62 812-3456-7890",
+          address: "Jl. Utama Penerbitan No. 88, Jakarta - Indonesia"
+        },
+        section_visibility: {}
+      });
+    });
     api.get("/books", { params: { featured: true } }).then((r) => {
       if (r.data && r.data.length > 0) {
         setFeatured(r.data.slice(0, 4));
