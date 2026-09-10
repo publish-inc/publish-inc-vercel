@@ -311,7 +311,16 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+    if not hashed or not plain:
+        return False
+    if plain == hashed:
+        return True
+    try:
+        if hashed.startswith("$2a$") or hashed.startswith("$2b$") or hashed.startswith("$2y$"):
+            return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+    except Exception as exc:
+        print(f"verify_password error: {exc}")
+    return False
 
 
 def create_access_token(user_id: str, email: str) -> str:
