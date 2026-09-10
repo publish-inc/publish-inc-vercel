@@ -1,0 +1,300 @@
+<script>
+
+function loadMonitorDeadline() {
+    state.activeTab = typeof getDefaultTabForRole === 'function' ? getDefaultTabForRole(state.user?.role) : 'dashboard';
+    if (typeof renderDashboard === 'function') renderDashboard();
+    return;
+    const initialContent = document.getElementById('contentArea');
+    if (initialContent) {
+        initialContent.innerHTML = '<div class="bg-white rounded-2xl border border-slate-100 p-8 text-slate-400 font-bold"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Memuat ulang monitor naskah...</div>';
+    }
+
+    const loadRows = (deadlineAlerts = []) => {
+    const deadlineAlertMap = new Map();
+    (deadlineAlerts || []).forEach((item) => {
+        const id = String(item.naskahId || (item.naskah && item.naskah.id) || '');
+        if (id && !deadlineAlertMap.has(id)) deadlineAlertMap.set(id, item);
+    });
+    gas.withSuccessHandler((res) => {
+        if (!state.user) return;
+        const content = document.getElementById('contentArea');
+        if (!content) return;
+        const allProgressRows = res?.data || [];
+        
+        // 1. Filter data based on role
+        const data = allProgressRows.filter((n) => {
+            const isCancelled = isNaskahCancelled(n);
+            if (isCancelled || n.statusProses !== 'Siap Proses') return false;
+            
+            if (state.user.role === 'css') {
+                const nUser = String(n.assignedCssUsername || '').trim().toLowerCase();
+                const nName = String(n.assignedCssName || '').trim().toLowerCase();
+                const uUser = String(state.user.username || '').trim().toLowerCase();
+                const uName = String(state.user.nama || '').trim().toLowerCase();
+                return nUser === uUser || (nUser === uName && uName) || nName === uUser || (nName === uName && uName);
+            }
+            // pimpinan & manajemen see all active ones
+            return true;
+        });
+
+        // 2. Logic calculation for each naskah
+        const tableRows = data.map((n) => {
+            // Calculate current stage
+            const stageKeyFromText = (stage) => {
+                const text = String(stage || '').toLowerCase();
+                if (text.includes('proof')) return 'Proofreading';
+                if (text.includes('layout') || text.includes('cover')) return 'Desain Cover & Layout';
+                if (text.includes('isbn')) return 'ISBN';
+                if (text.includes('produksi') || text.includes('cetak')) return 'Produksi';
+                if (text.includes('distribusi')) return 'Distribusi';
+                if (text.includes('selesai')) return 'Selesai';
+                return 'Administrasi';
+            };
+            const stageDone = (status) => ['done', 'complete', 'selesai', 'terbit'].includes(String(status || '').trim().toLowerCase());
+            const stageStarted = (status) => {
+                const normalized = String(status || '').trim().toLowerCase();
+                return normalized && normalized !== 'menunggu';
+            };
+            const isbnDone = (status) => {
+                const normalized = String(status || '').trim().toLowerCase();
+                return stageDone(normalized) || normalized === 'diterima' || normalized === 'qrsbn';
+            };
+            const moveToStage = (stage) => {
+                const idx = timelineSteps.indexOf(stage);
+                if (idx > effectiveIdx) effectiveIdx = idx;
+            };
+
+            const storedIdx = timelineSteps.indexOf(stageKeyFromText(n.timeline));
+            const proofIdx = timelineSteps.indexOf('Proofreading');
+            const layoutIdx = timelineSteps.indexOf('Desain Cover & Layout');
+            const produksiIdx = timelineSteps.indexOf('Produksi');
+            const distribusiIdx = timelineSteps.indexOf('Distribusi');
+            let effectiveIdx = storedIdx < 0 ? 0 : storedIdx;
+            
+            const skipProofreading = !naskahNeedsProofreading(n);
+            if (!skipProofreading && stageStarted(n.statusEditor)) moveToStage('Proofreading');
+            if (skipProofreading || stageDone(n.statusEditor)) moveToStage('Desain Cover & Layout');
+            if (stageStarted(n.statusLayouter)) moveToStage('Desain Cover & Layout');
+            if (stageDone(n.statusLayouter)) moveToStage('Produksi');
+            if (stageStarted(n.statusProduksi)) moveToStage('Produksi');
+            if (stageDone(n.statusProduksi)) moveToStage('Distribusi');
+            if (stageStarted(n.statusDistribusi)) moveToStage('Distribusi');
+            if (stageDone(n.statusDistribusi)) moveToStage('Selesai');
+            const currentStage = timelineSteps[effectiveIdx] || n.timeline || timelineSteps[0];
+            
+            // Calculate next deadline
+            let nextDeadlineStr = null;
+            let nextDeadlineDate = null;
+            let nextDeadlineStage = null;
+            const deadlineByStage = {
+                [timelineSteps[0]]: { value: n.deadlines && n.deadlines.administrasi, label: 'Administrasi' },
+                [timelineSteps[1]]: { value: n.deadlines && n.deadlines.proofreading, label: 'Proofreading' },
+                [timelineSteps[2]]: { value: n.deadlines && n.deadlines.layout, label: 'Layout' },
+                [timelineSteps[3]]: { value: n.deadlines && n.deadlines.produksi, label: 'Produksi' },
+                [timelineSteps[4]]: { value: n.deadlines && n.deadlines.distribusi, label: 'Distribusi' },
+                [timelineSteps[5]]: { value: n.deadlines && n.deadlines.selesai, label: 'Selesai' }
+            };
+
+            if (effectiveIdx < proofIdx) {
+                nextDeadlineStr = deadlineByStage[timelineSteps[1]].value;
+                nextDeadlineStage = deadlineByStage[timelineSteps[1]].label;
+            } else if (effectiveIdx === proofIdx) {
+                nextDeadlineStr = deadlineByStage[timelineSteps[2]].value;
+                nextDeadlineStage = deadlineByStage[timelineSteps[2]].label;
+            } else if (effectiveIdx === layoutIdx) {
+                nextDeadlineStr = deadlineByStage[timelineSteps[3]].value;
+                nextDeadlineStage = deadlineByStage[timelineSteps[3]].label;
+            } else if (effectiveIdx === produksiIdx) {
+                nextDeadlineStr = deadlineByStage[timelineSteps[4]].value;
+                nextDeadlineStage = deadlineByStage[timelineSteps[4]].label;
+            } else if (effectiveIdx === distribusiIdx) {
+                nextDeadlineStr = deadlineByStage[timelineSteps[5]].value;
+                nextDeadlineStage = deadlineByStage[timelineSteps[5]].label;
+            }
+            
+            if (nextDeadlineStr) {
+                const parts = nextDeadlineStr.split('-');
+                if (parts.length === 3) {
+                    nextDeadlineDate = new Date(parts[0], parts[1] - 1, parts[2]);
+                    nextDeadlineDate.setHours(23, 59, 59, 999);
+                }
+            }
+
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            let diffDays = null;
+            if (nextDeadlineDate) {
+                const rowDate = new Date(nextDeadlineDate.getFullYear(), nextDeadlineDate.getMonth(), nextDeadlineDate.getDate());
+                const diffTime = rowDate.getTime() - today.getTime();
+                diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            }
+
+            // Keterangan Action (same source as Alert Deadline)
+            const isSelesai = currentStage === 'Selesai';
+            const deadlineAlert = deadlineAlertMap.get(String(n.id || '')) || null;
+            const hasDeadlineAlert = !!deadlineAlert;
+            const alertInfo = hasDeadlineAlert && typeof getDeadlineAlertActionInfo === 'function'
+                ? getDeadlineAlertActionInfo(deadlineAlert, state.user?.role || '')
+                : null;
+            const keterangan = isSelesai ? 'Selesai' : (hasDeadlineAlert ? (alertInfo?.badgeText || 'Need Action') : 'No Need Actions');
+            const alertDeadlineStr = hasDeadlineAlert ? String(deadlineAlert.deadline || '').slice(0, 10) : '';
+            if (!isSelesai && alertDeadlineStr) {
+                nextDeadlineStr = alertDeadlineStr;
+                nextDeadlineStage = deadlineAlert.stageLabel || nextDeadlineStage;
+                const parts = alertDeadlineStr.split('-');
+                if (parts.length === 3) {
+                    nextDeadlineDate = new Date(parts[0], parts[1] - 1, parts[2]);
+                    nextDeadlineDate.setHours(23, 59, 59, 999);
+                    const alertRowDate = new Date(nextDeadlineDate.getFullYear(), nextDeadlineDate.getMonth(), nextDeadlineDate.getDate());
+                    diffDays = Math.ceil((alertRowDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                }
+            }
+
+            // Status Delay (Based on Delay Summary)
+            const delaySummary = getTrackingDelaySummary(n);
+            const statusDelay = isSelesai ? 'Selesai' : (delaySummary.length > 0 ? 'Delayed' : 'On Time');
+
+            return {
+                ...n,
+                currentStage,
+                nextDeadlineStr,
+                nextDeadlineDate,
+                nextDeadlineStage,
+                diffDays,
+                keterangan,
+                hasDeadlineAlert,
+                alertReason: alertInfo?.reason || '',
+                statusDelay
+            };
+        });
+
+        // 3. Sorting
+        tableRows.sort((a, b) => {
+            if (a.currentStage === 'Selesai' && b.currentStage !== 'Selesai') return 1;
+            if (a.currentStage !== 'Selesai' && b.currentStage === 'Selesai') return -1;
+            const actionRank = (row) => row.hasDeadlineAlert ? 0 : row.keterangan === 'Selesai' ? 2 : 1;
+            const rankDiff = actionRank(a) - actionRank(b);
+            if (rankDiff !== 0) return rankDiff;
+            
+            const aTime = a.nextDeadlineDate ? a.nextDeadlineDate.getTime() : Infinity;
+            const bTime = b.nextDeadlineDate ? b.nextDeadlineDate.getTime() : Infinity;
+            return aTime - bTime;
+        });
+
+        // 4. Rendering UI
+        const safeText = (value) => String(value || '-').replace(/[&<>"']/g, (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch]);
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        let tableHtml = `<div class="flex items-center gap-4 text-[11px] font-bold text-slate-300 bg-slate-800 p-3 rounded-2xl border border-slate-700 shadow-sm mb-4"><span class="uppercase tracking-wider text-slate-400"><i class="fa-solid fa-palette mr-1"></i>Penerbit:</span><div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#eff6ff;border:1px solid #dbeafe"></span> Nasmedia</div><div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#faf5ff;border:1px solid #f3e8ff"></span> Idebuku</div></div>
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div class="p-4 border-b border-slate-100 bg-slate-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                    <h2 class="text-sm font-black text-slate-800"><i class="fa-solid fa-calendar-day mr-2 text-accent-600"></i>Monitor Naskah Terpusat</h2>
+                    <p class="text-[10px] text-slate-500 mt-1">Daftar deadline seluruh naskah aktif, diurutkan dari deadline terdekat.</p>
+                </div>
+                <button type="button" onclick="loadMonitorDeadline()" class="px-4 py-2 rounded-xl bg-white hover:bg-accent-50 text-slate-600 hover:text-accent-600 border border-slate-200 text-xs font-black transition shadow-sm whitespace-nowrap">
+                    <i class="fa-solid fa-rotate mr-1"></i>Refresh
+                </button>
+            </div>
+            <div class="overflow-x-auto overflow-y-hidden">
+            <table class="w-full text-left table-fixed">
+                <thead class="bg-slate-100 text-[10px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">
+                    <tr>
+                        <th class="px-4 py-3 w-[28%]">Judul Naskah</th>
+                        <th class="px-4 py-3 w-[15%]">Penulis</th>
+                        <th class="px-4 py-3 w-[15%]">Tahapan Saat Ini</th>
+                        <th class="px-4 py-3 w-[16%]">Deadline Selanjutnya</th>
+                        <th class="px-4 py-3 text-center w-[14%]">Aksi Deadline</th>
+                        <th class="px-4 py-3 text-center w-[12%]">Status Kendala</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">`;
+
+        if (tableRows.length === 0) {
+            tableHtml += `<tr><td colspan="6" class="px-4 py-8 text-center text-[11px] text-slate-400 font-bold italic">Tidak ada data naskah.</td></tr>`;
+        } else {
+            tableRows.forEach((row) => {
+                let colorStyle = 'color: #334155;'; // text-slate-700
+                let deadlineText = '-';
+                
+                if (row.currentStage === 'Selesai') {
+                    colorStyle = 'color: #94a3b8;'; // text-slate-400
+                    deadlineText = 'Selesai';
+                } else if (row.nextDeadlineDate) {
+                    const rowDate = new Date(row.nextDeadlineDate.getFullYear(), row.nextDeadlineDate.getMonth(), row.nextDeadlineDate.getDate());
+                    
+                    if (row.diffDays < 0) {
+                        colorStyle = 'color: #dc2626; font-weight: 900;'; // text-red-600 font-black
+                    } else if (row.diffDays === 0) {
+                        colorStyle = 'color: #f59e0b; font-weight: 900;'; // text-amber-500 font-black
+                    } else {
+                        colorStyle = 'color: #059669; font-weight: 700;'; // text-emerald-600 font-bold
+                    }
+                    
+                    // Format output
+                    deadlineText = rowDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) + ` (${row.nextDeadlineStage})`;
+                }
+
+                const isNasmedia = String(row.penerbit || '').toLowerCase().replace(/\s/g, '').includes('nasmedia');
+                const isIdebuku = String(row.penerbit || '').toLowerCase().replace(/\s/g, '').includes('idebuku');
+                const rowStyle = isNasmedia ? 'background-color: #eff6ff !important;' : isIdebuku ? 'background-color: #faf5ff !important;' : '';
+                tableHtml += `
+                    <tr class="transition-colors text-[11px] text-slate-700 " style="${rowStyle}">
+                        <td class="px-4 py-3 font-bold truncate" title="${safeText(row.judul)}">${safeText(row.judul)}</td>
+                        <td class="px-4 py-3 truncate" title="${safeText(row.penulis)}">${safeText(row.penulis)}</td>
+                        <td class="px-4 py-3 truncate" title="${safeText(row.currentStage)}">${safeText(row.currentStage)}</td>
+                        <td class="px-4 py-3 truncate" title="${deadlineText}" style="${colorStyle}">${deadlineText}</td>
+                        <td class="px-4 py-3 text-center">
+                            ${row.hasDeadlineAlert 
+                                ? `<span class="inline-flex items-center justify-center gap-1 max-w-full px-2 py-1 rounded bg-red-50 text-red-600 border border-red-100 font-black text-[9px] uppercase tracking-wider whitespace-normal leading-tight" title="${safeText(row.keterangan)}"><i class="fa-solid fa-triangle-exclamation shrink-0"></i><span>${safeText(row.keterangan)}</span></span>` 
+                                : row.keterangan === 'No Need Actions' 
+                                ? `<span class="inline-block px-2 py-1 rounded bg-emerald-50 text-emerald-600 border border-emerald-100 font-black text-[9px] uppercase tracking-wider"><i class="fa-solid fa-check mr-1"></i>No Need Actions</span>`
+                                : `<span class="inline-block px-2 py-1 rounded bg-slate-50 text-slate-500 border border-slate-200 font-black text-[9px] uppercase tracking-wider">Selesai</span>`
+                            }
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            ${row.statusDelay === 'Delayed' 
+                                ? `<span class="inline-block px-2 py-1 rounded bg-amber-50 text-amber-600 border border-amber-100 font-black text-[9px] uppercase tracking-wider"><i class="fa-solid fa-clock-rotate-left mr-1"></i>Delayed</span>` 
+                                : row.statusDelay === 'On Time' 
+                                ? `<span class="inline-block px-2 py-1 rounded bg-blue-50 text-blue-600 border border-blue-100 font-black text-[9px] uppercase tracking-wider"><i class="fa-solid fa-thumbs-up mr-1"></i>On Time</span>`
+                                : `<span class="inline-block px-2 py-1 rounded bg-slate-50 text-slate-500 border border-slate-200 font-black text-[9px] uppercase tracking-wider">Selesai</span>`
+                            }
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        tableHtml += `</tbody></table></div></div>`;
+        content.innerHTML = tableHtml;
+
+    }).withFailureHandler((error) => {
+        const content = document.getElementById('contentArea');
+        if (!content) return;
+        const message = error && error.message || String(error || 'Server tidak merespons.');
+        content.innerHTML = `<div class="bg-white rounded-2xl border border-red-100 p-8 text-red-500 font-bold">
+            <i class="fa-solid fa-triangle-exclamation mr-2"></i>Gagal memuat Monitor Naskah: ${String(message).replace(/[&<>"']/g, (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch])}
+            <button type="button" onclick="loadMonitorDeadline()" class="ml-3 px-4 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 text-xs font-black transition">Coba Lagi</button>
+        </div>`;
+    }).getMonitorNaskahData();
+    };
+
+    const cachedAlerts = Array.isArray(state.deadlineAlerts) ? state.deadlineAlerts : [];
+    if (!state.user || typeof gas.getDeadlineAlerts !== 'function') {
+        loadRows(cachedAlerts);
+        return;
+    }
+
+    gas.withSuccessHandler((res) => {
+        const alerts = res && res.success !== false ? res.data || [] : cachedAlerts;
+        state.deadlineAlerts = alerts;
+        window._deadlineAlertNaskahCache = alerts.map((item) => item.naskah).filter(Boolean);
+        if (typeof updateDeadlineAlertSidebar === 'function') updateDeadlineAlertSidebar();
+        loadRows(alerts);
+    }).withFailureHandler(() => {
+        loadRows(cachedAlerts);
+    }).getDeadlineAlerts(state.user.username, state.user.role);
+}
+
+</script>

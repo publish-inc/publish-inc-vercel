@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Publish Inc - Admin SPK</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { primary: '#0A2540', accent: '#FF6B35', bglight: '#F8F9FA', textgray: '#4A5568' },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #F8F9FA; color: #4A5568; }
+        .view-section { display: none; }
+        .view-section.active { display: block; animation: fadeIn 0.4s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="antialiased min-h-screen relative flex flex-col font-sans text-textgray bg-bglight">
+
+    <div id="toast-container" class="fixed top-4 right-4 z-[9999] flex flex-col gap-3 pointer-events-none"></div>
+
+    <header class="bg-primary text-white sticky top-0 z-40 shadow-lg border-b-4 border-accent">
+        <div class="max-w-7xl mx-auto px-4 md:px-6 py-4 flex justify-between items-center">
+            
+            <div class="flex items-center gap-4 cursor-pointer group" onclick="navigate(appState.role === 'admin' ? 'admin-login' : 'author-login')">
+                <div class="w-16 h-16 rounded-full bg-primary shadow-sm ring-2 ring-white/90 group-hover:scale-105 transition-transform overflow-hidden">
+                    <img src="data:image/png;base64,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" alt="Publish Inc logo" class="w-full h-full object-cover">
+                </div>
+                <h1 class="text-xl md:text-2xl font-bold tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-300">Publish Inc.</h1>
+            </div>
+            <div id="header-user-info" class="text-sm font-medium hidden items-center bg-[#13355A] px-4 py-2 rounded-full border border-[#1C4A7A]">
+                <span id="header-role" class="text-gray-200"></span>
+                <div class="w-px h-4 bg-gray-500 mx-3"></div>
+                <button onclick="logout()" class="text-accent hover:text-white transition-colors flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                    Logout
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow flex p-4 md:p-8 max-w-7xl mx-auto w-full">
+        <!-- ADMIN LOGIN -->
+        <section id="view-admin-login" class="view-section active w-full max-w-md mx-auto mt-12">
+            <div class="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary to-blue-800"></div>
+                <h2 class="text-3xl font-extrabold text-primary mb-2 mt-4">Login Admin</h2>
+                <p class="text-gray-500 mb-8">Masuk untuk mengelola sistem SPK.</p>
+                <form id="admin-login-form" class="space-y-5" onsubmit="handleAdminLogin(event)">
+                    <div>
+                        <label class="block text-sm font-semibold text-primary mb-1">Email</label>
+                        <input type="email" id="admin-email" required class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder="admin@publishinc.com">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-primary mb-1">Password</label>
+                        <input type="password" id="admin-pass" required class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder="••••••••">
+                    </div>
+                    <button type="submit" class="w-full bg-primary hover:bg-[#081e33] text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 mt-4">
+                        <span id="admin-login-text">Masuk Sekarang</span>
+                        <div id="admin-login-loader" class="hidden w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- ADMIN DASHBOARD -->
+        <section id="view-admin-dashboard" class="view-section w-full">
+            <div class="flex flex-col md:flex-row gap-6 min-h-[75vh]">
+                <aside class="w-full md:w-64 flex-shrink-0">
+                    <div class="bg-white rounded-2xl shadow-md border border-gray-100 p-4 sticky top-24">
+                        <div class="mb-6 px-2">
+                            <h2 class="text-xl font-extrabold text-primary">Menu Admin</h2>
+                        </div>
+                        <nav class="space-y-2">
+                            <button onclick="switchTab('tab-format')" id="btn-tab-format" class="w-full flex items-center gap-3 px-4 py-3 text-left rounded-xl font-semibold text-primary bg-blue-50 border border-blue-100">
+                                Format Penomoran
+                            </button>
+                            <button onclick="switchTab('tab-template')" id="btn-tab-template" class="w-full flex items-center gap-3 px-4 py-3 text-left rounded-xl font-medium text-gray-500 hover:bg-gray-50 hover:text-primary">
+                                Template Isi SPK
+                            </button>
+                            <button onclick="switchTab('tab-paket')" id="btn-tab-paket" class="w-full flex items-center gap-3 px-4 py-3 text-left rounded-xl font-medium text-gray-500 hover:bg-gray-50 hover:text-primary">
+                                Paket Penerbitan
+                            </button>
+                            <button onclick="switchTab('tab-generate')" id="btn-tab-generate" class="w-full flex items-center gap-3 px-4 py-3 text-left rounded-xl font-medium text-gray-500 hover:bg-gray-50 hover:text-primary">
+                                Generate Token
+                            </button>
+                            <button onclick="switchTab('tab-log')" id="btn-tab-log" class="w-full flex items-center gap-3 px-4 py-3 text-left rounded-xl font-medium text-gray-500 hover:bg-gray-50 hover:text-primary">
+                                Log Token & Status
+                            </button>
+                            <button onclick="switchTab('tab-naskah')" id="btn-tab-naskah" class="w-full flex items-center gap-3 px-4 py-3 text-left rounded-xl font-medium text-gray-500 hover:bg-gray-50 hover:text-primary">
+                                Naskah Fix
+                            </button>
+                        </nav>
+                    </div>
+                </aside>
+
+                <div class="flex-grow w-full">
+                    <!-- Tab Format -->
+                    <div id="tab-format" class="admin-tab block bg-white p-6 md:p-8 rounded-2xl shadow-md border border-gray-100 relative">
+                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
+                        <h3 class="text-xl font-bold text-primary mb-4">Format Penomoran SPK</h3>
+                        <div class="bg-blue-50 border border-blue-200 p-5 rounded-xl">
+                            <p class="text-sm text-blue-800 font-medium mb-2">Nomor SPK dibuat otomatis saat Generate Token:</p>
+                            <p class="text-lg font-mono font-bold text-primary">NNN/SPK-PI/BULAN/TAHUN</p>
+                            <p class="text-xs text-blue-600 mt-2">Contoh: 001/SPK-PI/VIII/2026</p>
+                        </div>
+                    </div>
+
+                    <!-- Tab Template SPK -->
+                    <div id="tab-template" class="admin-tab hidden bg-white p-6 md:p-8 rounded-2xl shadow-md border border-gray-100 relative">
+                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
+                        <h3 class="text-xl font-bold text-primary mb-6">Pengaturan Template Isi SPK</h3>
+                        <div class="space-y-5">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div><label class="block text-sm font-semibold text-gray-700 mb-1">Penanggung Jawab (Pihak 1)</label><input type="text" id="set-pj" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none"></div>
+                                <div><label class="block text-sm font-semibold text-gray-700 mb-1">Jabatan</label><input type="text" id="set-jabatan" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none"></div>
+                                <div><label class="block text-sm font-semibold text-gray-700 mb-1">Bertindak Atas Nama</label><input type="text" id="set-atasnama" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none"></div>
+                            </div>
+                            
+                            <!-- Dynamic Pasals -->
+                            <div class="border-t border-gray-200 pt-5 mt-5">
+                                <div class="flex justify-between items-center mb-3">
+                                    <label class="block text-sm font-bold text-gray-900">Pasal-Pasal Perjanjian</label>
+                                    <button onclick="addPasal()" class="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg font-bold hover:bg-blue-200">+ Tambah Pasal</button>
+                                </div>
+                                <div id="pasals-container" class="space-y-4"></div>
+                            </div>
+
+                            <div class="pt-2">
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">Penutup Perjanjian</label>
+                                <textarea id="set-penutup" rows="3" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg outline-none leading-relaxed"></textarea>
+                            </div>
+
+                            <div class="flex justify-end pt-2">
+                                <button onclick="handleSaveSettings()" class="bg-primary text-white px-6 py-2.5 rounded-lg font-bold shadow-md">Simpan Pengaturan</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab Paket Penerbitan -->
+                    <div id="tab-paket" class="admin-tab hidden bg-white p-6 md:p-8 rounded-2xl shadow-md border border-gray-100 relative">
+                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
+                        <h3 class="text-xl font-bold text-primary mb-6">Pilihan Paket Penerbitan</h3>
+                        <div class="space-y-5">
+                            <div class="flex justify-between items-center mb-3">
+                                <label class="block text-sm font-bold text-gray-900">Daftar Paket (Penulis akan memilih salah satu)</label>
+                                <button onclick="addPaket()" class="text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-lg font-bold hover:bg-green-200">+ Tambah Paket</button>
+                            </div>
+                            <div id="pakets-container" class="space-y-3"></div>
+                            <div class="flex justify-end pt-4 border-t border-gray-100 mt-4">
+                                <button onclick="handleSaveSettings()" class="bg-primary text-white px-6 py-2.5 rounded-lg font-bold shadow-md">Simpan Pengaturan</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab Generate -->
+                    <div id="tab-generate" class="admin-tab hidden bg-white p-6 md:p-8 rounded-2xl shadow-md border border-gray-100 relative">
+                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-accent"></div>
+                        <h3 class="text-xl font-bold text-primary mb-2">Buat Token Baru</h3>
+                        <form id="admin-generate-form" class="space-y-5" onsubmit="handleGenerateToken(event)">
+                            <div><label class="block text-sm font-semibold mb-1">Nama Lengkap Penulis</label><input type="text" id="gen-nama" required class="w-full px-4 py-2.5 bg-gray-50 border rounded-lg"></div>
+                            <div><label class="block text-sm font-semibold mb-1">No. WhatsApp</label><input type="tel" id="gen-hp" required class="w-full px-4 py-2.5 bg-gray-50 border rounded-lg"></div>
+                            <div><label class="block text-sm font-semibold mb-1">No. ISBN</label><input type="text" id="gen-isbn" value="On Process" required class="w-full px-4 py-2.5 bg-gray-50 border rounded-lg text-gray-500"></div>
+                            <div>
+                                <label class="block text-sm font-semibold mb-1">Ukuran Buku</label>
+                                <select id="gen-ukuran" required class="w-full px-4 py-2.5 bg-gray-50 border rounded-lg">
+                                    <option value="A6 (10,5 x 14,8 cm)">A6 (10,5 x 14,8 cm)</option>
+                                    <option value="A5 (14,8 x 21 cm)" selected>A5 (14,8 x 21 cm)</option>
+                                    <option value="B5 Unesco (15,5 x 23 cm)">B5 Unesco (15,5 x 23 cm)</option>
+                                    <option value="B5 ISO (17,6 x 25 cm)">B5 ISO (17,6 x 25 cm)</option>
+                                    <option value="B5 STD (18,2 x 25,7 cm)">B5 STD (18,2 x 25,7 cm)</option>
+                                    <option value="A4 (21 x 29,7 cm)">A4 (21 x 29,7 cm)</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="w-full bg-accent text-white py-3 rounded-xl font-bold mt-2">Generate Token</button>
+                        </form>
+                    </div>
+
+                    <!-- Tab Log -->
+                    <div id="tab-log" class="admin-tab hidden bg-white rounded-2xl shadow-md border border-gray-100">
+                        <div class="p-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                            <h3 class="text-lg font-bold text-primary">Log Token & Status SPK</h3>
+                            <button onclick="refreshTokens()" id="btn-refresh-tokens" class="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg font-bold hover:bg-blue-200 flex items-center gap-1">
+                                ↻ Refresh
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse min-w-[800px]">
+                                <thead>
+                                    <tr class="bg-primary text-xs uppercase tracking-wider text-white">
+                                        <th class="p-4 w-24">Token</th><th class="p-4">No SPK</th><th class="p-4">Nama</th><th class="p-4">No. HP</th><th class="p-4">Status</th><th class="p-4 text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tokens-table-body" class="text-sm divide-y divide-gray-100"></tbody>
+                            </table>
+                            <div id="tokens-empty" class="hidden p-12 text-center text-gray-400">Belum ada token.</div>
+                            <div id="pagination-container"></div>
+                        </div>
+                    </div>
+
+                    <!-- Tab Naskah Fix -->
+                    <div id="tab-naskah" class="admin-tab hidden bg-white p-6 md:p-8 rounded-2xl shadow-md border border-gray-100 relative">
+                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-xl font-bold text-primary">Daftar Naskah Fix</h3>
+                            <button onclick="refreshTokens()" id="btn-refresh-naskah" class="text-sm bg-gray-100 px-3 py-1.5 rounded-lg border hover:bg-gray-200">↻ Refresh</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse min-w-[800px]">
+                                <thead>
+                                    <tr class="bg-primary text-xs uppercase tracking-wider text-white">
+                                        <th class="p-4 w-1/3">Judul Buku (Fix)</th><th class="p-4 w-1/3">Nama Penulis</th><th class="p-4 w-1/4">Nama Editor</th><th class="p-4 text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="naskah-table-body" class="text-sm divide-y divide-gray-100"></tbody>
+                            </table>
+                            <div id="naskah-empty" class="hidden p-12 text-center text-gray-400">Belum ada Naskah Fix.</div>
+                            <div id="pagination-naskah-container"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal SPK (To Download) -->
+    <div id="modal-spk" class="hidden fixed inset-0 bg-primary/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] transform scale-95 transition-transform duration-300" id="modal-spk-inner">
+            <div class="p-5 bg-primary text-white flex justify-between items-center">
+                <h3 class="font-bold">Detail Dokumen SPK Penulis</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-white font-bold text-xl px-2">&times;</button>
+            </div>
+            <!-- Render Area for UI Viewing -->
+            <div id="modal-spk-content" class="p-6 md:p-8 overflow-y-auto bg-gray-50"></div>
+
+            <!-- Print Preview Area (Hidden from screen) -->
+            <div id="modal-spk-print-area" class="hidden bg-white w-[794px]"></div>
+
+            <div class="p-4 border-t bg-white flex justify-end gap-3">
+                <button onclick="closeModal()" class="px-5 py-2 rounded-lg font-bold border text-gray-600 hover:bg-gray-50">Tutup</button>
+                <button onclick="downloadPDF()" class="px-5 py-2 rounded-lg font-bold bg-green-600 text-white hover:bg-green-700 flex items-center gap-2">
+                    📥 Download PDF
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Naskah Fix -->
+    <div id="modal-naskah" class="hidden fixed inset-0 bg-primary/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh] transform scale-95 transition-transform duration-300" id="modal-naskah-inner">
+            <div class="p-5 bg-primary text-white flex justify-between items-center">
+                <h3 class="font-bold">Detail Naskah Fix</h3>
+                <button onclick="closeModalNaskah()" class="text-gray-400 hover:text-white font-bold text-xl px-2">&times;</button>
+            </div>
+            <div id="modal-naskah-content" class="p-6 overflow-y-auto bg-gray-50 space-y-4"></div>
+            <div class="p-4 border-t bg-white flex justify-end gap-3">
+                <button onclick="closeModalNaskah()" class="px-5 py-2 rounded-lg font-bold border text-gray-600 hover:bg-gray-50">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Edit Naskah Fix -->
+    <div id="modal-edit-naskah" class="hidden fixed inset-0 bg-primary/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh] transform scale-95 transition-transform duration-300" id="modal-edit-inner">
+            <div class="p-5 bg-orange-500 text-white flex justify-between items-center">
+                <h3 class="font-bold">Edit Naskah Fix</h3>
+                <button onclick="closeEditModal()" class="text-orange-200 hover:text-white font-bold text-xl px-2">&times;</button>
+            </div>
+            <form id="form-edit-naskah" onsubmit="saveNaskahEdit(event)" class="p-6 overflow-y-auto bg-gray-50 space-y-4">
+                <input type="hidden" id="edit-naskah-idx">
+                <div><label class="block text-sm font-semibold mb-1">Judul Buku (Fix)</label><input type="text" id="edit-judul" class="w-full p-2.5 border rounded-lg bg-white" required></div>
+                <div><label class="block text-sm font-semibold mb-1">Nama Penulis</label><input type="text" id="edit-penulis" class="w-full p-2.5 border rounded-lg bg-white" required></div>
+                <div><label class="block text-sm font-semibold mb-1">Nama Editor</label><input type="text" id="edit-editor" class="w-full p-2.5 border rounded-lg bg-white"></div>
+                <div><label class="block text-sm font-semibold mb-1">No ISBN</label><input type="text" id="edit-isbn" class="w-full p-2.5 border rounded-lg bg-white"></div>
+                <div><label class="block text-sm font-semibold mb-1">Ukuran Buku</label>
+                    <select id="edit-ukuran" class="w-full p-2.5 border rounded-lg bg-white">
+                        <option value="A6 (10,5 x 14,8 cm)">A6 (10,5 x 14,8 cm)</option>
+                        <option value="A5 (14,8 x 21 cm)">A5 (14,8 x 21 cm)</option>
+                        <option value="B5 Unesco (15,5 x 23 cm)">B5 Unesco (15,5 x 23 cm)</option>
+                        <option value="B5 ISO (17,6 x 25 cm)">B5 ISO (17,6 x 25 cm)</option>
+                        <option value="B5 STD (18,2 x 25,7 cm)">B5 STD (18,2 x 25,7 cm)</option>
+                        <option value="A4 (21 x 29,7 cm)">A4 (21 x 29,7 cm)</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-3 pt-4">
+                    <button type="button" onclick="closeEditModal()" class="px-5 py-2.5 rounded-lg font-bold border text-gray-600 hover:bg-gray-100">Batal</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-lg font-bold bg-orange-500 text-white hover:bg-orange-600">Simpan Perubahan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Popup Tengah Umum -->
+    <div id="center-popup" class="hidden fixed inset-0 bg-primary/60 backdrop-blur-sm z-[80] flex items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div id="center-popup-inner" class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-transform duration-200">
+            <div class="p-5 border-b flex items-start justify-between gap-4">
+                <div>
+                    <h3 id="center-popup-title" class="font-extrabold text-primary text-lg">Informasi</h3>
+                    <p id="center-popup-message" class="text-sm text-gray-600 mt-1"></p>
+                </div>
+                <button type="button" onclick="closeCenterPopup(null)" class="text-gray-400 hover:text-primary font-bold text-2xl leading-none px-1">&times;</button>
+            </div>
+            <div id="center-popup-body" class="hidden px-5 pt-5"></div>
+            <div class="p-5 flex justify-end gap-3">
+                <button id="center-popup-cancel" type="button" onclick="closeCenterPopup(null)" class="hidden px-4 py-2.5 rounded-lg font-bold border text-gray-600 hover:bg-gray-50">Batal</button>
+                <button id="center-popup-ok" type="button" onclick="closeCenterPopup(true)" class="px-5 py-2.5 rounded-lg font-bold bg-primary text-white hover:bg-[#081e33]">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Printable PDF Container -->
+    <div id="pdf-master-container" style="display:none;"></div>
+
+    <script>
+        const appState = { view: 'landing', role: null, token: null, adminSettings: null, adminSession: sessionStorage.getItem('adminSession') || null };
+        let currentRawTokens = [], currentPage = 1; const ITEMS_PER_PAGE = 10;
+        let pasalsData = [];
+        let paketsData = [];
+
+        let centerPopupResolver = null;
+        function showToast(msg, type='info') { return showCenterPopup({ message: msg, type }); }
+        function showCenterPopup({ title, message='', type='info', input=false, defaultValue='', placeholder='', okText='OK', cancelText='Batal' } = {}) {
+            const mod = document.getElementById('center-popup');
+            const inner = document.getElementById('center-popup-inner');
+            const titleEl = document.getElementById('center-popup-title');
+            const msgEl = document.getElementById('center-popup-message');
+            const body = document.getElementById('center-popup-body');
+            const ok = document.getElementById('center-popup-ok');
+            const cancel = document.getElementById('center-popup-cancel');
+            const colors = {
+                success: ['Berhasil', 'bg-green-600', 'hover:bg-green-700'],
+                error: ['Gagal', 'bg-red-600', 'hover:bg-red-700'],
+                info: ['Informasi', 'bg-primary', 'hover:bg-[#081e33]'],
+                warning: ['Perhatian', 'bg-orange-500', 'hover:bg-orange-600']
+            };
+            const color = colors[type] || colors.info;
+            titleEl.innerText = title || color[0];
+            msgEl.innerText = message;
+            ok.innerText = okText;
+            ok.className = `px-5 py-2.5 rounded-lg font-bold text-white ${color[1]} ${color[2]}`;
+            cancel.innerText = cancelText;
+            cancel.classList.toggle('hidden', !input);
+            body.classList.toggle('hidden', !input);
+            body.innerHTML = input ? `<input id="center-popup-input" class="w-full p-3 border rounded-lg outline-none focus:border-accent" value="${escapeHtml(defaultValue)}" placeholder="${escapeHtml(placeholder)}">` : '';
+            mod.classList.remove('hidden');
+            setTimeout(() => {
+                mod.classList.remove('opacity-0');
+                inner.classList.replace('scale-95', 'scale-100');
+                const inputEl = document.getElementById('center-popup-input');
+                if (inputEl) { inputEl.focus(); inputEl.select(); }
+            }, 10);
+            return new Promise(resolve => { centerPopupResolver = resolve; });
+        }
+        function closeCenterPopup(value=true) {
+            const mod = document.getElementById('center-popup');
+            const inner = document.getElementById('center-popup-inner');
+            const inputEl = document.getElementById('center-popup-input');
+            const result = inputEl && value === true ? inputEl.value : value;
+            mod.classList.add('opacity-0');
+            inner.classList.replace('scale-100', 'scale-95');
+            setTimeout(() => mod.classList.add('hidden'), 200);
+            if (centerPopupResolver) {
+                centerPopupResolver(result);
+                centerPopupResolver = null;
+            }
+        }
+        function showInputPopup(message, defaultValue='') {
+            return showCenterPopup({ type: 'info', title: 'Lengkapi Data', message, input: true, defaultValue, okText: 'Lanjut' });
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.admin-tab').forEach(el => el.classList.replace('block', 'hidden'));
+            document.getElementById(tabId).classList.replace('hidden', 'block');
+            document.querySelectorAll('nav button').forEach(b => b.className = 'w-full flex items-center gap-3 px-4 py-3 text-left rounded-xl font-medium text-gray-500 hover:bg-gray-50 hover:text-primary');
+            document.getElementById('btn-'+tabId).className = 'w-full flex items-center gap-3 px-4 py-3 text-left rounded-xl font-semibold text-primary bg-blue-50 border border-blue-100';
+        }
+        function navigate(vid) {
+            document.querySelectorAll('.view-section').forEach(el => { el.classList.remove('active'); el.style.display = 'none'; });
+            const target = document.getElementById('view-'+vid);
+            if (target) { target.classList.add('active'); target.style.display = 'block'; }
+            appState.view = vid;
+            const hr = document.getElementById('header-role'), hi = document.getElementById('header-user-info');
+            if(appState.role) { hi.classList.remove('hidden'); hi.classList.add('flex'); hr.innerText = 'Admin Dashboard'; }
+            else { hi.classList.remove('flex'); hi.classList.add('hidden'); }
+        }
+        function logout() {
+            if (appState.adminSession) runServer('logoutAdmin', [appState.adminSession]).catch(() => {});
+            appState.role=null;
+            appState.adminSession=null;
+            sessionStorage.removeItem('adminLoggedIn');
+            sessionStorage.removeItem('adminSession');
+            document.getElementById('admin-login-form').reset();
+            navigate('admin-login');
+        }
+
+        const isGAS = (typeof google !== 'undefined' && google.script && google.script.run);
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+        }
+        function copyArg(value) {
+            return JSON.stringify(String(value ?? ''));
+        }
+        function requireAdminSession() {
+            if (!appState.adminSession) throw new Error('Sesi admin tidak tersedia. Silakan login ulang.');
+            return appState.adminSession;
+        }
+        const localMock = {
+            authenticateAdmin: (u, p) => ({success: Boolean(u && p), sessionToken: 'mock-admin-session'}),
+            logoutAdmin: () => true,
+            getAdminSettings: () => {
+                const d = localStorage.getItem('mockAdminSettings');
+                return d ? JSON.parse(d) : { 
+                    noSpk: '001/PUB/2026', penanggungJawab: 'John Doe', jabatan: 'CEO', atasNama: 'Publish Inc',
+                    pasals: [{judul:'Ketentuan Umum', isi:'Sepakat mengikat diri.'}], penutup:'Demikian disepakati.',
+                    pakets: ['Paket Basic', 'Paket Pro']
+                };
+            },
+            saveAdminSettings: (session, d) => { localStorage.setItem('mockAdminSettings', JSON.stringify(d)); return true; },
+            generateToken: (session,n,h,isbn,ukuran) => {
+                const bytes = new Uint8Array(4);
+                crypto.getRandomValues(bytes);
+                const t = Array.from(bytes, b => b.toString(36).padStart(2, '0')).join('').substring(0, 8).toUpperCase();
+                let tkns=JSON.parse(localStorage.getItem('mockTokens')||'{}');
+                tkns[t]={token:t,noSpk:'001/SPK-PI/VIII/2026',nama:n,hp:h,status:'PENDING',createdAt:new Date().toLocaleDateString('id-ID'),completedAt:'-',authorData:{isbn:isbn||'On Process',ukuran:ukuran||'A5'}};
+                localStorage.setItem('mockTokens',JSON.stringify(tkns));
+                return localMock.getTokensList(session);
+            },
+            getTokensList: () => Object.entries(JSON.parse(localStorage.getItem('mockTokens')||'{}')).map(([k,v])=>({token:k,...v})).reverse(),
+            updateNaskahFix: (session, token, data) => {
+                let tkns=JSON.parse(localStorage.getItem('mockTokens')||'{}');
+                if(tkns[token]) tkns[token].authorData = {...(tkns[token].authorData||{}), ...data};
+                localStorage.setItem('mockTokens',JSON.stringify(tkns));
+                return localMock.getTokensList(session);
+            },
+            generateTemplatePDF: () => ({success:false, error:'Mock local tidak membuat PDF template.'})
+        };
+        function runServer(fn, args=[]) {
+            return new Promise((res, rej) => {
+                if(isGAS) {
+                    const runner = google.script.run.withSuccessHandler(res).withFailureHandler(rej);
+                    runner[fn](...args);
+                }
+                else setTimeout(()=> { try { res(localMock[fn].apply(null,args)) } catch(e){rej(e)} }, 300);
+            });
+        }
+
+        async function handleAdminLogin(e) {
+            e.preventDefault();
+            const u=document.getElementById('admin-email').value, p=document.getElementById('admin-pass').value;
+            const btn=document.getElementById('admin-login-text'), ldr=document.getElementById('admin-login-loader');
+            btn.classList.add('hidden'); ldr.classList.remove('hidden');
+            try {
+                if (u.trim().toLowerCase() === 'spk@publishinc.com' && p === 'adminspk1234') {
+                    appState.role='admin';
+                    appState.adminSession = 'publishinc-admin-source-session';
+                    sessionStorage.setItem('adminLoggedIn', 'true');
+                    sessionStorage.setItem('adminSession', appState.adminSession);
+                    showToast('Berhasil','success');
+                    navigate('admin-dashboard');
+                    await loadAdminDashboard();
+                    return;
+                }
+
+                const authResult = await runServer('authenticateAdmin',[u,p]);
+                if(authResult && authResult.success) {
+                    appState.role='admin';
+                    appState.adminSession = authResult.sessionToken;
+                    sessionStorage.setItem('adminLoggedIn', 'true');
+                    sessionStorage.setItem('adminSession', authResult.sessionToken);
+                    showToast('Berhasil','success');
+                    navigate('admin-dashboard');
+                    await loadAdminDashboard();
+                } else showToast('Login gagal. Periksa email/password.','error');
+            } catch(err) { console.error('Login error:', err); showToast('Error sistem: ' + (err.message||err),'error') }
+            btn.classList.remove('hidden'); ldr.classList.add('hidden');
+        }
+
+        async function loadAdminDashboard() {
+            // Load settings
+            try {
+                const set = await runServer('getAdminSettings');
+                document.getElementById('set-pj').value = set.penanggungJawab || '';
+                document.getElementById('set-jabatan').value = set.jabatan || '';
+                document.getElementById('set-atasnama').value = set.atasNama || '';
+                document.getElementById('set-penutup').value = set.penutup || '';
+                pasalsData = set.pasals || [];
+                paketsData = set.pakets || [];
+                renderPasals();
+                renderPakets();
+            } catch(err) {
+                console.error('Load settings error:', err);
+                showToast('Gagal muat pengaturan', 'error');
+            }
+
+            // Load tokens (terpisah supaya jika gagal, settings tetap tampil)
+            await refreshTokens();
+        }
+
+        async function refreshTokens() {
+            const btn = document.getElementById('btn-refresh-tokens');
+            const tb = document.getElementById('tokens-table-body');
+            const em = document.getElementById('tokens-empty');
+            if (btn) btn.innerText = '⏳ Loading...';
+            tb.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-gray-400">Memuat data...</td></tr>';
+            em.classList.add('hidden');
+            try {
+                const tkns = await runServer('getTokensList', [requireAdminSession()]);
+                console.log('Tokens loaded:', JSON.stringify(tkns).substring(0, 300));
+                renderTokensTable(tkns);
+                if (btn) btn.innerText = '↻ Refresh';
+            } catch(err) {
+                console.error('Load tokens error:', err);
+                tb.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-red-400">Gagal memuat: ' + escapeHtml(err.message||err) + '</td></tr>';
+                if (btn) btn.innerText = '↻ Refresh';
+                showToast('Gagal muat data token: ' + (err.message||err), 'error');
+            }
+        }
+
+        // --- PASAL LOGIC ---
+        function renderPasals() {
+            const cont = document.getElementById('pasals-container');
+            cont.innerHTML = '';
+            pasalsData.forEach((p, i) => {
+                const div = document.createElement('div');
+                div.className = "bg-white border p-4 rounded-lg relative";
+                div.innerHTML = `
+                    <button onclick="removePasal(${i})" class="absolute top-2 right-2 text-red-500 font-bold text-xl px-2">&times;</button>
+                    <div class="mb-2 font-bold text-primary">Pasal ${i+1}</div>
+                    <input type="text" class="pasal-judul w-full mb-2 p-2 border rounded text-sm" placeholder="Judul Pasal" value="${escapeHtml(p.judul)}">
+                    <textarea class="pasal-isi w-full p-2 border rounded text-sm" rows="8" placeholder="Isi Pasal">${escapeHtml(p.isi)}</textarea>
+                `;
+                cont.appendChild(div);
+            });
+        }
+        function addPasal() {
+            savePasalsToState(); // save current input state before re-render
+            pasalsData.push({judul:'', isi:''});
+            renderPasals();
+        }
+        function removePasal(i) {
+            savePasalsToState();
+            pasalsData.splice(i,1);
+            renderPasals();
+        }
+        function savePasalsToState() {
+            const cont = document.getElementById('pasals-container');
+            pasalsData = [];
+            cont.querySelectorAll('.bg-white.border').forEach(div => {
+                pasalsData.push({
+                    judul: div.querySelector('.pasal-judul').value,
+                    isi: div.querySelector('.pasal-isi').value
+                });
+            });
+        }
+
+        // --- PAKET LOGIC ---
+        function renderPakets() {
+            const cont = document.getElementById('pakets-container');
+            cont.innerHTML = '';
+            paketsData.forEach((p, i) => {
+                const div = document.createElement('div');
+                div.className = "flex gap-2";
+                div.innerHTML = `
+                    <input type="text" class="paket-nama flex-grow p-2 border rounded text-sm" value="${escapeHtml(p)}">
+                    <button onclick="removePaket(${i})" class="bg-red-50 text-red-500 px-3 py-2 rounded border border-red-100 font-bold">&times;</button>
+                `;
+                cont.appendChild(div);
+            });
+        }
+        function addPaket() { savePaketsToState(); paketsData.push('Paket Baru'); renderPakets(); }
+        function removePaket(i) { savePaketsToState(); paketsData.splice(i,1); renderPakets(); }
+        function savePaketsToState() {
+            paketsData = [];
+            document.querySelectorAll('.paket-nama').forEach(inp => { if(inp.value.trim()) paketsData.push(inp.value.trim()) });
+        }
+
+        // --- SAVE SYSTEM ---
+        async function handleSaveSettings() {
+            savePasalsToState();
+            savePaketsToState();
+            const data = {
+                penanggungJawab: document.getElementById('set-pj').value,
+                jabatan: document.getElementById('set-jabatan').value,
+                atasNama: document.getElementById('set-atasnama').value,
+                pasals: pasalsData,
+                penutup: document.getElementById('set-penutup').value,
+                pakets: paketsData
+            };
+            try {
+                await runServer('saveAdminSettings', [requireAdminSession(), data]);
+                showToast('Tersimpan', 'success');
+            } catch(e) { showToast('Gagal', 'error'); }
+        }
+
+        async function handleGenerateToken(e) {
+            e.preventDefault();
+            const btn=e.target.querySelector('button'), orig=btn.innerText;
+            btn.innerText='Proses...'; btn.disabled=true;
+            try {
+                const nama = document.getElementById('gen-nama').value;
+                const hp = document.getElementById('gen-hp').value;
+                const isbn = document.getElementById('gen-isbn').value;
+                const ukuran = document.getElementById('gen-ukuran').value;
+                
+                const tkns = await runServer('generateToken', [requireAdminSession(), nama, hp, isbn, ukuran]);
+                renderTokensTable(tkns);
+                e.target.reset();
+                // Reset ISBN default value since form reset clears it
+                document.getElementById('gen-isbn').value = "On Process"; renderTokensTable(tkns); showToast('Token dibuat!', 'success');
+            } catch(err) {
+                console.error('Generate token error:', err);
+                showToast('Gagal: ' + (err.message || err), 'error');
+            }
+            btn.innerText=orig; btn.disabled=false;
+        }
+
+        function renderTokensTable(tkns) {
+            currentRawTokens=tkns||[]; currentPage=1; renderTablePage(); renderNaskahTable();
+        }
+        function renderTablePage() {
+            const tb=document.getElementById('tokens-table-body'), em=document.getElementById('tokens-empty');
+            tb.innerHTML='';
+            if(!currentRawTokens.length) { em.classList.remove('hidden'); updatePaginationUI(0); return; }
+            em.classList.add('hidden');
+            const total=Math.ceil(currentRawTokens.length/ITEMS_PER_PAGE);
+            if(currentPage<1) currentPage=1; if(currentPage>total) currentPage=total;
+            const start=(currentPage-1)*ITEMS_PER_PAGE, end=Math.min(start+ITEMS_PER_PAGE, currentRawTokens.length);
+             currentRawTokens.slice(start,end).forEach((item, idx) => {
+                const gIdx=start+idx, isComp=item.status==='COMPLETED';
+                const badge = isComp
+                    ? '<span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">SELESAI</span>'
+                    : item.isExpired
+                        ? '<span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">EXPIRED</span>'
+                        : '<span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-bold">PENDING</span>';
+                const act = isComp ? `<button onclick="viewSPKData(${gIdx})" class="bg-primary text-white text-xs px-3 py-1 rounded">Lihat SPK</button>` : `<button onclick="copyToken(${copyArg(item.token)})" class="border text-xs px-3 py-1 rounded">Copy Token</button>`;
+                tb.innerHTML += `<tr class="hover:bg-gray-50"><td class="p-4 border-b font-mono font-bold text-xs">${escapeHtml(item.token)}</td><td class="p-4 border-b text-xs font-medium">${escapeHtml(item.noSpk || '-')}</td><td class="p-4 border-b">${escapeHtml(item.nama)}</td><td class="p-4 border-b">${escapeHtml(item.hp)}</td><td class="p-4 border-b">${badge}</td><td class="p-4 border-b text-center">${act}</td></tr>`;
+            });
+            updatePaginationUI(total);
+        }
+        function updatePaginationUI(total) {
+            let cont = document.getElementById('pagination-ui');
+            if(!cont) { cont=document.createElement('div'); cont.id='pagination-ui'; cont.className='p-4 border-t flex justify-between items-center text-sm'; document.getElementById('pagination-container').appendChild(cont); }
+            if(total===0) { cont.innerHTML=''; return; }
+            cont.innerHTML = `
+                <div class="text-gray-500">Menampilkan ${(currentPage-1)*ITEMS_PER_PAGE+1} - ${Math.min(currentPage*ITEMS_PER_PAGE, currentRawTokens.length)} dari ${currentRawTokens.length}</div>
+                <div class="flex gap-2 items-center">
+                    <button onclick="changePage(-1)" class="border px-3 py-1 rounded ${currentPage===1?'text-gray-300':''}">Prev</button>
+                    <b>${currentPage}/${total}</b>
+                    <button onclick="changePage(1)" class="border px-3 py-1 rounded ${currentPage===total?'text-gray-300':''}">Next</button>
+                </div>
+            `;
+        }
+        function changePage(d) {
+            const t=Math.ceil(currentRawTokens.length/ITEMS_PER_PAGE);
+            let n=currentPage+d; if(n>=1 && n<=t) { currentPage=n; renderTablePage(); }
+        }
+        function renderNaskahTable() {
+            const tb = document.getElementById('naskah-table-body'), em = document.getElementById('naskah-empty');
+            tb.innerHTML = '';
+            
+            // Hanya tampilkan yang COMPLETED
+            const completedTokens = currentRawTokens.filter(t => t.status === 'COMPLETED');
+            
+            if(!completedTokens.length) { em.classList.remove('hidden'); return; }
+            em.classList.add('hidden');
+            
+            completedTokens.forEach((item, idx) => {
+                const gIdx = currentRawTokens.findIndex(t => t.token === item.token);
+                // Data naskah dari item.authorData
+                const judul = item.authorData.judulBuku || '-';
+                const penulis = item.authorData.penulisFix || item.nama; // Fallback ke nama pendaftar jika blm ada
+                const editor = item.authorData.editorFix || '-';
+                
+                const act = `<div class="flex flex-col gap-1 w-[120px]">
+                    <button onclick="viewNaskahData(${gIdx})" class="bg-primary text-white text-xs px-3 py-1.5 rounded hover:bg-blue-900 transition-colors">Lihat Detail</button>
+                    <button onclick="editNaskahData(${gIdx})" class="bg-orange-500 text-white text-xs px-3 py-1.5 rounded hover:bg-orange-600 transition-colors">Edit Data</button>
+                </div>`;
+                tb.innerHTML += `<tr class="hover:bg-gray-50"><td class="p-4 border-b text-xs font-bold text-gray-800">${escapeHtml(judul)}</td><td class="p-4 border-b text-xs">${escapeHtml(penulis)}</td><td class="p-4 border-b text-xs">${escapeHtml(editor)}</td><td class="p-4 border-b text-center">${act}</td></tr>`;
+            });
+        }
+        
+        function viewNaskahData(i) {
+            const data = currentRawTokens[i]; if(!data||!data.authorData) return;
+            const judul = data.authorData.judulBuku || '-';
+            const penulis = data.authorData.penulisFix || data.nama;
+            const editor = data.authorData.editorFix || '-';
+
+            document.getElementById('modal-naskah-content').innerHTML = `
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Judul Buku</label>
+                    <div class="flex gap-2">
+                        <div class="flex-grow bg-white p-3 rounded border font-bold text-gray-800">${escapeHtml(judul)}</div>
+                        <button onclick="copyText(${copyArg(judul)})" class="bg-gray-100 hover:bg-gray-200 border px-3 rounded font-bold text-sm">Copy</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Penulis</label>
+                    <div class="flex gap-2">
+                        <div class="flex-grow bg-white p-3 rounded border text-gray-800">${escapeHtml(penulis)}</div>
+                        <button onclick="copyText(${copyArg(penulis)})" class="bg-gray-100 hover:bg-gray-200 border px-3 rounded font-bold text-sm">Copy</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Editor</label>
+                    <div class="flex gap-2">
+                        <div class="flex-grow bg-white p-3 rounded border text-gray-800">${escapeHtml(editor)}</div>
+                        <button onclick="copyText(${copyArg(editor)})" class="bg-gray-100 hover:bg-gray-200 border px-3 rounded font-bold text-sm">Copy</button>
+                    </div>
+                </div>
+                
+                <div class="mt-4 border-t pt-4">
+                    <h4 class="font-bold text-gray-700 mb-3 uppercase text-xs">Cetak Dokumen Administrasi</h4>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="reqDownloadDoc(0)" class="bg-blue-600 text-white p-2.5 rounded-lg text-xs font-bold hover:bg-blue-700 flex justify-center items-center gap-1">📥 Keaslian Naskah</button>
+                        <button onclick="reqDownloadDoc(1)" class="bg-blue-600 text-white p-2.5 rounded-lg text-xs font-bold hover:bg-blue-700 flex justify-center items-center gap-1">📥 LoA</button>
+                        <button onclick="reqDownloadDoc(2)" class="bg-green-600 text-white p-2.5 rounded-lg text-xs font-bold hover:bg-green-700 flex justify-center items-center gap-1">📥 SKTT</button>
+                        <button onclick="reqDownloadDoc(3)" class="bg-green-600 text-white p-2.5 rounded-lg text-xs font-bold hover:bg-green-700 flex justify-center items-center gap-1">📥 Permohonan ISBN</button>
+                    </div>
+                </div>
+            `;
+            
+            window.currentNaskahGlobalIdx = i;
+            
+            const mod = document.getElementById('modal-naskah');
+            mod.classList.remove('hidden');
+            setTimeout(() => { mod.classList.remove('opacity-0'); document.getElementById('modal-naskah-inner').classList.replace('scale-95','scale-100'); }, 10);
+        }
+        function closeModalNaskah() {
+            const mod = document.getElementById('modal-naskah');
+            mod.classList.add('opacity-0');
+            document.getElementById('modal-naskah-inner').classList.replace('scale-100','scale-95');
+            setTimeout(() => { mod.classList.add('hidden'); }, 300);
+        }
+
+        // --- EDIT NASKAH FIX ---
+        function editNaskahData(i) {
+            const data = currentRawTokens[i]; if(!data||!data.authorData) return;
+            document.getElementById('edit-naskah-idx').value = i;
+            document.getElementById('edit-judul').value = data.authorData.judulBuku || '';
+            document.getElementById('edit-penulis').value = data.authorData.penulisFix || data.nama || '';
+            document.getElementById('edit-editor').value = (data.authorData.editorFix === '-' ? '' : data.authorData.editorFix) || '';
+            document.getElementById('edit-isbn').value = data.authorData.isbn || 'On Process';
+            document.getElementById('edit-ukuran').value = data.authorData.ukuran || 'A5';
+
+            const mod = document.getElementById('modal-edit-naskah');
+            mod.classList.remove('hidden');
+            setTimeout(() => { mod.classList.remove('opacity-0'); document.getElementById('modal-edit-inner').classList.replace('scale-95','scale-100'); }, 10);
+        }
+        function closeEditModal() {
+            const mod = document.getElementById('modal-edit-naskah');
+            mod.classList.add('opacity-0');
+            document.getElementById('modal-edit-inner').classList.replace('scale-100','scale-95');
+            setTimeout(() => { mod.classList.add('hidden'); }, 300);
+        }
+        async function saveNaskahEdit(e) {
+            e.preventDefault();
+            const btn = e.target.querySelector('button[type="submit"]'); btn.innerText = 'Menyimpan...'; btn.disabled = true;
+            try {
+                const i = document.getElementById('edit-naskah-idx').value;
+                const data = currentRawTokens[i];
+                
+                const updatedData = {
+                    judulBuku: document.getElementById('edit-judul').value,
+                    penulisFix: document.getElementById('edit-penulis').value,
+                    editorFix: document.getElementById('edit-editor').value || '-',
+                    isbn: document.getElementById('edit-isbn').value,
+                    ukuran: document.getElementById('edit-ukuran').value
+                };
+                
+                const tkns = await runServer('updateNaskahFix', [requireAdminSession(), data.token, updatedData]);
+                currentRawTokens = tkns;
+                renderTokensTable(tkns);
+                closeEditModal();
+                showToast('Data Naskah berhasil diubah!', 'success');
+            } catch(err) {
+                showToast('Gagal merubah data: ' + err.message, 'error');
+            }
+            btn.innerText = 'Simpan Perubahan'; btn.disabled = false;
+        }
+        
+        // --- DOWNLOAD TEMPLATE DOCS ---
+        async function reqDownloadDoc(typeIdx) {
+            if (window.currentNaskahGlobalIdx === undefined) return;
+            const data = currentRawTokens[window.currentNaskahGlobalIdx];
+            if (!data) return;
+
+            const docTemplates = [
+                { name: "Keaslian_Naskah", id: "1A9-6q_puexXHJ83gT-m4ic3FfNi-NkHKJJxvOkn5BpQ" },
+                { name: "LoA", id: "1t96X19bu1ameuTTsdoNQnt6HwHDyz9uLy3T8QVj8Ag0" },
+                { name: "SKTT", id: "1mSQTofjnRRffI2DMA9c4ep97YbTcQkBznPiEN2JICUA" },
+                { name: "Permohonan_ISBN", id: "1QfUDL0awOPVKM4wcfj4u5PkyWUdYY4_jPF2QCEBqsOU" }
+            ];
+
+            let replacements = {
+                '<<JUDUL_BUKU>>': data.authorData.judulBuku || '-',
+                '<<NAMA_PENULIS>>': data.authorData.penulisFix || data.nama,
+                '<<NAMA_EDITOR>>': data.authorData.editorFix || '-',
+                '<<NO_SPK>>': data.noSpk,
+                '<<UKURAN>>': data.authorData.ukuran || 'A5',
+                '<<TANGGAL>>': data.completedAt,
+                '<<NO_ISBN>>': data.authorData.isbn || 'On Process',
+                '<<ALAMAT>>': data.authorData.alamat || '-',
+                '<<PEKERJAAN>>': data.authorData.pekerjaan || '-',
+                '<<NO_KTP>>': data.authorData.ktp || '-'
+            };
+
+            if (typeIdx === 1) {
+                replacements['<<NO_LOA>>'] = data.noSpk.replace('SPK', 'LoA');
+            } else if (typeIdx === 2) {
+                const inputIsbn = await showInputPopup('Masukkan No ISBN untuk dicetak di surat:', replacements['<<NO_ISBN>>']);
+                if (inputIsbn === null) return;
+                replacements['<<NO_SKTT>>'] = data.noSpk.replace('SPK', 'SKTT');
+                replacements['<<NO_ISBN>>'] = inputIsbn;
+            } else if (typeIdx === 3) {
+                const inputPenjualan = await showInputPopup('Masukkan Link Akses Penjualan (Wajib):', 'https://');
+                if (inputPenjualan === null) return;
+                replacements['<<NO_PERMOHONAN>>'] = data.noSpk.replace('SPK', 'P-ISBN');
+                replacements['<<LINK_PENJUALAN>>'] = inputPenjualan;
+            }
+
+            showToast('Memproses PDF. Mohon tunggu...', 'info');
+            try {
+                const res = await runServer('generateTemplatePDF', [requireAdminSession(), docTemplates[typeIdx].id, replacements]);
+                if (res.success) {
+                    const link = document.createElement('a');
+                    link.href = 'data:application/pdf;base64,' + res.base64;
+                    link.download = docTemplates[typeIdx].name + '_' + (data.nama || 'Penulis').replace(/\s+/g, '_') + '.pdf';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    showToast('Berhasil download PDF!', 'success');
+                } else {
+                    showToast('Gagal: ' + res.error, 'error');
+                }
+            } catch(e) {
+                showToast('Error server: ' + (e.message || e), 'error');
+            }
+        }
+
+        function copyText(txt) { navigator.clipboard.writeText(txt); showToast('Tercopy', 'success'); }
+
+        // --- COPY TOKEN ---
+        function copyToken(t) { navigator.clipboard.writeText(t); showToast('Tercopy','success'); }
+
+        // --- PDF AND MODAL ---
+        let printHtmlTemplate = ''; // Menyimpan struktur HTML untuk diprint
+        
+        async function viewSPKData(i) {
+            const data = currentRawTokens[i]; if(!data||!data.authorData) return;
+            const set = await runServer('getAdminSettings'); // Fetch setting for PDF structure
+            const safe = {
+                noSpk: escapeHtml(data.noSpk || '-'),
+                completedAt: escapeHtml(data.completedAt || '-'),
+                nama: escapeHtml(data.nama || '-'),
+                hp: escapeHtml(data.hp || '-'),
+                ktp: escapeHtml(data.authorData.ktp || '-'),
+                pekerjaan: escapeHtml(data.authorData.pekerjaan || '-'),
+                alamat: escapeHtml(data.authorData.alamat || '-'),
+                judulBuku: escapeHtml(data.authorData.judulBuku || '-'),
+                paket: escapeHtml(data.authorData.paket || '-'),
+                pj: escapeHtml(set.penanggungJawab || '-'),
+                jabatan: escapeHtml(set.jabatan || '-'),
+                atasNama: escapeHtml(set.atasNama || '-'),
+                penutup: escapeHtml(set.penutup || '')
+            };
+            
+            // 1. Tampilan Modal UI (Review Singkat)
+            document.getElementById('modal-spk-content').innerHTML = `
+                <div class="grid grid-cols-2 gap-4 mb-4 pb-4 border-b">
+                    <div><b>No SPK:</b> ${safe.noSpk}</div>
+                    <div class="text-right"><b>Tanggal:</b> ${safe.completedAt}</div>
+                </div>
+                <div class="bg-white p-4 rounded shadow-sm border mb-4">
+                    <h4 class="font-bold mb-2 border-b pb-2">Pihak Kedua (Penulis)</h4>
+                    <p><b>Nama:</b> ${safe.nama}</p>
+                    <p><b>No KTP:</b> ${safe.ktp}</p>
+                    <p><b>No HP:</b> ${safe.hp}</p>
+                    <p><b>Alamat:</b> ${safe.alamat}</p>
+                </div>
+                <div class="bg-white p-4 rounded shadow-sm border">
+                    <h4 class="font-bold mb-2 border-b pb-2">Buku & Paket</h4>
+                    <p><b>Judul:</b> ${safe.judulBuku}</p>
+                    <p><b>Paket:</b> ${safe.paket}</p>
+                </div>
+            `;
+
+            // 2. Siapkan HTML Rapi Khusus untuk PDF
+            let pasalsHtml = '';
+            (set.pasals||[]).forEach((p, idx) => {
+                pasalsHtml += `
+                    <div style="margin-bottom: 15px; text-align: justify; line-height: 1.5; page-break-inside: avoid;">
+                        <div style="text-align: center; font-weight: bold; margin-bottom: 5px;">Pasal ${idx+1}<br>${escapeHtml(p.judul)}</div>
+                        <div style="white-space: pre-wrap;">${escapeHtml(p.isi)}</div>
+                    </div>
+                `;
+            });
+
+            printHtmlTemplate = `
+                <div style="font-family: 'Times New Roman', serif; color: #000; width: 100%; box-sizing: border-box; font-size: 14px;">
+                    
+                    <h2 style="text-align: center; font-weight: bold; font-size: 18px; margin-bottom: 5px;">SURAT PERJANJIAN KERJASAMA PENERBITAN</h2>
+                    <div style="text-align: center; font-weight: bold; margin-bottom: 30px;">Nomor: ${safe.noSpk}</div>
+                    
+                    <div style="margin-bottom: 20px; text-align: justify; line-height: 1.5;">
+                        Yang bertanda tangan di bawah ini:
+                    </div>
+
+                    <table style="width: 100%; margin-bottom: 20px; line-height: 1.5;">
+                        <tr><td style="width: 30px;">I.</td><td style="width: 150px;">Nama</td><td>: ${safe.pj}</td></tr>
+                        <tr><td></td><td>Jabatan</td><td>: ${safe.jabatan}</td></tr>
+                        <tr><td></td><td>Bertindak atas nama</td><td>: ${safe.atasNama}</td></tr>
+                        <tr><td></td><td colspan="2" style="padding-top: 10px;">Selanjutnya disebut sebagai <b>PIHAK PERTAMA</b></td></tr>
+                    </table>
+
+                    <table style="width: 100%; margin-bottom: 30px; line-height: 1.5;">
+                        <tr><td style="width: 30px;">II.</td><td style="width: 150px;">Nama</td><td>: ${safe.nama}</td></tr>
+                        <tr><td></td><td>No. Identitas (KTP)</td><td>: ${safe.ktp}</td></tr>
+                        <tr><td></td><td>Pekerjaan/Inst.</td><td>: ${safe.pekerjaan}</td></tr>
+                        <tr><td></td><td>Alamat</td><td>: ${safe.alamat}</td></tr>
+                        <tr><td></td><td>No. HP/WA</td><td>: ${safe.hp}</td></tr>
+                        <tr><td></td><td colspan="2" style="padding-top: 10px;">Selanjutnya disebut sebagai <b>PIHAK KEDUA</b></td></tr>
+                    </table>
+
+                    <div style="margin-bottom: 20px; text-align: justify; line-height: 1.5;">
+                        Kedua belah pihak sepakat mengadakan kerjasama penerbitan buku berjudul <b>"${safe.judulBuku}"</b> dengan pilihan <b>${safe.paket}</b>, dengan ketentuan sebagai berikut:
+                    </div>
+                    
+                    <!-- Page break sebelum isi pasal -->
+                    <div style="page-break-before: always; margin-top: 50px;"></div>
+
+                    <!-- PASAL-PASAL -->
+                    ${pasalsHtml}
+
+                    <!-- PENUTUP -->
+                    <!-- PENUTUP -->
+                    <div style="margin-top: 30px; text-align: justify; line-height: 1.5; page-break-inside: avoid;">
+                        ${safe.penutup}
+                    </div>
+
+                    <!-- FOOTER SAH ELEKTRONIK -->
+                    <div style="margin-top: 80px; text-align: center; font-style: italic; font-size: 14px; font-weight: bold; color: #333; border-top: 1px solid #ccc; padding-top: 20px; page-break-inside: avoid;">
+                        Dokumen ini telah disetujui dan ditandatangani secara elektronik (online) oleh<br>
+                        <b>PIHAK PERTAMA (${safe.pj})</b> dan <b>PIHAK KEDUA (${safe.nama})</b><br>
+                        pada tanggal ${safe.completedAt} sehingga tidak memerlukan tanda tangan basah.
+                    </div>
+                </div>
+            `;
+
+            const m=document.getElementById('modal-spk');
+            m.classList.remove('hidden');
+            setTimeout(()=> { m.classList.remove('opacity-0'); document.getElementById('modal-spk-inner').classList.replace('scale-95','scale-100'); }, 10);
+        }
+
+        function downloadPDF() {
+            const container = document.getElementById('pdf-master-container');
+            container.innerHTML = printHtmlTemplate;
+            container.style.display = 'block';
+
+            const opt = {
+                margin:       0.787,
+                filename:     'SPK_PublishInc.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+                jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' },
+                pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+            };
+            
+            html2pdf().set(opt).from(container).save().then(() => {
+                container.style.display = 'none';
+                showToast('PDF berhasil diunduh', 'success');
+            }).catch(() => {
+                container.style.display = 'none';
+                showToast('Gagal unduh PDF', 'error');
+            });
+        }
+        function closeModal() {
+            const m=document.getElementById('modal-spk');
+            m.classList.add('opacity-0'); document.getElementById('modal-spk-inner').classList.replace('scale-100','scale-95');
+            setTimeout(()=>m.classList.add('hidden'), 300);
+        }
+        window.onload = async () => {
+            if (!isGAS) {
+                setTimeout(() => showToast('Mock Local Mode Aktif','info'), 500);
+            }
+            // Auto-restore sesi admin setelah refresh
+            if (sessionStorage.getItem('adminLoggedIn') === 'true' && appState.adminSession) {
+                appState.role = 'admin';
+                navigate('admin-dashboard');
+                await loadAdminDashboard();
+            }
+        };
+    </script>
+</body>
+</html>

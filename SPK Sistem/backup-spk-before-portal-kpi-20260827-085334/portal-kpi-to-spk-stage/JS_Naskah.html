@@ -1,0 +1,2619 @@
+<script>
+
+
+
+
+
+
+
+
+
+
+
+
+window.handleLogin = handleLogin;
+
+
+
+
+function isNaskahCancelled(n) {
+  return String(n?.statusProses || '').toLowerCase() === 'dibatalkan';
+}
+
+function picQueueStageForCurrentUser() {
+  const role = typeof normalizeRole === 'function' ? normalizeRole(state.user?.role || '') : String(state.user?.role || '').toLowerCase();
+  if (role === 'editor' || role === 'pic_editor') return 'proofreading';
+  if (role === 'layouter' || role === 'pic_layouter') return 'layout';
+  return '';
+}
+
+function getPicStageDeadline(n, stageKey = picQueueStageForCurrentUser()) {
+  const parseDeadlineMap = (value) => {
+    if (!value) return {};
+    if (typeof value === 'object') return value;
+    try { return JSON.parse(value); } catch (error) { return {}; }
+  };
+  const deadlines = parseDeadlineMap(n?.deadlines);
+  const baseDeadlines = parseDeadlineMap(n?.baseDeadlines);
+  return deadlines?.[stageKey] || baseDeadlines?.[stageKey] || '';
+}
+
+function isPicStageDeadlineOpenClient(n, stageKey = picQueueStageForCurrentUser()) {
+  const deadline = String(getPicStageDeadline(n, stageKey) || '').slice(0, 10);
+  if (!deadline) return true;
+  return deadline <= getTodayInputValue();
+}
+
+function getPicStageLabel(stageKey = picQueueStageForCurrentUser()) {
+  return stageKey === 'proofreading' ? 'Proofreading' : stageKey === 'layout' ? 'Layout' : 'Tahap';
+}
+
+function isNaskahVisibleInPicDatabase(n) {
+  if (String(n?.source || '').toLowerCase() !== 'cs') return true;
+  if (String(n?.intakeStatus || '').toLowerCase() !== 'production_started') return false;
+  const stageKey = picQueueStageForCurrentUser();
+  if (stageKey === 'proofreading' && String(n?.butuhProofreading ?? '1') === '0') return false;
+  const field = stageKey === 'proofreading' ? 'picEditorQueueStatus' : stageKey === 'layout' ? 'picLayouterQueueStatus' : '';
+  const stageStatus = field ? String(n?.[field] || '').toLowerCase() : '';
+  return stageStatus === 'queued' || (!stageStatus && String(n?.picQueueStatus || '').toLowerCase() === 'queued');
+}
+
+// --- RENDER CONTENT ---
+function loadNaskah() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    mockNaskahDB = res?.data || [];
+    const data = mockNaskahDB.filter((n) => (n.statusProses === 'Siap Proses' || !n.statusProses) && !isNaskahCancelled(n) && isNaskahVisibleInPicDatabase(n));
+    const searchQuery = String(window._naskahDbSearch || '').trim().toLowerCase();
+    const penerbitFilter = window._naskahDbPenerbit || 'semua';
+    const progressFilter = window._naskahDbProgress || 'semua';
+    const penerbitOptions = [...new Set(data.map((n) => n.penerbit || 'Tanpa Penerbit'))].sort((a, b) => a.localeCompare(b));
+    const progressOptions = [...new Set(data.map((n) => n.timeline || 'Belum Diatur'))].sort((a, b) => a.localeCompare(b));
+    const filteredData = data.filter((n) => {
+      const haystack = [n.judul, n.penulis, n.trackingCode, n.cs, n.penerbit, n.paket, n.picEditor, n.picLayouter, n.timeline].join(' ').toLowerCase();
+      return (!searchQuery || haystack.includes(searchQuery)) && (
+      penerbitFilter === 'semua' || (n.penerbit || 'Tanpa Penerbit') === penerbitFilter) && (
+      progressFilter === 'semua' || (n.timeline || 'Belum Diatur') === progressFilter);
+    });
+    const pageSize = 10;
+    const currentPage = Math.max(1, Number(window._naskahDbPage || 1));
+    const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
+    const safePage = Math.min(currentPage, totalPages);
+    window._naskahDbPage = safePage;
+    const pagedData = filteredData.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+    content.innerHTML = "\n                    <div class=\"mb-4 flex flex-wrap items-center gap-4 text-[11px] font-bold text-slate-300 bg-slate-800 p-3 rounded-2xl border border-slate-700 shadow-sm\">\n                        <span class=\"uppercase tracking-wider text-slate-400\">Status PIC:</span>\n                        <div class=\"flex items-center gap-1.5\"><span class=\"w-2 h-2 rounded-full bg-blue-500\"></span> Menunggu</div>\n                        <div class=\"flex items-center gap-1.5\"><span class=\"w-2 h-2 rounded-full bg-amber-500\"></span> Revisi</div>\n                        <div class=\"flex items-center gap-1.5\"><span class=\"w-2 h-2 rounded-full bg-emerald-500\"></span> Complete</div>\n                        <span class=\"border-l border-slate-200 h-4\"></span>\n                        <span class=\"uppercase tracking-wider text-slate-400\">Penerbit:</span>\n                        <div class=\"flex items-center gap-1.5\"><span class=\"w-3 h-3 rounded\" style=\"background:#eff6ff;border:1px solid #dbeafe\"></span> Nasmedia</div>\n                        <div class=\"flex items-center gap-1.5\"><span class=\"w-3 h-3 rounded\" style=\"background:#faf5ff;border:1px solid #f3e8ff\"></span> Idebuku</div>\n                    </div>\n                    <div class=\"bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden\">\n                        <div class=\"p-4 border-b border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-3\">\n                            <input value=\"".concat(
+
+
+      window._naskahDbSearch || '', "\" oninput=\"window._naskahDbSearch=this.value; window._naskahDbPage=1; loadNaskah()\" placeholder=\"Cari judul, kode, penulis, PIC...\" class=\"px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-accent-400\">\n                            <select onchange=\"window._naskahDbPenerbit=this.value; window._naskahDbPage=1; loadNaskah()\" class=\"px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none bg-white focus:border-accent-400\">\n                                <option value=\"semua\" ").concat(
+
+      penerbitFilter === 'semua' ? 'selected' : '', ">Semua Penerbit</option>\n                                ").concat(
+      penerbitOptions.map((p) => "<option value=\"".concat(p, "\" ").concat(penerbitFilter === p ? 'selected' : '', ">").concat(p, "</option>")).join(''), "\n                            </select>\n                            <select onchange=\"window._naskahDbProgress=this.value; window._naskahDbPage=1; loadNaskah()\" class=\"px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none bg-white focus:border-accent-400\">\n                                <option value=\"semua\" ").concat(
+
+
+      progressFilter === 'semua' ? 'selected' : '', ">Semua Progress</option>\n                                ").concat(
+      progressOptions.map((p) => "<option value=\"".concat(p, "\" ").concat(progressFilter === p ? 'selected' : '', ">").concat(p, "</option>")).join(''), "\n                            </select>\n                        </div>\n                        <div class=\"overflow-x-auto\">\n                        <table class=\"w-full text-left\">\n                            <thead class=\"bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest\">\n                                <tr>\n                                    <th class=\"px-4 py-3\">Judul Naskah</th>\n                                    <th class=\"px-4 py-3\">Penulis & CS</th>\n                                    <th class=\"px-4 py-3\">PIC Produksi</th>\n                                    <th class=\"px-4 py-3\">Target Deadline</th>\n                                    <th class=\"px-4 py-3 text-center\">Aksi</th>\n                                </tr>\n                            </thead>\n                            <tbody class=\"divide-y divide-slate-50\">\n                                ").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      pagedData.map((n) => {
+        const isNasmedia = String(n.penerbit || '').toLowerCase().replace(/\s/g, '').includes('nasmedia');
+        const isIdebuku = String(n.penerbit || '').toLowerCase().replace(/\s/g, '').includes('idebuku');
+        const rowStyle = isNasmedia ? 'background-color: #eff6ff !important;' : isIdebuku ? 'background-color: #faf5ff !important;' : '';
+        const edSt = n.statusEditor || 'Menunggu';
+        const edCol = edSt === 'Complete' ? 'bg-emerald-500' : edSt === 'Revisi' ? 'bg-amber-500' : 'bg-blue-500';
+        const laySt = n.statusLayouter || 'Menunggu';
+        const layCol = laySt === 'Complete' ? 'bg-emerald-500' : laySt === 'Revisi' ? 'bg-amber-500' : 'bg-blue-500';
+        const deadlineStage = picQueueStageForCurrentUser();
+        const deadlineLabel = getPicStageLabel(deadlineStage);
+        const deadlineValue = getPicStageDeadline(n, deadlineStage);
+        const deadlineLate = deadlineValue && getTodayInputValue() > String(deadlineValue).slice(0, 10);
+        return `
+          <tr class="text-[12px] transition-colors " style="${rowStyle}">
+            <td class="px-8 py-4 font-bold text-slate-800">
+              ${n.judul}<br>
+              <span class="text-[10px] text-slate-400 font-mono mr-2">${n.id}</span>
+              ${n.revisiProofreading > 0 || n.revisiLayout > 0 ? `<div class="mt-1 flex gap-1"><span class="px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded text-[9px] font-bold border border-amber-100">Rev. Aktual: PR (${n.revisiProofreading || 0}x), LY (${n.revisiLayout || 0}x)</span></div>` : ''}
+            </td>
+            <td class="px-8 py-4">${n.penulis}<br><span class="text-[10px] text-slate-400 italic">via ${n.cs}</span></td>
+            <td class="px-8 py-4">
+              <div class="flex flex-col gap-1 text-[10px]">
+                <div class="flex items-center gap-1.5"><i class="fa-solid fa-pen-nib text-slate-300 w-3"></i> <span class="${n.picEditor ? 'text-slate-700 font-semibold' : 'text-slate-400 italic'}">${n.picEditor || 'Belum diatur'}</span>
+                  ${n.picEditor ? `<span class="w-1.5 h-1.5 rounded-full ${edCol}" title="${edSt}"></span>` : ''}
+                </div>
+                <div class="flex items-center gap-1.5"><i class="fa-solid fa-desktop text-slate-300 w-3"></i> <span class="${n.picLayouter ? 'text-slate-700 font-semibold' : 'text-slate-400 italic'}">${n.picLayouter || 'Belum diatur'}</span>
+                  ${n.picLayouter ? `<span class="w-1.5 h-1.5 rounded-full ${layCol}" title="${laySt}"></span>` : ''}
+                </div>
+              </div>
+            </td>
+            <td class="px-8 py-4">
+              ${deadlineValue ? `<div class="text-[10px]"><span class="text-slate-400">${deadlineLabel}:</span> <span class="font-bold ${deadlineLate ? 'text-red-500' : 'text-slate-700'}">${deadlineValue || '-'}</span></div>` : '<span class="text-[10px] text-slate-300 italic">Belum diatur</span>'}
+            </td>
+            <td class="px-8 py-4 text-center">
+              <div class="flex items-center justify-center gap-1">
+                <button onclick="viewDetailNaskah('${n.id}')" class="p-2 text-slate-500 hover:bg-slate-100 rounded-lg" title="Detail"><i class="fa-solid fa-eye"></i></button>
+                ${state.user.role === 'pic_editor' || state.user.role === 'pic_layouter' ? `
+                  <button onclick="openTrackingDelayDialog('${n.id}', '${state.user.role === 'pic_layouter' ? 'layout' : 'proofreading'}')" class="p-2 text-amber-500 hover:bg-amber-50 rounded-lg" title="Mundur Estimasi"><i class="fa-solid fa-clock"></i></button>
+                  <button onclick="editNaskah('${n.id}')" class="p-2 text-blue-500 hover:bg-blue-50 rounded-lg" title="Edit"><i class="fa-solid fa-edit"></i></button>
+                ` : ''}
+              </div>
+            </td>
+          </tr>`;
+      }
+
+
+      ).join(''), "\n                                ").concat(
+      filteredData.length === 0 ? '<tr><td colspan="5" class="p-16 text-center text-slate-300 italic">Tidak ada naskah yang sesuai pencarian/filter.</td></tr>' : '', "\n                            </tbody>\n                        </table>\n                        </div>\n                        <div class=\"flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-5 py-4 border-t border-slate-100\">\n                            <div class=\"text-[10px] font-bold text-slate-400\">Menampilkan ").concat(
+
+
+
+
+      pagedData.length, " dari ").concat(filteredData.length, " naskah &bull; Halaman ").concat(safePage, " / ").concat(totalPages, "</div>\n                            <div class=\"flex items-center gap-2\">\n                                <button onclick=\"window._naskahDbPage=Math.max(1,(window._naskahDbPage||1)-1); loadNaskah()\" class=\"px-3 py-2 rounded-lg border border-slate-200 text-xs font-black text-slate-500 hover:border-accent-200 hover:text-accent-600\">Prev</button>\n                                <span class=\"px-3 py-2 rounded-lg bg-accent-50 text-accent-600 text-xs font-black\">").concat(
+
+
+      safePage, "</span>\n                                <button onclick=\"window._naskahDbPage=Math.min(").concat(
+      totalPages, ",(window._naskahDbPage||1)+1); loadNaskah()\" class=\"px-3 py-2 rounded-lg border border-slate-200 text-xs font-black text-slate-500 hover:border-accent-200 hover:text-accent-600\">Next</button>\n                            </div>\n                        </div>\n                    </div>");
+
+
+
+  }).getNaskahData();
+}
+
+function picNaskahSafe(value) {
+  return String(value ?? '-').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+}
+
+function picNaskahAttr(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+}
+
+function loadPicNaskahBaru() {
+  const content = document.getElementById('contentArea');
+  if (content) content.innerHTML = '<div class="bg-white border border-slate-100 rounded-2xl p-10 text-center text-slate-400 font-bold">Memuat naskah baru PIC...</div>';
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    if (!res || res.success === false) {
+      content.innerHTML = '<div class="bg-white border border-red-100 rounded-2xl p-10 text-center text-red-500 font-bold">' + picNaskahSafe(res?.message || 'Gagal memuat naskah baru PIC.') + '</div>';
+      return;
+    }
+    const rows = res?.data || [];
+    const stageKey = res?.stageKey || picQueueStageForCurrentUser();
+    const stageLabel = getPicStageLabel(stageKey);
+    mockNaskahDB = rows;
+    content.innerHTML = `
+      <div class="space-y-4">
+        <div class="mb-4 flex items-center gap-4 text-[11px] font-bold text-slate-300 bg-slate-800 p-3 rounded-2xl border border-slate-700 shadow-sm"><span class="uppercase tracking-wider text-slate-400"><i class="fa-solid fa-palette mr-1"></i>Penerbit:</span><div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#eff6ff;border:1px solid #dbeafe"></span> Nasmedia</div><div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#faf5ff;border:1px solid #f3e8ff"></span> Idebuku</div></div>
+        <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h3 class="text-xl font-black text-slate-900">Naskah Baru</h3>
+            <p class="text-sm text-slate-400 mt-1">Naskah input CS yang sudah siap produksi dan menunggu dimasukkan ke antrian ${picNaskahSafe(stageLabel)}.</p>
+          </div>
+          <div class="px-4 py-2 rounded-xl bg-accent-50 text-accent-600 text-sm font-black">${rows.length} naskah</div>
+        </div>
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          ${rows.map((n) => {
+            const isNasmedia = String(n.penerbit || '').toLowerCase().replace(/\s/g, '').includes('nasmedia');
+            const isIdebuku = String(n.penerbit || '').toLowerCase().replace(/\s/g, '').includes('idebuku');
+            const rowStyle = isNasmedia ? 'background-color: #eff6ff !important;' : isIdebuku ? 'background-color: #faf5ff !important;' : '';
+            return `
+            <div class="border border-slate-100 rounded-2xl p-5 shadow-sm transition-colors" style="${rowStyle}">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="text-[10px] font-black uppercase tracking-widest text-accent-500">${picNaskahSafe(n.trackingCode || n.id || '-')}</div>
+                  <h4 class="text-lg font-black text-slate-900 mt-1">${picNaskahSafe(n.judul || '-')}</h4>
+                  <p class="text-xs font-bold text-slate-400 mt-1">${picNaskahSafe(n.penulis || '-')}</p>
+                </div>
+                <span class="shrink-0 px-3 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-100 text-[10px] font-black">Belum Antri</span>
+              </div>
+              <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                <div class="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                  <div class="text-[9px] font-black text-slate-400 uppercase">Paket</div>
+                  <div class="font-bold text-slate-700 mt-1">${picNaskahSafe(n.paket || '-')}</div>
+                </div>
+                <div class="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                  <div class="text-[9px] font-black text-slate-400 uppercase">Ukuran</div>
+                  <div class="font-bold text-slate-700 mt-1">${picNaskahSafe(n.ukuran || '-')}</div>
+                </div>
+                <div class="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                  <div class="text-[9px] font-black text-slate-400 uppercase">Halaman</div>
+                  <div class="font-bold text-slate-700 mt-1">${picNaskahSafe(n.estimasiHalaman || '-')}</div>
+                </div>
+                <div class="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                  <div class="text-[9px] font-black text-slate-400 uppercase">Deadline ${picNaskahSafe(stageLabel)}</div>
+                  <div class="font-bold text-slate-700 mt-1">${picNaskahSafe(getPicStageDeadline(n, stageKey) || '-')}</div>
+                </div>
+              </div>
+              <div class="mt-4 flex flex-wrap gap-2">
+                <button onclick="viewDetailNaskah('${picNaskahAttr(n.id)}')" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black"><i class="fa-solid fa-eye mr-1"></i>Lihat Detail</button>
+                <button onclick="enqueuePicNaskahClient('${picNaskahAttr(n.id)}')" class="px-4 py-2 rounded-xl bg-accent-600 hover:bg-accent-700 text-white text-xs font-black shadow-sm"><i class="fa-solid fa-list-check mr-1"></i>Masukkan Antrian</button>
+              </div>
+            </div>
+          `; }).join('')}
+        </div>
+        ${rows.length === 0 ? '<div class="bg-white border border-slate-100 rounded-2xl p-12 text-center text-slate-300 italic">Belum ada naskah baru untuk PIC.</div>' : ''}
+      </div>`;
+  }).withFailureHandler((error) => showServerError('Gagal Memuat Naskah Baru PIC', error)).getPicNewNaskahData(state.user.role);
+}
+
+function enqueuePicNaskahClient(id) {
+  const submitQueue = () => {
+    Swal.fire({ title: 'Memproses...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    gas.withSuccessHandler((res) => {
+      if (!res || res.success === false) {
+        Swal.fire('Gagal', res?.message || res?.error || 'Naskah gagal dimasukkan ke antrian.', 'error');
+        return;
+      }
+      Swal.fire('Berhasil', 'Naskah sudah masuk antrian.', 'success');
+      loadPicNaskahBaru();
+    }).withFailureHandler((error) => showServerError('Gagal Memasukkan Antrian', error)).enqueuePicNaskah(id, state.user.username, state.user.role);
+  };
+  Swal.fire({
+    title: 'Masukkan ke Antrian?',
+    text: 'Naskah akan masuk daftar antrian PIC sesuai prioritas deadline dan paket.',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Masukkan Antrian',
+    cancelButtonText: 'Batal',
+    confirmButtonColor: '#4763FD'
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+    submitQueue('');
+  });
+}
+
+function renderAntrianNaskahTable(rows, stageKey, title) {
+  const stageLabel = title || getPicStageLabel(stageKey);
+  return `
+    <div class="mb-4 flex items-center gap-4 text-[11px] font-bold text-slate-300 bg-slate-800 p-3 rounded-2xl border border-slate-700 shadow-sm"><span class="uppercase tracking-wider text-slate-400"><i class="fa-solid fa-palette mr-1"></i>Penerbit:</span><div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#eff6ff;border:1px solid #dbeafe"></span> Nasmedia</div><div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#faf5ff;border:1px solid #f3e8ff"></span> Idebuku</div></div>
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div class="p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div>
+          <h3 class="text-xl font-black text-slate-900">Antrian ${picNaskahSafe(stageLabel)}</h3>
+          <p class="text-sm text-slate-400 mt-1">Otomatis urut berdasarkan deadline ${picNaskahSafe(stageLabel)}, prioritas paket, lalu tanggal input CS.</p>
+        </div>
+        <div class="px-4 py-2 rounded-xl bg-accent-50 text-accent-600 text-sm font-black">${rows.length} antrian</div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            <tr>
+              <th class="px-5 py-4">Judul</th>
+              <th class="px-5 py-4">Nama Penulis</th>
+              <th class="px-5 py-4">Paket</th>
+              <th class="px-5 py-4">Deadline ${picNaskahSafe(stageLabel)}</th>
+              <th class="px-5 py-4">Ukuran</th>
+              <th class="px-5 py-4">Estimasi Halaman</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            ${rows.map((n) => {
+              const isNasmedia = String(n.penerbit || '').toLowerCase().replace(/\s/g, '').includes('nasmedia');
+              const isIdebuku = String(n.penerbit || '').toLowerCase().replace(/\s/g, '').includes('idebuku');
+              const rowStyle = isNasmedia ? 'background-color: #eff6ff !important;' : isIdebuku ? 'background-color: #faf5ff !important;' : '';
+              return `
+              <tr class="transition-colors " style="${rowStyle}">
+                <td class="px-5 py-4 font-bold text-slate-800">${picNaskahSafe(n.judul || '-')}</td>
+                <td class="px-5 py-4 text-slate-600">${picNaskahSafe(n.penulis || '-')}</td>
+                <td class="px-5 py-4"><span class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-black">${picNaskahSafe(n.paket || '-')}</span></td>
+                <td class="px-5 py-4 text-slate-600 font-mono">${picNaskahSafe(getPicStageDeadline(n, stageKey) || '-')}</td>
+                <td class="px-5 py-4 text-slate-600">${picNaskahSafe(n.ukuran || '-')}</td>
+                <td class="px-5 py-4 text-slate-600 font-mono">${picNaskahSafe(n.estimasiHalaman || '-')}</td>
+              </tr>
+            `; }).join('')}
+            ${rows.length === 0 ? '<tr><td colspan="6" class="p-12 text-center text-slate-300 italic">Belum ada naskah dalam antrian.</td></tr>' : ''}
+          </tbody>
+        </table>
+      </div>
+    </section>`;
+}
+
+function loadManajemenAntrianNaskah() {
+  const content = document.getElementById('contentArea');
+  if (content) content.innerHTML = '<div class="bg-white border border-slate-100 rounded-2xl p-10 text-center text-slate-400 font-bold">Memuat antrian naskah...</div>';
+  gas.withSuccessHandler((res) => {
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    if (!res || res.success === false) {
+      content.innerHTML = '<div class="bg-white border border-red-100 rounded-2xl p-10 text-center text-red-500 font-bold">' + picNaskahSafe(res?.message || 'Gagal memuat antrian naskah.') + '</div>';
+      return;
+    }
+    const data = res?.data || {};
+    const proofreading = data.proofreading || [];
+    const layout = data.layout || [];
+    mockNaskahDB = [...proofreading, ...layout];
+    content.innerHTML = `
+      <div class="space-y-5">
+        <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+          <h3 class="text-xl font-black text-slate-900">Antrian Naskah</h3>
+          <p class="text-sm text-slate-400 mt-1">Pantauan manajemen untuk antrian proofreading dan layout.</p>
+        </div>
+        ${renderAntrianNaskahTable(proofreading, 'proofreading', 'Proofreading')}
+        ${renderAntrianNaskahTable(layout, 'layout', 'Layout')}
+      </div>`;
+  }).withFailureHandler((error) => showServerError('Gagal Memuat Antrian Naskah', error)).getManagementNaskahQueueData(state.user.role);
+}
+
+function loadPicAntrianNaskah() {
+  if (String(state.user?.role || '').toLowerCase() === 'manajemen') {
+    loadManajemenAntrianNaskah();
+    return;
+  }
+  const content = document.getElementById('contentArea');
+  if (content) content.innerHTML = '<div class="bg-white border border-slate-100 rounded-2xl p-10 text-center text-slate-400 font-bold">Memuat antrian naskah...</div>';
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    if (!res || res.success === false) {
+      content.innerHTML = '<div class="bg-white border border-red-100 rounded-2xl p-10 text-center text-red-500 font-bold">' + picNaskahSafe(res?.message || 'Gagal memuat antrian naskah.') + '</div>';
+      return;
+    }
+    const rows = res?.data || [];
+    const stageKey = res?.stageKey || picQueueStageForCurrentUser();
+    const stageLabel = getPicStageLabel(stageKey);
+    mockNaskahDB = rows;
+    content.innerHTML = renderAntrianNaskahTable(rows, stageKey, stageLabel);
+  }).withFailureHandler((error) => showServerError('Gagal Memuat Antrian Naskah', error)).getPicNaskahQueueData(state.user.role);
+}
+
+function loadManajemenTimelineNaskah() {
+  const role = typeof normalizeRole === 'function' ? normalizeRole(state.user?.role || '') : String(state.user?.role || '').toLowerCase();
+  const content = document.getElementById('contentArea');
+  if (!content) return;
+  if (role !== 'manajemen') {
+    content.innerHTML = '<div class="bg-white border border-red-100 rounded-2xl p-10 text-center text-red-500 font-bold">Akses hanya untuk manajemen.</div>';
+    return;
+  }
+  content.innerHTML = '<div class="bg-white border border-slate-100 rounded-2xl p-10 text-center text-slate-400 font-bold">Memuat timeline naskah...</div>';
+  gas.withSuccessHandler((res) => {
+    const target = document.getElementById('contentArea');
+    if (!target) return;
+    if (!res || res.success === false) {
+      target.innerHTML = '<div class="bg-white border border-red-100 rounded-2xl p-10 text-center text-red-500 font-bold">' + picNaskahSafe(res?.message || 'Gagal memuat timeline naskah.') + '</div>';
+      return;
+    }
+    const rows = (res?.data || []).filter((n) => !isNaskahCancelled(n) && !String(n.cancelApprovedAt || '').trim());
+    const query = String(window._timelineNaskahSearch || '').trim().toLowerCase();
+    const stageFilter = window._timelineNaskahStage || 'semua';
+    const publisherFilter = window._timelineNaskahPublisher || 'semua';
+    const parseMap = (value) => {
+      if (!value) return {};
+      if (typeof value === 'object' && !Array.isArray(value)) return value;
+      try {
+        const parsed = JSON.parse(value);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+      } catch (error) {
+        return {};
+      }
+    };
+    const stageOptions = [...new Set(rows.map((n) => n.timeline || 'Belum Diatur'))].sort((a, b) => a.localeCompare(b));
+    const publisherOptions = [...new Set(rows.map((n) => n.penerbit || 'Tanpa Penerbit'))].sort((a, b) => a.localeCompare(b));
+    const filtered = rows.filter((n) => {
+      const haystack = [n.judul, n.penulis, n.trackingCode, n.cs, n.penerbit, n.paket, n.percepatanProses, n.timeline, n.picEditor, n.picLayouter, n.assignedCssName, n.assignedCssUsername].join(' ').toLowerCase();
+      return (!query || haystack.includes(query)) &&
+        (stageFilter === 'semua' || (n.timeline || 'Belum Diatur') === stageFilter) &&
+        (publisherFilter === 'semua' || (n.penerbit || 'Tanpa Penerbit') === publisherFilter);
+    }).sort((a, b) => String(a.deadlines?.selesai || a.baseDeadlines?.selesai || '9999-12-31').localeCompare(String(b.deadlines?.selesai || b.baseDeadlines?.selesai || '9999-12-31')) || String(a.judul || '').localeCompare(String(b.judul || '')));
+    const pageSize = 10;
+    const currentPage = Math.max(1, Number(window._timelineNaskahPage || 1));
+    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    const safePage = Math.min(currentPage, totalPages);
+    window._timelineNaskahPage = safePage;
+    const pageRows = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+    const stageLabels = [
+      ['administrasi', 'Administrasi'],
+      ['proofreading', 'Proofreading'],
+      ['layout', 'Layout'],
+      ['isbn', 'ISBN'],
+      ['produksi', 'Produksi'],
+      ['distribusi', 'Distribusi'],
+      ['selesai', 'Selesai']
+    ];
+    const deadlineCell = (n, key) => {
+      const deadlines = parseMap(n.deadlines);
+      const baseDeadlines = parseMap(n.baseDeadlines);
+      const value = String(deadlines[key] || baseDeadlines[key] || '').slice(0, 10);
+      if (!value) return '<span class="text-slate-300">-</span>';
+      const today = typeof getTodayInputValue === 'function' ? getTodayInputValue() : new Date().toISOString().slice(0, 10);
+      const late = value < today;
+      return '<span class="font-mono font-bold ' + (late ? 'text-red-500' : 'text-slate-700') + '">' + picNaskahSafe(value) + '</span>';
+    };
+    target.innerHTML = `
+      <div class="space-y-4">
+        <section class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+          <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+            <div>
+              <h3 class="text-xl font-black text-slate-900">Timeline Semua Naskah</h3>
+              <p class="text-sm text-slate-400 mt-1">Menampilkan timeline aktif dan deadline setiap tahap untuk seluruh naskah berjalan.</p>
+            </div>
+            <div class="px-4 py-2 rounded-xl bg-accent-50 text-accent-600 text-sm font-black">${filtered.length} naskah</div>
+          </div>
+          <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <input value="${picNaskahAttr(window._timelineNaskahSearch || '')}" oninput="window._timelineNaskahSearch=this.value; window._timelineNaskahPage=1; loadManajemenTimelineNaskah()" placeholder="Cari judul, kode, penulis, PIC..." class="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-accent-400">
+            <select onchange="window._timelineNaskahPublisher=this.value; window._timelineNaskahPage=1; loadManajemenTimelineNaskah()" class="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none bg-white focus:border-accent-400">
+              <option value="semua" ${publisherFilter === 'semua' ? 'selected' : ''}>Semua Penerbit</option>
+              ${publisherOptions.map((p) => `<option value="${picNaskahAttr(p)}" ${publisherFilter === p ? 'selected' : ''}>${picNaskahSafe(p)}</option>`).join('')}
+            </select>
+            <select onchange="window._timelineNaskahStage=this.value; window._timelineNaskahPage=1; loadManajemenTimelineNaskah()" class="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none bg-white focus:border-accent-400">
+              <option value="semua" ${stageFilter === 'semua' ? 'selected' : ''}>Semua Timeline</option>
+              ${stageOptions.map((p) => `<option value="${picNaskahAttr(p)}" ${stageFilter === p ? 'selected' : ''}>${picNaskahSafe(p)}</option>`).join('')}
+            </select>
+          </div>
+        </section>
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <tr>
+                  <th class="px-4 py-4 min-w-[260px]">Naskah</th>
+                  <th class="px-4 py-4 min-w-[145px]">Timeline Aktif</th>
+                  ${stageLabels.map((item) => `<th class="px-4 py-4 min-w-[120px]">${picNaskahSafe(item[1])}</th>`).join('')}
+                  <th class="px-4 py-4 min-w-[90px]">Aksi</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                ${pageRows.map((n) => `
+                  <tr class="hover:bg-slate-50/70">
+                    <td class="px-4 py-4">
+                      <div class="font-black text-slate-900">${picNaskahSafe(n.judul || '-')}</div>
+                      <div class="mt-1 text-[10px] font-bold text-slate-400">${picNaskahSafe(n.trackingCode || n.id || '-')} &bull; ${picNaskahSafe(n.penulis || '-')}</div>
+                      <div class="mt-1 text-[10px] font-bold text-slate-500">${picNaskahSafe(n.penerbit || '-')} &bull; ${picNaskahSafe(n.paket || '-')} ${n.percepatanProses ? '&bull; ' + picNaskahSafe(n.percepatanProses) : ''}</div>
+                    </td>
+                    <td class="px-4 py-4">
+                      <span class="inline-flex px-2.5 py-1 rounded-lg bg-blue-50 text-accent-600 border border-blue-100 text-[10px] font-black">${picNaskahSafe(n.timeline || 'Belum Diatur')}</span>
+                    </td>
+                    ${stageLabels.map((item) => `<td class="px-4 py-4">${deadlineCell(n, item[0])}</td>`).join('')}
+                    <td class="px-4 py-4">
+                      <button onclick="viewDetailNaskah('${picNaskahAttr(n.id)}')" class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-black text-[10px]"><i class="fa-solid fa-eye mr-1"></i>Detail</button>
+                    </td>
+                  </tr>
+                `).join('')}
+                ${pageRows.length === 0 ? '<tr><td colspan="10" class="p-12 text-center text-slate-300 italic">Belum ada naskah yang sesuai filter.</td></tr>' : ''}
+              </tbody>
+            </table>
+          </div>
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-5 py-4 border-t border-slate-100">
+            <div class="text-[10px] font-bold text-slate-400">Menampilkan ${pageRows.length ? ((safePage - 1) * pageSize) + 1 : 0}-${Math.min(safePage * pageSize, filtered.length)} dari ${filtered.length} naskah &bull; Halaman ${safePage} / ${totalPages}</div>
+            <div class="flex items-center gap-2">
+              <button onclick="window._timelineNaskahPage=Math.max(1,(window._timelineNaskahPage||1)-1); loadManajemenTimelineNaskah()" class="px-3 py-2 rounded-lg border border-slate-200 text-xs font-black text-slate-500 hover:border-accent-200 hover:text-accent-600">Prev</button>
+              <span class="px-3 py-2 rounded-lg bg-accent-50 text-accent-600 text-xs font-black">${safePage}</span>
+              <button onclick="window._timelineNaskahPage=Math.min(${totalPages},(window._timelineNaskahPage||1)+1); loadManajemenTimelineNaskah()" class="px-3 py-2 rounded-lg border border-slate-200 text-xs font-black text-slate-500 hover:border-accent-200 hover:text-accent-600">Next</button>
+            </div>
+          </div>
+        </section>
+      </div>`;
+  }).withFailureHandler((error) => showServerError('Gagal Memuat Timeline Naskah', error)).getMonitorNaskahData();
+}
+
+function loadNaskahPending() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    mockNaskahDB = res?.data || [];
+    const data = mockNaskahDB.filter((n) => (n.statusProses === 'Belum Siap Proses' || n.statusProses === 'Naskah Baru') && n.cs === state.user.nama && !isNaskahCancelled(n));
+
+    content.innerHTML = "\n                    <div class=\"mb-4 flex items-center gap-4 text-[11px] font-bold text-slate-300 bg-slate-800 p-3 rounded-2xl border border-slate-700 shadow-sm\">\n                        <span class=\"uppercase tracking-wider text-slate-400\"><i class=\"fa-solid fa-palette mr-1\"></i>Penerbit:</span>\n                        <div class=\"flex items-center gap-1.5\"><span class=\"w-3 h-3 rounded\" style=\"background:#eff6ff;border:1px solid #dbeafe\"></span> Nasmedia</div>\n                        <div class=\"flex items-center gap-1.5\"><span class=\"w-3 h-3 rounded\" style=\"background:#faf5ff;border:1px solid #f3e8ff\"></span> Idebuku</div>\n                    </div>\n                    <div class=\"bg-white rounded-3xl shadow-sm border border-slate-100 overflow-x-auto\">\n                        <table class=\"w-full text-left\">\n                            <thead class=\"bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest\">\n                                <tr>\n                                    <th class=\"px-8 py-4\">Judul Naskah</th>\n                                    <th class=\"px-8 py-4\">Penulis</th>\n                                    <th class=\"px-8 py-4\">Paket</th>\n                                    <th class=\"px-8 py-4\">Status</th>\n                                    <th class=\"px-8 py-4 text-center\">Aksi</th>\n                                </tr>\n                            </thead>\n                            <tbody class=\"divide-y divide-slate-50\">\n                                ".concat(
+
+
+
+
+
+
+
+
+
+
+
+
+      data.map((n) => {
+        const isNasmedia = String(n.penerbit || '').toLowerCase().replace(/\s/g, '').includes('nasmedia');
+        const isIdebuku = String(n.penerbit || '').toLowerCase().replace(/\s/g, '').includes('idebuku');
+        const rowStyle = isNasmedia ? 'background-color: #eff6ff !important;' : isIdebuku ? 'background-color: #faf5ff !important;' : '';
+        return `
+                                    <tr class="text-sm transition-colors " style="${rowStyle}">
+                                        <td class="px-8 py-4 font-bold text-slate-800">
+                                            ${n.judul}<br>
+                                            <span class="text-[10px] text-slate-400 font-mono">${n.id}</span>
+                                        </td>
+                                        <td class="px-8 py-4">${n.penulis}</td>
+                                        <td class="px-8 py-4">
+                                            <div class="font-bold text-slate-700">${n.paket || '-'}</div>
+                                        </td>
+                                        <td class="px-8 py-4">
+                                            <span class="px-2.5 py-1 rounded-lg bg-red-50 text-red-600 text-[10px] font-bold border border-red-100">
+                                                <i class="fa-solid fa-pause-circle mr-1"></i> Belum Siap Proses
+                                            </span>
+                                        </td>
+                                        <td class="px-8 py-4 text-center">
+                                            <button onclick="updateStatusProsesNaskah('${n.id}')" class="px-3 py-1.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded-lg text-[10px] font-bold shadow-sm transition-all border border-emerald-200">
+                                                <i class="fa-solid fa-circle-check mr-1"></i> Siap Proses
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `;
+      }).reverse().join(''), "\n                                ").concat(
+      data.length === 0 ? '<tr><td colspan="5" class="p-16 text-center text-slate-300 italic">Tidak ada naskah pending saat ini.</td></tr>' : '', "\n                            </tbody>\n                        </table>\n                    </div>\n                ");
+
+
+
+
+  }).getNaskahData();
+}
+
+function renderCSMobileInputTabs(active) {
+  return '';
+}
+window.renderCSMobileInputTabs = renderCSMobileInputTabs;
+
+function loadNaskahDiprosesCS() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const safe = (value) => reportSafeText(value || '-');
+    const doneStatuses = ['selesai', 'complete', 'done'];
+    const allData = (res?.data || []).
+    filter((n) => !isNaskahCancelled(n)).
+    filter((n) => n.statusProses === 'Siap Proses' || !n.statusProses).
+    filter((n) => {
+      const overall = String(n.timeline || n.progress || n.tahapan || n.statusProses || '').toLowerCase();
+      return !doneStatuses.includes(overall);
+    }).
+    sort((a, b) => String(b.tanggal || b.tanggalMasuk || '').localeCompare(String(a.tanggal || a.tanggalMasuk || '')));
+    const getTahapan = (n) => n.timeline || n.progress || n.tahapan || n.statusProses || 'Dalam Proses';
+    const search = String(window._csNaskahSearch || '').toLowerCase().trim();
+    const penerbitFilter = window._csNaskahPenerbit || 'semua';
+    const penerbitOptions = [...new Set(allData.map((n) => n.penerbit || 'Belum Diisi'))].sort((a, b) => a.localeCompare(b));
+    const filteredData = allData.filter((n) => {
+      const haystack = [n.judul, n.penulis, n.trackingCode, getTahapan(n), n.penerbit].map((v) => String(v || '').toLowerCase()).join(' ');
+      const matchSearch = !search || haystack.includes(search);
+      const matchPenerbit = penerbitFilter === 'semua' || (n.penerbit || 'Belum Diisi') === penerbitFilter;
+      return matchSearch && matchPenerbit;
+    });
+    const perPage = 10;
+    const totalPages = Math.max(1, Math.ceil(filteredData.length / perPage));
+    const rawPage = Number(window._csNaskahPage || 1);
+    const safePage = Math.min(Math.max(1, rawPage), totalPages);
+    window._csNaskahPage = safePage;
+    const pagedData = filteredData.slice((safePage - 1) * perPage, safePage * perPage);
+    content.innerHTML = "\n                <div class=\"space-y-4\">\n                    <div class=\"mb-4 flex items-center gap-4 text-[11px] font-bold text-slate-300 bg-slate-800 p-3 rounded-2xl border border-slate-700 shadow-sm\">\n                        <span class=\"uppercase tracking-wider text-slate-400\"><i class=\"fa-solid fa-palette mr-1\"></i>Penerbit:</span>\n                        <div class=\"flex items-center gap-1.5\"><span class=\"w-3 h-3 rounded\" style=\"background:#eff6ff;border:1px solid #dbeafe\"></span> Nasmedia</div>\n                        <div class=\"flex items-center gap-1.5\"><span class=\"w-3 h-3 rounded\" style=\"background:#faf5ff;border:1px solid #f3e8ff\"></span> Idebuku</div>\n                    </div>\n                    <div class=\"bg-white border border-slate-100 rounded-[1.5rem] p-5 shadow-sm\">\n                        <div class=\"flex flex-col lg:flex-row lg:items-center justify-between gap-4\">\n                            <div>\n                                <h3 class=\"text-xl font-black text-slate-900 flex items-center gap-2\">\n                                    <i class=\"fa-solid fa-book-open text-accent-600\"></i>Naskah Diproses\n                                </h3>\n                                <p class=\"text-sm text-slate-400 mt-1\">View only: judul, penulis, dan tahapan progres.</p>\n                            </div>\n                            <div class=\"flex flex-col sm:flex-row gap-2 w-full lg:w-auto\">\n                                <div class=\"relative flex-1 lg:w-72\">\n                                    <i class=\"fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-xs\"></i>\n                                    <input id=\"csNaskahSearchInput\" type=\"text\" value=\"".concat(
+
+
+
+
+
+
+
+
+
+
+
+
+      safe(window._csNaskahSearch || ''), "\" onkeydown=\"if(event.key==='Enter'){window._csNaskahSearch=this.value; window._csNaskahPage=1; loadNaskahDiprosesCS()}\" placeholder=\"Cari judul/kode/penulis...\" class=\"w-full h-11 pl-9 pr-3 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:border-accent-500\">\n                                </div>\n                                <button onclick=\"window._csNaskahSearch=(document.getElementById('csNaskahSearchInput')||{}).value||''; window._csNaskahPage=1; loadNaskahDiprosesCS()\" class=\"h-11 px-4 rounded-xl bg-accent-600 text-white text-sm font-black shadow-sm hover:bg-accent-700\"><i class=\"fa-solid fa-search mr-2\"></i>Cari</button>\n                                <select onchange=\"window._csNaskahPenerbit=this.value; window._csNaskahPage=1; loadNaskahDiprosesCS()\" class=\"h-11 px-3 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:border-accent-500\">\n                                    <option value=\"semua\" ").concat(
+
+
+
+      penerbitFilter === 'semua' ? 'selected' : '', ">Semua Penerbit</option>\n                                    ").concat(
+      penerbitOptions.map((p) => "<option value=\"".concat(safe(p), "\" ").concat(penerbitFilter === p ? 'selected' : '', ">").concat(safe(p), "</option>")).join(''), "\n                                </select>\n                            </div>\n                        </div>\n                    </div>\n                    <div class=\"bg-white border border-slate-100 rounded-[1.5rem] shadow-sm overflow-hidden\">\n                        <div class=\"overflow-x-auto\">\n                            <table class=\"w-full text-left text-sm\" data-no-export=\"true\">\n                                <thead class=\"bg-slate-50 text-[10px] uppercase tracking-widest font-black text-slate-400\">\n                                    <tr>\n                                        <th class=\"px-5 py-4\">Judul</th>\n                                        <th class=\"px-5 py-4\">Nama Penulis</th>\n                                        <th class=\"px-5 py-4\">Tahapan Progres</th>\n                                    </tr>\n                                </thead>\n                                <tbody class=\"divide-y divide-slate-100\">\n                                    ").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      pagedData.length === 0 ? '<tr><td colspan="3" class="px-5 py-10 text-center text-slate-400">Belum ada naskah yang sesuai pencarian/filter.</td></tr>' : pagedData.map((n) => {
+        const isNasmedia = String(n.penerbit || '').toLowerCase().replace(/\s/g, '').includes('nasmedia');
+        const isIdebuku = String(n.penerbit || '').toLowerCase().replace(/\s/g, '').includes('idebuku');
+        const rowStyle = isNasmedia ? 'background-color: #eff6ff !important;' : isIdebuku ? 'background-color: #faf5ff !important;' : '';
+        return "\n                                        <tr class=\"transition-colors \" style=\"".concat(rowStyle, "\">\n                                            <td class=\"px-5 py-4 font-black text-slate-900\">").concat(
+
+        safe(n.judul), "</td>\n                                            <td class=\"px-5 py-4 text-slate-600\">").concat(
+        safe(n.penulis), "</td>\n                                            <td class=\"px-5 py-4\">\n                                                <span class=\"inline-flex px-3 py-1 rounded-full bg-accent-50 text-accent-600 text-xs font-black\">").concat(
+
+        safe(getTahapan(n)), "</span>\n                                                <div class=\"mt-3\">\n                                                    <button onclick=\"openEditNaskahSpesifikasiCetakCS('").concat(
+        safe(n.id), "')\" class=\"inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-accent-50 text-accent-600 hover:bg-accent-100 text-xs font-black transition whitespace-nowrap\" title=\"Edit spesifikasi cetak\"><i class=\"fa-solid fa-pen\"></i>Edit Spesifikasi Cetak</button>\n                                                </div>\n                                            </td>\n                                        </tr>\n                                    ");
+      }).join(''), "\n                                </tbody>\n                            </table>\n                        </div>\n                        <div class=\"flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-4 border-t border-slate-100\">\n                            <div class=\"text-[10px] font-bold text-slate-400\">Menampilkan ").concat(
+
+
+
+
+      pagedData.length, " dari ").concat(filteredData.length, " naskah &bull; Halaman ").concat(safePage, " / ").concat(totalPages, "</div>\n                            <div class=\"flex items-center gap-2\">\n                                <button onclick=\"window._csNaskahPage=Math.max(1,(window._csNaskahPage||1)-1); loadNaskahDiprosesCS()\" class=\"px-3 py-2 rounded-lg border border-slate-200 text-xs font-black text-slate-500 hover:border-accent-200 hover:text-accent-600\">Prev</button>\n                                <span class=\"px-3 py-2 rounded-lg bg-accent-50 text-accent-600 text-xs font-black\">").concat(
+
+
+      safePage, "</span>\n                                <button onclick=\"window._csNaskahPage=Math.min(").concat(
+      totalPages, ",(window._csNaskahPage||1)+1); loadNaskahDiprosesCS()\" class=\"px-3 py-2 rounded-lg border border-slate-200 text-xs font-black text-slate-500 hover:border-accent-200 hover:text-accent-600\">Next</button>\n                            </div>\n                        </div>\n                    </div>\n                </div>\n            ");
+
+
+
+
+
+  }).getNaskahData();
+}
+
+function openEditNaskahSpesifikasiCetakCS(id) {
+  gas.withSuccessHandler((res) => {
+    const naskah = (res?.data || []).find((row) => String(row.id || '') === String(id || ''));
+    if (!naskah) {
+      Swal.fire('Data Tidak Ditemukan', 'Naskah tidak ditemukan atau sudah berubah.', 'warning');
+      return;
+    }
+    Swal.fire({
+      title: 'Edit Spesifikasi Cetak',
+      html: `
+        <div style="text-align:left">
+          <div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:8px;">${reportSafeText(naskah.judul || '-')}</div>
+          <textarea id="naskah_spesifikasi_cetak_edit" class="swal2-textarea" rows="8" placeholder="Tulis spesifikasi cetak dalam kalimat panjang..." style="width:100%;height:180px;margin:0;">${reportSafeText(naskah.spesifikasiCetak || '')}</textarea>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonColor: '#4763FD',
+      confirmButtonText: 'Simpan',
+      cancelButtonText: 'Batal',
+      preConfirm: () => (document.getElementById('naskah_spesifikasi_cetak_edit')?.value || '').trim()
+    }).then((result) => {
+      if (!result.isConfirmed) return;
+      Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+      gas.withSuccessHandler((saveRes) => {
+        if (!saveRes || saveRes.success === false) {
+          Swal.fire('Gagal', saveRes && (saveRes.message || saveRes.error) || 'Spesifikasi cetak gagal disimpan.', 'error');
+          return;
+        }
+        Swal.fire('Tersimpan', 'Spesifikasi cetak berhasil diperbarui.', 'success');
+        loadNaskahDiprosesCS();
+      }).withFailureHandler((error) => showServerError('Gagal Menyimpan Spesifikasi Cetak', error)).updateNaskahSpesifikasiCetak(id, result.value);
+    });
+  }).withFailureHandler((error) => showServerError('Gagal Memuat Naskah', error)).getNaskahData();
+}
+
+function updateStatusProsesNaskah(id) {
+  Swal.fire({
+    title: '<i class="fa-solid fa-circle-check text-emerald-500"></i> Konfirmasi',
+    html: 'Apakah naskah ini sudah <b>siap diproses</b> oleh tim produksi?',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#10b981',
+    confirmButtonText: '<i class="fa-solid fa-check mr-1"></i> Ya, Siap Proses',
+    cancelButtonText: 'Batal'
+  }).then((r) => {
+    if (r.isConfirmed) {
+      gas.withSuccessHandler((res) => {
+        if (res.success) {
+          Swal.fire('Berhasil!', 'Naskah telah dipindahkan ke status Siap Proses dan kini terlihat oleh tim CSS.', 'success');
+          loadNaskahPending();
+        } else {
+          Swal.fire('Gagal', 'Terjadi kesalahan saat memperbarui status.', 'error');
+        }
+      }).updateNaskahStatusProses(id, 'Siap Proses');
+    }
+  });
+}
+
+
+
+
+
+
+
+
+function lunasiKpiDP(id) {
+  gas.withSuccessHandler((res) => {
+    const k = (res?.data || []).find((x) => x.id === id);
+    if (!k) {
+      Swal.fire('Data Tidak Ditemukan', 'Data DP tidak ditemukan atau sudah berubah.', 'warning');
+      return;
+    }
+    const sisa = Math.max(0, Number(k.nominal || 0) - Number(k.nominalDP || 0));
+    Swal.fire({
+      title: 'Konfirmasi Pelunasan',
+      html: 'Masukkan nominal pelunasan yang diterima.<br><small class="text-slate-500">Jika total akhir berubah, isi nominal pelunasan sebenarnya.</small>',
+      icon: 'question',
+      input: 'number',
+      inputValue: sisa,
+      showCancelButton: true,
+      confirmButtonColor: '#10b981',
+      confirmButtonText: 'Simpan & Lunasi',
+      cancelButtonText: 'Batal',
+      inputValidator: (value) => {
+        if (!value || Number(value) <= 0) return 'Nominal pelunasan tidak valid!';
+      }
+    }).then((r) => {
+      if (!r.isConfirmed || !r.value) return;
+      const pelunasanBaru = Number(r.value);
+      const payload = {
+        ...k,
+        nominal: Number(k.nominalDP || 0) + pelunasanBaru,
+        statusPayment: 'Full Payment',
+        nominalPelunasan: pelunasanBaru,
+        tanggalPelunasan: new Date().toISOString().split('T')[0]
+      };
+      gas.withSuccessHandler(() => {
+        if (state.activeTab === 'dashboard_kpi') loadDashboardKPI();
+        if (state.activeTab === 'input_cetak') loadInputCetak();
+        if (state.activeTab === 'input_lainnya') loadInputLainnya();
+        Swal.fire('Berhasil!', 'Pelunasan berhasil dicatat dan ditambahkan ke capaian omzet.', 'success');
+      }).saveKPIData(payload);
+    });
+  }).getKPIData();
+}
+
+function tambahDpKpi(id) {
+  gas.withSuccessHandler((res) => {
+    const k = (res?.data || []).find((x) => x.id === id);
+    if (!k) {
+      Swal.fire('Data Tidak Ditemukan', 'Data DP tidak ditemukan atau sudah berubah.', 'warning');
+      return;
+    }
+    if (k.statusPayment !== 'DP') {
+      Swal.fire('Tidak Tersedia', 'Tambah DP hanya tersedia untuk data yang masih DP.', 'warning');
+      return;
+    }
+    const sisa = Math.max(0, Number(k.nominal || 0) - Number(k.nominalDP || 0));
+    Swal.fire({
+      title: 'Tambah DP',
+      html: 'Masukkan nominal DP tambahan.<br><small>Sisa tagihan saat ini: <b>' + reportFormatRp(sisa) + '</b></small>',
+      icon: 'question',
+      input: 'number',
+      showCancelButton: true,
+      confirmButtonColor: '#4763FD',
+      confirmButtonText: 'Simpan DP',
+      cancelButtonText: 'Batal',
+      inputValidator: (value) => {
+        const amount = Number(value || 0);
+        if (amount <= 0) return 'Nominal tambah DP tidak valid!';
+        if (amount >= sisa) return 'Jika nominal sama/melebihi sisa, gunakan tombol Lunasi.';
+      }
+    }).then((r) => {
+      if (!r.isConfirmed || !r.value) return;
+      gas.withSuccessHandler((saveRes) => {
+        if (!saveRes || saveRes.success === false) {
+          Swal.fire('Gagal', saveRes && (saveRes.message || saveRes.error) || 'Tambah DP gagal disimpan.', 'error');
+          return;
+        }
+        if (state.activeTab === 'dashboard_kpi') loadDashboardKPI();
+        if (state.activeTab === 'input_cetak') loadInputCetak();
+        if (state.activeTab === 'input_lainnya') loadInputLainnya();
+        Swal.fire('Berhasil!', 'Tambah DP berhasil dicatat sebagai omzet bulan berjalan.', 'success');
+      }).withFailureHandler((error) => {
+        showServerError('Gagal Menyimpan Tambah DP', error);
+      }).addKpiDpPayment(id, Number(r.value));
+    });
+  }).withFailureHandler((error) => {
+    showServerError('Gagal Memuat Data KPI', error);
+  }).getKPIData();
+}
+
+
+
+
+
+window.lunasiKpiDP = lunasiKpiDP;
+window.tambahDpKpi = tambahDpKpi;
+
+function cetakSafeText(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+}
+
+function cetakFormatRp(value) {
+  return typeof reportFormatRp === 'function' ? reportFormatRp(value) : 'Rp ' + Number(value || 0).toLocaleString('id-ID');
+}
+
+function toggleCetakDPField(value) {
+  const wrap = document.getElementById('cetak_dp_wrap');
+  const input = document.getElementById('cetak_nominal_dp');
+  const show = String(value || '') === 'DP';
+  if (wrap) wrap.classList.toggle('hidden', !show);
+  if (input) {
+    input.required = show;
+    if (!show) input.value = '';
+  }
+}
+
+function toggleCetakWarnaField(value) {
+  const wrap = document.getElementById('cetak_hal_warna_wrap');
+  const input = document.getElementById('cetak_jumlah_hal_warna');
+  const show = String(value || '') === 'Beberapa Hal Warna';
+  if (wrap) wrap.classList.toggle('hidden', !show);
+  if (input) {
+    input.required = show;
+    if (!show) input.value = '';
+  }
+}
+
+function ensureCetakModalRuntime() {
+  const requiredIds = ['cetak_id', 'cetak_tanggal', 'cetak_nilai_kpi', 'cetak_judul', 'cetak_ukuran', 'cetak_warna', 'cetak_jenis_kertas', 'cetak_cover', 'cetak_jumlah_eks', 'cetak_nominal', 'cetak_status_payment', 'cetak_deadline_selesai'];
+  const modal = document.getElementById('modalInputCetak');
+  const missing = requiredIds.some((id) => !document.getElementById(id));
+  if (modal && !missing) return true;
+  if (modal) modal.remove();
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="modalInputCetak" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-3xl max-w-2xl w-full p-8 shadow-2xl relative fade-in-up max-h-[90vh] overflow-y-auto custom-scroll">
+        <h3 id="cetakModalTitle" class="text-xl font-bold mb-6">Input Cetak Baru</h3>
+        <form onsubmit="handleSaveCetak(event)" class="space-y-4">
+          <input type="hidden" id="cetak_id">
+          <input type="hidden" id="cetak_kpi_id">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase">Tanggal *</label><input type="date" id="cetak_tanggal" required class="w-full p-3 border rounded-xl outline-none focus:border-accent-600"></div>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase">Nilai KPI (Poin) *</label><input type="number" id="cetak_nilai_kpi" required min="0" class="w-full p-3 border rounded-xl outline-none focus:border-accent-600" placeholder="Contoh: 3"></div>
+          </div>
+          <div><label class="text-[10px] font-bold text-slate-400 uppercase">Judul *</label><input type="text" id="cetak_judul" required class="w-full p-3 border rounded-xl outline-none focus:border-accent-600" placeholder="Judul buku / naskah"></div>
+          <div><label class="text-[10px] font-bold text-slate-400 uppercase">Kota Asal Penulis</label><input type="text" id="cetak_kota_asal" class="w-full p-3 border rounded-xl outline-none focus:border-accent-600" placeholder="Contoh: Makassar"></div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase">Ukuran *</label><select id="cetak_ukuran" required class="w-full p-3 border rounded-xl outline-none focus:border-accent-600"><option value="A6">A6</option><option value="A5" selected>A5</option><option value="B5 Unesco">B5 Unesco</option><option value="B5 ISO">B5 ISO</option><option value="B5 Standart">B5 Standart</option><option value="A4">A4</option><option value="Lainnya">Lainnya</option></select></div>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase">Warna *</label><select id="cetak_warna" required onchange="toggleCetakWarnaField(this.value)" class="w-full p-3 border rounded-xl outline-none focus:border-accent-600"><option value="Hitam Putih">Hitam Putih</option><option value="Beberapa Hal Warna">Beberapa Hal Warna</option><option value="Full Color">Full Color</option></select></div>
+            <div id="cetak_hal_warna_wrap" class="hidden"><label class="text-[10px] font-bold text-slate-400 uppercase">Jumlah Hal Warna</label><input type="number" id="cetak_jumlah_hal_warna" min="0" class="w-full p-3 border rounded-xl outline-none focus:border-accent-600" placeholder="Contoh: 16"></div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase">Jenis Kertas *</label><select id="cetak_jenis_kertas" required class="w-full p-3 border rounded-xl outline-none focus:border-accent-600"><option value="HVS">HVS</option><option value="Bookpaper">Bookpaper</option><option value="Artpaper">Artpaper</option><option value="Mattpaper">Mattpaper</option><option value="Lainnya">Lainnya</option></select></div>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase">Cover *</label><select id="cetak_cover" required class="w-full p-3 border rounded-xl outline-none focus:border-accent-600"><option value="Soft Cover">Soft Cover</option><option value="Hard Cover">Hard Cover</option><option value="Lainnya">Lainnya</option></select></div>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase">Jumlah Eks *</label><input type="number" id="cetak_jumlah_eks" required min="1" class="w-full p-3 border rounded-xl outline-none focus:border-accent-600" placeholder="Contoh: 100"></div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase">Nominal (Rp) *</label><input type="number" id="cetak_nominal" required min="0" class="w-full p-3 border rounded-xl outline-none focus:border-accent-600" placeholder="Contoh: 5000000"></div>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase">Status Pembayaran *</label><select id="cetak_status_payment" required onchange="toggleCetakDPField(this.value)" class="w-full p-3 border rounded-xl outline-none focus:border-accent-600"><option value="Full Payment">Full Payment</option><option value="DP">DP</option></select></div>
+          </div>
+          <div id="cetak_dp_wrap" class="hidden"><label class="text-[10px] font-bold text-slate-400 uppercase">Nominal DP (Rp)</label><input type="number" id="cetak_nominal_dp" min="0" class="w-full p-3 border rounded-xl outline-none focus:border-accent-600" placeholder="Contoh: 1000000"></div>
+          <div><label class="text-[10px] font-bold text-slate-400 uppercase">Tanggal Deadline Selesai *</label><input type="date" id="cetak_deadline_selesai" required class="w-full p-3 border rounded-xl outline-none focus:border-accent-600"></div>
+          <div class="p-3 bg-blue-50 rounded-xl text-blue-800 text-[10px]"><i class="fa-solid fa-circle-info mr-1"></i><b>Nilai KPI</b> tetap masuk ke KPI Cetak. Deadline selesai akan muncul di Alert Deadline CS, CSS, dan Manajemen.</div>
+          <div class="flex justify-end gap-3 mt-6"><button type="button" onclick="closeModal('modalInputCetak')" class="px-6 py-2 text-slate-400 font-bold">Batal</button><button type="submit" class="px-6 py-2 btn-gradient text-white rounded-xl font-bold shadow-lg">Simpan</button></div>
+        </form>
+      </div>
+    </div>`);
+  return requiredIds.every((id) => document.getElementById(id));
+}
+
+function openFormCetak(data = null) {
+  return openInputCetakDialog(data);
+}
+
+function normalizeCetakInputDate(value, fallback = '') {
+  if (!value) return fallback;
+  const raw = String(value).trim();
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return iso[0];
+  const slash = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slash) {
+    const month = slash[1].padStart(2, '0');
+    const day = slash[2].padStart(2, '0');
+    return `${slash[3]}-${month}-${day}`;
+  }
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  return fallback;
+}
+
+function setCetakModalValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value == null ? '' : value;
+}
+
+function openInputCetakDialog(data = null) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (!ensureCetakModalRuntime()) {
+    Swal.fire('Form Cetak Belum Siap', 'Field input cetak belum lengkap. Reload halaman lalu coba lagi.', 'warning');
+    return;
+  }
+  const form = document.querySelector('#modalInputCetak form');
+  if (form) form.reset();
+  const title = document.getElementById('cetakModalTitle');
+  if (title) title.textContent = data ? 'Edit Cetak' : 'Input Cetak Baru';
+
+  setCetakModalValue('cetak_id', data?.id || '');
+  setCetakModalValue('cetak_kpi_id', data?.kpiId || '');
+  setCetakModalValue('cetak_tanggal', normalizeCetakInputDate(data?.tanggal, today));
+  setCetakModalValue('cetak_nilai_kpi', data?.nilaiKpi || '');
+  setCetakModalValue('cetak_judul', data?.judul || '');
+  setCetakModalValue('cetak_kota_asal', data?.kotaAsal || '');
+  setCetakModalValue('cetak_ukuran', data?.ukuran || 'A5');
+  setCetakModalValue('cetak_warna', data?.warna || 'Hitam Putih');
+  setCetakModalValue('cetak_jumlah_hal_warna', data?.jumlahHalWarna || '');
+  setCetakModalValue('cetak_jenis_kertas', data?.jenisKertas || 'HVS');
+  setCetakModalValue('cetak_cover', data?.cover || 'Soft Cover');
+  setCetakModalValue('cetak_jumlah_eks', data?.jumlahEks || '');
+  setCetakModalValue('cetak_nominal', data?.nominal || '');
+  setCetakModalValue('cetak_status_payment', data?.statusPayment || 'Full Payment');
+  setCetakModalValue('cetak_nominal_dp', data?.nominalDP || '');
+  setCetakModalValue('cetak_deadline_selesai', normalizeCetakInputDate(data?.deadlineSelesai, ''));
+  toggleCetakWarnaField(document.getElementById('cetak_warna')?.value || 'Hitam Putih');
+  toggleCetakDPField(document.getElementById('cetak_status_payment')?.value || 'Full Payment');
+  openModal('modalInputCetak');
+}
+
+function saveCetakModalForm(event) {
+  event.preventDefault();
+  const payload = {
+    id: document.getElementById('cetak_id')?.value || '',
+    kpiId: document.getElementById('cetak_kpi_id')?.value || '',
+    tanggal: document.getElementById('cetak_tanggal')?.value || '',
+    nilaiKpi: Number(document.getElementById('cetak_nilai_kpi')?.value || 0),
+    judul: document.getElementById('cetak_judul')?.value.trim() || '',
+    kotaAsal: document.getElementById('cetak_kota_asal')?.value.trim() || '',
+    ukuran: document.getElementById('cetak_ukuran')?.value || '',
+    warna: document.getElementById('cetak_warna')?.value || '',
+    jumlahHalWarna: Number(document.getElementById('cetak_jumlah_hal_warna')?.value || 0),
+    jenisKertas: document.getElementById('cetak_jenis_kertas')?.value || '',
+    cover: document.getElementById('cetak_cover')?.value || '',
+    jumlahEks: Number(document.getElementById('cetak_jumlah_eks')?.value || 0),
+    nominal: Number(document.getElementById('cetak_nominal')?.value || 0),
+    statusPayment: document.getElementById('cetak_status_payment')?.value || 'Full Payment',
+    nominalDP: Number(document.getElementById('cetak_nominal_dp')?.value || 0),
+    deadlineSelesai: document.getElementById('cetak_deadline_selesai')?.value || ''
+  };
+  if (!payload.tanggal || !payload.judul || !payload.deadlineSelesai || !payload.ukuran || !payload.warna || !payload.jenisKertas || !payload.cover || payload.jumlahEks <= 0 || payload.nominal <= 0) {
+    Swal.fire('Data Belum Lengkap', 'Tanggal, judul, spesifikasi cetak, jumlah eks, nominal, dan deadline wajib diisi.', 'warning');
+    return;
+  }
+  if (payload.warna === 'Beberapa Hal Warna' && payload.jumlahHalWarna <= 0) {
+    Swal.fire('Jumlah Hal Warna', 'Jumlah halaman warna wajib diisi.', 'warning');
+    return;
+  }
+  if (payload.statusPayment === 'DP' && (payload.nominalDP <= 0 || payload.nominalDP >= payload.nominal)) {
+    Swal.fire('DP Tidak Valid', 'Nominal DP wajib lebih dari 0 dan lebih kecil dari nominal.', 'warning');
+    return;
+  }
+  Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+  gas.withSuccessHandler((res) => {
+    if (!res || res.success === false) {
+      Swal.fire('Gagal', res?.message || res?.error || 'Data cetak gagal disimpan.', 'error');
+      return;
+    }
+    closeModal('modalInputCetak');
+    loadInputCetak();
+    refreshDeadlineAlerts(false);
+    Swal.fire('Tersimpan', 'Data proses cetak berhasil disimpan.', 'success');
+  }).withFailureHandler((error) => showServerError('Gagal Menyimpan Cetak', error)).saveCetakJob(payload, state.user?.username || '');
+}
+
+function handleSaveCetak(event) {
+  return saveCetakModalForm(event);
+}
+
+function loadInputCetak() {
+  const content = document.getElementById('contentArea');
+  if (!content) return;
+  content.innerHTML = '<div class="bg-white rounded-2xl border border-slate-100 p-8 text-slate-400 font-bold"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Memuat proses cetak...</div>';
+  gas.withSuccessHandler((res) => {
+    if (!res || res.success === false) {
+      content.innerHTML = '<div class="bg-white rounded-2xl border border-red-100 p-8 text-red-500 font-bold">Data cetak gagal dimuat.</div>';
+      return;
+    }
+    const rows = (res.data || []).filter((row) => String(row.statusCetak || 'Proses').toLowerCase() !== 'selesai');
+    const today = new Date().toISOString().slice(0, 10);
+    const safe = cetakSafeText;
+    content.innerHTML = `
+      <div class="space-y-5">
+        <section class="bg-white border border-slate-100 shadow-sm rounded-2xl p-5">
+          <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+              <div class="text-[10px] font-black uppercase tracking-widest text-accent-500 mb-1">Proses Cetak</div>
+              <h3 class="text-xl font-black text-slate-900">Input dan Monitoring Cetak</h3>
+              <p class="text-sm text-slate-400 mt-1">Berdiri sendiri dari timeline naskah. Deadline mengikuti tanggal selesai cetak.</p>
+            </div>
+            ${normalizeRole(state.user?.role || '') === 'cs' ? '<button onclick="openInputCetakDialog()" class="btn-gradient text-white px-5 py-3 rounded-xl font-black shadow-lg text-sm"><i class="fa-solid fa-plus mr-2"></i>Input Cetak</button>' : ''}
+          </div>
+        </section>
+        <section class="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-slate-50 text-[10px] uppercase tracking-widest font-black text-slate-400">
+                <tr><th class="px-5 py-4">Judul</th><th class="px-5 py-4">Spesifikasi</th><th class="px-5 py-4">Pembayaran</th><th class="px-5 py-4">Deadline</th><th class="px-5 py-4 text-right">Aksi</th></tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                ${rows.length ? rows.map((row) => {
+                  const late = String(row.deadlineSelesai || '') < today;
+                  const due = String(row.deadlineSelesai || '') === today;
+                  const spec = [row.ukuran, row.warna, row.jumlahHalWarna ? row.jumlahHalWarna + ' hal warna' : '', row.jenisKertas, row.cover, row.jumlahEks ? row.jumlahEks + ' eks' : ''].filter(Boolean).join(' | ');
+                  return `<tr>
+                    <td class="px-5 py-4"><div class="font-black text-slate-900">${safe(row.judul || '-')}</div><div class="text-xs text-slate-400 mt-1">${safe(row.kotaAsal || '-')} &bull; CS: ${safe(row.csName || '-')}</div></td>
+                    <td class="px-5 py-4 text-xs font-bold text-slate-500">${safe(spec || '-')}</td>
+                    <td class="px-5 py-4"><div class="font-black text-slate-800">${cetakFormatRp(row.nominal)}</div><div class="text-[10px] font-bold ${row.statusPayment === 'DP' ? 'text-amber-600' : 'text-emerald-600'}">${safe(row.statusPayment || 'Full Payment')}${row.statusPayment === 'DP' ? ' ' + cetakFormatRp(row.nominalDP) : ''}</div></td>
+                    <td class="px-5 py-4"><span class="inline-flex px-3 py-1 rounded-full text-xs font-black ${late ? 'bg-red-50 text-red-600' : due ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'}">${safe(row.deadlineSelesai || '-')}</span></td>
+                    <td class="px-5 py-4 text-right"><div class="flex justify-end gap-2"><button onclick="completeCetakJobClient('${safe(row.id)}')" class="px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-black"><i class="fa-solid fa-check mr-1"></i>Selesai Cetak</button><button onclick="openCetakDelayDialog('${safe(row.id)}')" class="px-3 py-2 rounded-xl bg-amber-50 text-amber-700 border border-amber-100 text-xs font-black"><i class="fa-solid fa-clock mr-1"></i>Atur Kemunduran</button></div></td>
+                  </tr>`;
+                }).join('') : '<tr><td colspan="5" class="px-5 py-12 text-center text-slate-400 font-bold">Belum ada proses cetak aktif.</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>`;
+  }).withFailureHandler((error) => {
+    content.innerHTML = `<div class="bg-white rounded-2xl border border-red-100 p-8 text-red-500 font-bold">${cetakSafeText(error?.message || error || 'Server tidak merespons.')}</div>`;
+  }).getCetakJobs(state.user?.username || '', state.user?.role || '');
+}
+
+function completeCetakJobClient(id) {
+  Swal.fire({ title: 'Selesai Cetak?', text: 'Data akan hilang dari daftar proses aktif.', icon: 'question', showCancelButton: true, confirmButtonText: 'Selesai Cetak', cancelButtonText: 'Batal', confirmButtonColor: '#10b981' }).then((result) => {
+    if (!result.isConfirmed) return;
+    Swal.fire({ title: 'Memproses...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    gas.withSuccessHandler((res) => {
+      if (!res || res.success === false) {
+        Swal.fire('Gagal', res?.message || res?.error || 'Proses cetak belum bisa diselesaikan.', 'error');
+        return;
+      }
+      loadInputCetak();
+      refreshDeadlineAlerts(false);
+      Swal.fire('Berhasil', 'Proses cetak ditandai selesai.', 'success');
+    }).withFailureHandler((error) => showServerError('Gagal Menyelesaikan Cetak', error)).completeCetakJob(id, state.user?.username || '', state.user?.role || '');
+  });
+}
+
+function openCetakDelayDialog(id) {
+  Swal.fire({
+    title: 'Atur Kemunduran Cetak',
+    html: '<div class="text-left space-y-3"><label class="block text-xs font-black text-slate-400 uppercase">Deadline Baru</label><input id="cetak_delay_date" type="date" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-bold outline-none"><label class="block text-xs font-black text-slate-400 uppercase">Alasan</label><textarea id="cetak_delay_reason" class="w-full min-h-[6rem] px-4 py-3 rounded-xl border border-slate-200 text-sm font-bold outline-none" placeholder="Tuliskan alasan kemunduran..."></textarea></div>',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Simpan Kemunduran',
+    cancelButtonText: 'Batal',
+    confirmButtonColor: '#f59e0b',
+    preConfirm: () => {
+      const date = document.getElementById('cetak_delay_date')?.value || '';
+      const reason = document.getElementById('cetak_delay_reason')?.value.trim() || '';
+      if (!date || !reason) {
+        Swal.showValidationMessage('Tanggal baru dan alasan wajib diisi.');
+        return false;
+      }
+      return { date, reason };
+    }
+  }).then((result) => {
+    if (!result.isConfirmed || !result.value) return;
+    Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    gas.withSuccessHandler((res) => {
+      if (!res || res.success === false) {
+        Swal.fire('Gagal', res?.message || res?.error || 'Kemunduran gagal disimpan.', 'error');
+        return;
+      }
+      if (state.activeTab === 'input_cetak') loadInputCetak();
+      else if (state.activeTab === 'alert_deadline' && typeof loadDeadlineAlertPage === 'function') loadDeadlineAlertPage();
+      refreshDeadlineAlerts(false);
+      Swal.fire('Tersimpan', 'Deadline cetak berhasil diperbarui.', 'success');
+    }).withFailureHandler((error) => showServerError('Gagal Menyimpan Kemunduran Cetak', error)).delayCetakJob(id, result.value.date, result.value.reason, state.user?.username || '', state.user?.role || '');
+  });
+}
+
+// --- NEW: LAPORAN MANAJEMEN ---
+
+
+
+
+
+
+
+
+
+
+
+
+
+function getHolidayMapClient() {
+  const rows = window._holidaySettings || [];
+  const map = {};
+  rows.forEach((r) => {
+    if (String(r.active || '1') !== '0' && r.tanggal) {
+      map[String(r.tanggal).slice(0, 10)] = true;
+    }
+  });
+  return map;
+}
+
+function addBusinessDaysClient(dateText, days) {
+  const date = dateText ? new Date(dateText + 'T00:00:00') : new Date();
+  let count = 0;
+  const target = Math.max(0, Number(days || 0));
+  const holidays = getHolidayMapClient();
+  while (count < target) {
+    date.setDate(date.getDate() + 1);
+    const day = date.getDay();
+    const dateStr = date.toISOString().slice(0, 10);
+    if (day !== 0 && day !== 6 && !holidays[dateStr]) count++;
+  }
+  return date.toISOString().slice(0, 10);
+}
+
+function businessDaysBetweenClient(startText, endText) {
+  if (!startText || !endText) return 0;
+  const start = new Date(startText + 'T00:00:00');
+  const end = new Date(endText + 'T00:00:00');
+  let count = 0;
+  const holidays = getHolidayMapClient();
+  while (start < end) {
+    start.setDate(start.getDate() + 1);
+    const day = start.getDay();
+    const dateStr = start.toISOString().slice(0, 10);
+    if (day !== 0 && day !== 6 && !holidays[dateStr]) count++;
+  }
+  return Math.max(0, count);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function cssAssignEscape(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[ch]);
+}
+
+function renderCssWorkload(byPublisher) {
+  const entries = Object.entries(byPublisher || {}).sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+  if (!entries.length) return '<div class="text-[11px] font-bold text-slate-300 mt-2">Belum ada naskah aktif.</div>';
+  return "<div class=\"mt-2 flex flex-wrap gap-1.5\">".concat(entries.map(([pub, count]) => "<span class=\"px-2 py-1 rounded-lg bg-slate-50 border border-slate-100 text-[10px] font-black text-slate-500\">".concat(cssAssignEscape(pub), ": ").concat(Number(count || 0), "</span>")).join(''), "</div>");
+}
+
+
+function openCssAssignmentDialog(naskahId) {
+  gas.withSuccessHandler((res) => {
+    const cssRows = res?.data || [];
+    if (!cssRows.length) {
+      Swal.fire('Peringatan', 'Belum ada akun CSS yang tersedia. Silakan buat akun CSS terlebih dahulu.', 'warning');
+      return;
+    }
+    let selectedCssUsername = '';
+    const cssCards = cssRows.map((css) => {
+      const workload = Object.entries(css.byPublisher || {}).map(([pub, count]) => "<span style=\"display:inline-block;padding:2px 8px;margin:2px;border-radius:6px;background:#f1f5f9;font-size:10px;font-weight:700;color:#64748b;\">".concat(cssAssignEscape(pub), ": ").concat(count, "</span>")).join('');
+      return "<button type=\"button\" data-css-assign=\"".concat(cssAssignEscape(css.username), "\" style=\"width:100%;text-align:left;padding:16px;border-radius:12px;border:2px solid #e2e8f0;background:white;cursor:pointer;transition:all 0.2s;margin-bottom:8px;\">\n                    <div style=\"display:flex;align-items:center;justify-content:space-between;\">\n                        <div style=\"flex:1;min-width:0;\">\n                            <div style=\"font-size:14px;font-weight:900;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;\">").concat(
+
+
+        cssAssignEscape(css.nama || css.username), "</div>\n                            <div style=\"font-size:11px;font-weight:700;color:#94a3b8;margin-top:4px;\">").concat(
+        Number(css.total || 0), " naskah aktif</div>\n                            <div style=\"margin-top:6px;\">").concat(
+        workload, "</div>\n                        </div>\n                        <div style=\"width:36px;height:36px;border-radius:8px;background:#f0f3ff;color:#4763FD;display:flex;align-items:center;justify-content:center;margin-left:12px;flex-shrink:0;\" class=\"css-check-icon\" data-css-icon=\"").concat(
+
+        cssAssignEscape(css.username), "\">\n                            <i class=\"fa-solid fa-circle-check\"></i>\n                        </div>\n                    </div>\n                </button>");
+
+
+
+
+    }).join('');
+    Swal.fire({
+      title: 'Pilih CSS Penanggung Jawab',
+      width: 680,
+      html: "\n                    <div style=\"text-align:left;\">\n                        <p style=\"font-size:13px;color:#64748b;font-weight:700;margin-bottom:16px;\">Pilih CSS yang akan menangani naskah ini.</p>\n                        <div style=\"max-height:400px;overflow-y:auto;\">".concat(
+
+
+        cssCards, "</div>\n                    </div>\n                "),
+
+
+      showConfirmButton: true,
+      confirmButtonText: 'Konfirmasi Penugasan',
+      confirmButtonColor: '#4763FD',
+      showCancelButton: false,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => {
+        const confirmBtn = Swal.getConfirmButton();
+        confirmBtn.disabled = true;
+        confirmBtn.style.opacity = '0.5';
+        confirmBtn.style.borderRadius = '999px';
+        confirmBtn.style.padding = '12px 32px';
+        confirmBtn.style.fontWeight = '900';
+        document.querySelectorAll('[data-css-assign]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('[data-css-assign]').forEach((b) => {
+              b.style.borderColor = '#e2e8f0';
+              b.style.background = 'white';
+              const icon = b.querySelector('.css-check-icon');
+              if (icon) {icon.style.opacity = '0';icon.style.transform = 'scale(0.8)';}
+            });
+            btn.style.borderColor = '#4763FD';
+            btn.style.background = '#f0f3ff';
+            const icon = btn.querySelector('.css-check-icon');
+            if (icon) {icon.style.opacity = '1';icon.style.transform = 'scale(1)';}
+            selectedCssUsername = btn.getAttribute('data-css-assign') || '';
+            confirmBtn.disabled = false;
+            confirmBtn.style.opacity = '1';
+          });
+        });
+        confirmBtn.addEventListener('click', () => {
+          if (!selectedCssUsername) return;
+          confirmBtn.disabled = true;
+          confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Menugaskan...';
+          gas.withSuccessHandler((assignRes) => {
+            if (!assignRes || assignRes.success === false) {
+              Swal.fire('Gagal', assignRes?.message || assignRes?.error || 'CSS gagal ditugaskan.', 'error');
+              return;
+            }
+            Swal.fire('Tersimpan!', 'Deal berhasil disimpan dan naskah sudah ditugaskan ke CSS.', 'success');
+          }).withFailureHandler((error) => showServerError('Gagal Menugaskan CSS', error)).assignNaskahCss(naskahId, selectedCssUsername);
+        });
+      }
+    });
+  }).withFailureHandler((error) => showServerError('Gagal Memuat Daftar CSS', error)).getCssAssignmentOptions();
+}
+
+window.openCssAssignmentDialog = openCssAssignmentDialog;
+
+
+
+
+
+
+
+
+
+
+function autoAssignCssToUnassigned() {
+  if (!hasGasMethod('autoAssignUnassignedNaskah')) {
+    Swal.fire('Perlu Deploy Ulang', 'Fungsi auto-assign CSS belum tersedia di deploy saat ini.', 'warning');
+    return;
+  }
+  Swal.fire({
+    title: 'Auto-Assign CSS ke Naskah?',
+    html: "<div class=\"text-left text-sm text-slate-600\">\n                <p>Sistem akan menugaskan CSS secara merata ke semua naskah yang <b>belum memiliki CSS</b>.</p>\n                <p class=\"mt-2\">Naskah yang sudah ada CSS <b>tidak akan berubah</b>.</p>\n            </div>",
+
+
+
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Ya, Assign Sekarang',
+    cancelButtonText: 'Batal',
+    confirmButtonColor: '#4763FD'
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+    Swal.fire({ title: 'Menugaskan...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    gas.withSuccessHandler((res) => {
+      if (!res || res.success === false) {
+        Swal.fire('Gagal', res?.message || 'Gagal melakukan auto-assign.', 'error');
+        return;
+      }
+      const data = res.data || {};
+      Swal.fire('Berhasil', "".concat(Number(data.assigned || 0), " naskah ditugaskan ke ").concat(Number(data.totalCss || 0), " CSS. ").concat(Number(data.skipped || 0), " naskah sudah memiliki CSS."), 'success');
+      loadNaskahMigrasi();
+    }).withFailureHandler((error) => showServerError('Gagal Auto-Assign CSS', error)).autoAssignUnassignedNaskah();
+  });
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function naskahNeedsProofreading(n) {
+  return String(n?.butuhProofreading ?? '1') !== '0';
+}
+
+
+function toggleManualAssignee(selectId, inputId) {
+  const select = document.getElementById(selectId);
+  const input = document.getElementById(inputId);
+  if (!select || !input) return;
+  const isManual = select.value === '__manual__';
+  input.classList.toggle('hidden', !isManual);
+  input.required = isManual;
+  if (!isManual) input.value = '';
+}
+
+function getAssigneeValue(selectId, inputId) {
+  const select = document.getElementById(selectId);
+  const input = document.getElementById(inputId);
+  if (!select) return '';
+  return select.value === '__manual__' ? String(input?.value || '').trim() : select.value;
+}
+
+function toggleJenisSurat(val) {
+  const container = document.getElementById('s_jenis_lainnya_container');
+  const input = document.getElementById('s_jenis_manual');
+  if (val === 'Lainnya') {
+    container.classList.remove('hidden');
+    input.required = true;
+  } else {
+    container.classList.add('hidden');
+    input.required = false;
+    input.value = '';
+  }
+}
+
+function getPicAssignmentLockState(naskah, role = state.user?.role) {
+  const roleKey = typeof normalizeRole === 'function' ? normalizeRole(role || '') : String(role || '').toLowerCase();
+  const stageKey = roleKey === 'pic_editor' ? 'proofreading' : roleKey === 'pic_layouter' ? 'layout' : '';
+  if (!stageKey || !naskah) return { stageKey: '', locked: false };
+  return {
+    stageKey,
+    locked: !isPicStageDeadlineOpenClient(naskah, stageKey)
+  };
+}
+
+function setPicAssignmentInputsEnabled(stageKey, enabled) {
+  const selectId = stageKey === 'proofreading' ? 'n_pic_editor' : 'n_pic_layouter';
+  const manualId = stageKey === 'proofreading' ? 'n_pic_editor_manual' : 'n_pic_layouter_manual';
+  const select = document.getElementById(selectId);
+  const manual = document.getElementById(manualId);
+  if (select) {
+    select.disabled = !enabled;
+    select.classList.toggle('opacity-60', !enabled);
+    select.classList.toggle('cursor-not-allowed', !enabled);
+  }
+  if (manual) {
+    manual.disabled = !enabled;
+    manual.classList.toggle('opacity-60', !enabled);
+    manual.classList.toggle('cursor-not-allowed', !enabled);
+  }
+}
+
+function renderPicAssignmentLock(naskah) {
+  const { stageKey, locked } = getPicAssignmentLockState(naskah);
+  const wrapId = stageKey === 'proofreading' ? 'wrap_n_pic_editor' : stageKey === 'layout' ? 'wrap_n_pic_layouter' : '';
+  const wrap = wrapId ? document.getElementById(wrapId) : null;
+  if (!wrap) return;
+  const existing = wrap.querySelector('#pic_assignment_lock_notice');
+  if (existing) existing.remove();
+  const unlocked = window._picAssignmentUnlock &&
+    window._picAssignmentUnlock.naskahId === naskah.id &&
+    window._picAssignmentUnlock.stageKey === stageKey &&
+    window._picAssignmentUnlock.password;
+  setPicAssignmentInputsEnabled(stageKey, !locked || unlocked);
+  if (!locked || unlocked) return;
+  const notice = document.createElement('div');
+  notice.id = 'pic_assignment_lock_notice';
+  notice.className = 'mt-2 flex flex-wrap items-center gap-2';
+  notice.innerHTML = '<button type="button" onclick="unlockPicAssignment()" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-black shadow-sm"><i class="fa-solid fa-lock-open mr-1"></i>Buka Kunci</button><span class="px-3 py-2 rounded-xl bg-slate-100 text-slate-500 text-[11px] font-bold">Belum masuk jadwal penugasan</span>';
+  wrap.appendChild(notice);
+}
+
+function unlockPicAssignment() {
+  const naskahId = document.getElementById('n_id')?.value || '';
+  const naskah = (mockNaskahDB || []).find((n) => String(n.id) === String(naskahId));
+  const { stageKey } = getPicAssignmentLockState(naskah);
+  if (!naskah || !stageKey) return;
+  Swal.fire({
+    title: 'Buka Kunci Penugasan?',
+    text: 'Masukkan password otorisasi dari manajemen untuk menugaskan lebih cepat.',
+    icon: 'warning',
+    input: 'password',
+    inputPlaceholder: 'Password otorisasi',
+    showCancelButton: true,
+    confirmButtonText: 'Buka Kunci',
+    cancelButtonText: 'Batal',
+    confirmButtonColor: '#0f172a',
+    inputValidator: (value) => !value ? 'Password wajib diisi.' : undefined
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+    window._picAssignmentUnlock = { naskahId: naskah.id, stageKey, password: result.value || '' };
+    renderPicAssignmentLock(naskah);
+    Swal.fire('Terbuka', 'Silakan pilih editor/layouter lalu simpan penugasan.', 'success');
+  });
+}
+window.unlockPicAssignment = unlockPicAssignment;
+
+function toggleQCErrorCount(val) {
+  const wrap = document.getElementById('kpi_qc_error_count_wrap');
+  const input = document.getElementById('kpi_qc_error_count');
+  if (val === 'ada') {
+    if (wrap) wrap.classList.remove('hidden');
+    if (input) input.required = true;
+  } else {
+    if (wrap) wrap.classList.add('hidden');
+    if (input) {input.required = false;input.value = '';}
+  }
+}
+
+
+function handleSaveNaskah(e) {
+  e.preventDefault();
+  const id = document.getElementById('n_id').value;
+  const current = mockNaskahDB.find((n) => n.id === id);
+
+  if (!current) return;
+
+  const role = typeof normalizeRole === 'function' ? normalizeRole(state.user.role) : state.user.role;
+  const isPicEditor = role === 'pic_editor';
+  const isPicLayouter = role === 'pic_layouter';
+
+  // Build payload Ã¯Â¿Â½ always start from current data to preserve untouched fields
+  const payload = { ...current };
+
+  if (isPicEditor) {
+    // PIC Editor: only update editor assignment + proofreading revision limit. Deadline stays automatic.
+    payload.picEditor = getAssigneeValue('n_pic_editor', 'n_pic_editor_manual');
+    payload.batasRevisiProofreading = Number(document.getElementById('n_batas_revisi_proofreading').value) || 0;
+  } else if (isPicLayouter) {
+    // PIC Layouter: only update layouter assignment + layout revision limit. Deadline stays automatic.
+    payload.picLayouter = getAssigneeValue('n_pic_layouter', 'n_pic_layouter_manual');
+    payload.batasRevisiLayout = Number(document.getElementById('n_batas_revisi_layout').value) || 0;
+  } else {
+    // Full access: update semua field
+    payload.tanggal = document.getElementById('n_tanggal').value;
+    payload.batasRevisiProofreading = Number(document.getElementById('n_batas_revisi_proofreading').value) || 0;
+    payload.batasRevisiLayout = Number(document.getElementById('n_batas_revisi_layout').value) || 0;
+    payload.picEditor = getAssigneeValue('n_pic_editor', 'n_pic_editor_manual');
+    payload.picLayouter = getAssigneeValue('n_pic_layouter', 'n_pic_layouter_manual');
+    payload.statusEditor = current.statusEditor || 'Menunggu';
+    payload.statusLayouter = current.statusLayouter || 'Menunggu';
+    payload.revisiProofreading = current.revisiProofreading || 0;
+    payload.revisiLayout = current.revisiLayout || 0;
+    payload.statusIsbn = current.statusIsbn || 'Menunggu';
+    payload.tindakanIsbn = current.tindakanIsbn || '';
+    payload.deadlines = {
+      proofreading: document.getElementById('n_dl_proofreading').value,
+      layout: document.getElementById('n_dl_layout').value,
+      isbn: document.getElementById('n_dl_isbn').value,
+      produksi: document.getElementById('n_dl_produksi').value
+    };
+  }
+
+  const submitNaskah = (password = '') => {
+    payload._userRole = role;
+    if (password) payload.picAssignAuthPassword = password;
+    Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => {Swal.showLoading();} });
+    gas.withSuccessHandler((res) => {
+      if (!res || res.success === false) {
+        Swal.fire('Gagal', res?.message || res?.error || 'Pengaturan produksi gagal disimpan.', 'error');
+        return;
+      }
+      closeModal('modalNaskah');
+      loadNaskah();
+      Swal.fire('Tersimpan!', 'Pengaturan produksi berhasil diperbarui.', 'success');
+    }).withFailureHandler((error) => showServerError('Gagal Menyimpan Naskah', error)).saveNaskahData(payload);
+  };
+
+  const stageKey = isPicEditor ? 'proofreading' : isPicLayouter ? 'layout' : '';
+  const assigneeField = isPicEditor ? 'picEditor' : isPicLayouter ? 'picLayouter' : '';
+  const unlock = window._picAssignmentUnlock || {};
+  const unlockedPassword = unlock.naskahId === current.id && unlock.stageKey === stageKey ? unlock.password : '';
+  const assigningEarly = stageKey && assigneeField &&
+    String(payload[assigneeField] || '').trim() &&
+    String(payload[assigneeField] || '').trim() !== String(current[assigneeField] || '').trim() &&
+    !isPicStageDeadlineOpenClient(current, stageKey);
+
+  if (assigningEarly && !unlockedPassword) {
+    Swal.fire({
+      title: 'Buka Kunci Penugasan?',
+      text: 'Belum masuk jadwal deadline. Masukkan password otorisasi dari manajemen untuk menugaskan lebih cepat.',
+      icon: 'warning',
+      input: 'password',
+      inputPlaceholder: 'Password otorisasi',
+      showCancelButton: true,
+      confirmButtonText: 'Buka Kunci & Simpan',
+      cancelButtonText: 'Batal',
+      confirmButtonColor: '#0f172a',
+      inputValidator: (value) => !value ? 'Password wajib diisi.' : undefined
+    }).then((result) => {
+      if (!result.isConfirmed) return;
+      submitNaskah(result.value || '');
+    });
+    return;
+  }
+
+  submitNaskah(assigningEarly ? unlockedPassword : '');
+}
+
+function handleGenerateSurat(e) {
+  e.preventDefault();
+
+  let sJenis = document.getElementById('s_jenis').value;
+  let isLainnya = false;
+  let jenisTeks = sJenis;
+  
+  if (sJenis === 'Lainnya') {
+    isLainnya = true;
+    jenisTeks = document.getElementById('s_jenis_manual').value;
+  }
+
+  const payload = {
+    jenis: jenisTeks,
+    isLainnya: isLainnya,
+    penerbit: document.getElementById('s_penerbit').value,
+    paket: '',
+    judulNaskah: document.getElementById('s_judul_naskah').value,
+    penulis: document.getElementById('s_penulis_naskah').value,
+    pengambil: state.user.nama
+  };
+  Swal.fire({ title: 'Memproses...', allowOutsideClick: false, didOpen: () => {Swal.showLoading();} });
+  gas.withSuccessHandler((res) => {
+    if (res && res.success === false) {
+      Swal.fire('Gagal', res.message || 'Gagal generate nomor surat', 'error');
+      return;
+    }
+    closeModal('modalSurat');
+    if (typeof loadSurat === 'function') {
+      window._suratJenisFilter = 'semua';
+      loadSurat();
+    }
+    Swal.fire({ title: 'Nomor Surat:', text: res.data, icon: 'success' });
+  }).generateNomor(payload);
+}
+
+function updateNaskahTimeline(id, val) {
+  const naskah = mockNaskahDB.find((n) => n.id === id);
+  naskah.timeline = val;
+  gas.withSuccessHandler(() => {
+    if (state.activeTab === 'progres') loadProgres();
+    if (state.activeTab === 'tugas_naskah') loadTugasNaskah();
+  }).saveNaskahData(naskah);
+}
+
+function trackingDelayStageFromTimeline(timeline) {
+  const text = String(timeline || '').toLowerCase();
+  if (text.includes('proof')) return 'proofreading';
+  if (text.includes('layout') || text.includes('cover')) return 'layout';
+  if (text.includes('isbn')) return 'isbn';
+  if (text.includes('produksi')) return 'produksi';
+  if (text.includes('distribusi')) return 'distribusi';
+  return 'administrasi';
+}
+
+function getTrackingDelayReasons(stageKey) {
+  const rows = window._delayReasons || [];
+  const configured = rows.
+  filter((row) => String(row.stageKey || '') === String(stageKey || '') && String(row.active || '1') !== '0').
+  map((row) => [row.reasonCode, row.label, String(row.needsNote || '0') === '1']);
+  if (configured.length) return configured;
+  const map = {
+    administrasi: [
+    ['final_data_pending', 'Data final penulis belum lengkap', false],
+    ['admin_docs_check', 'Pemeriksaan administrasi membutuhkan waktu tambahan', true]],
+
+    proofreading: [
+    ['proof_time', 'Proofreading membutuhkan waktu tambahan', true],
+    ['author_no_response', 'Penulis tidak merespon pesan konfirmasi', false],
+    ['author_revision_slow', 'Revisi dari penulis lebih lama dari estimasi', false]],
+
+    layout: [
+    ['layout_time', 'Desain cover dan layout membutuhkan waktu tambahan', true],
+    ['author_revision_slow', 'Revisi dari penulis lebih lama dari estimasi', false]],
+
+    isbn: [
+    ['isbn_docs_missing', 'Penulis belum mengirimkan administrasi ISBN', false],
+    ['isbn_rejected', 'Pengajuan ISBN ditolak oleh Perpusnas', false]],
+
+    produksi: [
+    ['production_machine', 'Ada kendala pada mesin produksi', false]],
+
+    distribusi: [
+    ['unpaid', 'Penulis belum menyelesaikan pelunasan', false],
+    ['address_missing', 'Penulis belum mengirimkan alamat', false]]
+
+  };
+  return map[stageKey] || [['general', 'Estimasi tahapan membutuhkan penyesuaian', false]];
+}
+
+function fetchDelayReasonsClient(onSuccess, onFailure) {
+  gas.withSuccessHandler((res) => {
+    window._delayReasons = res?.data || [];
+    onSuccess(res);
+  }).withFailureHandler(onFailure || (() => onSuccess({ success: true, data: [] }))).getDelayReasons();
+}
+
+function parseTrackingDelaysClient(value) {
+  const normalize = (raw) => {
+    const result = {};
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return result;
+    Object.keys(raw).forEach((stageKey) => {
+      const list = Array.isArray(raw[stageKey]) ? raw[stageKey] : [raw[stageKey]];
+      result[stageKey] = list.
+      filter(Boolean).
+      map((item, idx) => ({
+        id: item.id || "TD-".concat(String(stageKey).toUpperCase(), "-").concat(idx + 1),
+        days: Number(item.days || 0),
+        reasonCode: item.reasonCode || '',
+        note: item.note || '',
+        reason: item.reason || 'Estimasi tahapan membutuhkan penyesuaian.',
+        updatedAt: item.updatedAt || ''
+      })).
+      filter((item) => Number(item.days || 0) > 0 || item.reason || item.reasonCode || item.note);
+    });
+    return result;
+  };
+  if (!value) return {};
+  if (typeof value === 'object') return normalize(value);
+  try {
+    return normalize(JSON.parse(value));
+  } catch (error) {
+    return {};
+  }
+}
+
+function getTrackingDelaySummary(naskah) {
+  const labels = {
+    administrasi: 'Administrasi',
+    proofreading: 'Proofreading',
+    layout: 'Desain Cover & Layout',
+    isbn: 'ISBN',
+    produksi: 'Produksi',
+    distribusi: 'Distribusi',
+    selesai: 'Selesai'
+  };
+  const delays = parseTrackingDelaysClient(naskah?.trackingDelays);
+  return Object.keys(labels).
+  flatMap((key) => {
+    const rows = Array.isArray(delays[key]) ? delays[key] : delays[key] ? [delays[key]] : [];
+    return rows.map((row) => ({ key, label: labels[key], ...row }));
+  }).
+  filter((item) => Number(item.days || 0) > 0 || item.reason || item.reasonCode || item.note);
+}
+
+function findTrackingDelayNaskah(id) {
+  const sources = [
+  window._progressNaskahCache,
+  mockNaskahDB,
+  window._tugasNaskahCache,
+  window._deadlineAlertNaskahCache].
+  filter(Array.isArray);
+  for (const source of sources) {
+    const found = source.find((item) => String(item.id) === String(id));
+    if (found) return found;
+  }
+  return null;
+}
+
+function openTrackingDelayDetail(id) {
+  const n = findTrackingDelayNaskah(id);
+  if (!n) {
+    Swal.fire('Data Tidak Ditemukan', 'Detail naskah belum tersedia di halaman ini. Coba muat ulang data progress.', 'warning');
+    return;
+  }
+  const rows = getTrackingDelaySummary(n);
+  const activeRole = typeof normalizeRole === 'function' ? normalizeRole(state.user?.role || '') : String(state.user?.role || '');
+  const canEditDelay = state.activeTab !== 'naskah_diproses_cs' && state.activeTab !== 'progres' && state.activeTab !== 'tracking_progres_produksi' && activeRole !== 'pimpinan' && activeRole !== 'cs' && activeRole !== 'customer_success';
+  const safe = typeof reportSafeText === 'function' ?
+  reportSafeText :
+  (value) => String(value || '-').replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[ch]);
+  Swal.fire({
+    title: 'Detail Kemunduran Timeline',
+    width: 860,
+    customClass: { popup: 'tracking-delay-detail-popup' },
+    html: "\n                <div class=\"text-left space-y-4 max-w-full\">\n                    <div class=\"p-5 rounded-2xl bg-slate-50 border border-slate-100\">\n                        <div class=\"text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1\">Naskah</div>\n                        <div class=\"font-black text-slate-900 break-words\">".concat(
+
+
+
+      safe(n.judul || '-') + (window.getPenerbitBadge ? window.getPenerbitBadge(n.penerbit) : ''), "</div>\n                        <div class=\"text-xs text-slate-500 mt-1\">").concat(
+      safe(n.penulis || '-'), " &bull; ").concat(safe(n.penerbit || '-'), "</div>\n                    </div>\n                    ").concat(
+
+      rows.length ? "\n                        <div class=\"space-y-3\">\n                            ".concat(
+
+        rows.map((row) => "\n                                <div class=\"p-5 rounded-2xl border border-amber-100 bg-amber-50/80\">\n                                    <div class=\"grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 md:items-start\">\n                                        <div class=\"min-w-0\">\n                                            <div class=\"text-[11px] font-black uppercase tracking-widest text-amber-600 break-words\">".concat(
+
+
+
+          safe(row.label), "</div>\n                                            <div class=\"font-black text-slate-900 mt-1\">").concat(
+          Number(row.days || 0), " hari kerja mundur</div>\n                                        </div>\n                                        <div class=\"flex flex-wrap md:flex-nowrap items-center md:justify-end gap-2\">\n                                            <div class=\"px-3 py-1.5 rounded-full bg-white text-amber-600 text-[10px] font-black border border-amber-100 whitespace-nowrap\">").concat(
+
+
+          safe(row.updatedAt || '-'), "</div>\n                                            ").concat(
+          canEditDelay ? "<button type=\"button\" onclick=\"openTrackingDelayDialog('".concat(safe(n.id), "', '").concat(safe(row.key), "', '").concat(safe(row.id || ''), "')\" class=\"px-4 py-1.5 rounded-full bg-amber-600 text-white text-[10px] font-black hover:bg-amber-700 transition whitespace-nowrap\">Edit</button>") : '', "\n                                        </div>\n                                    </div>\n                                    <div class=\"mt-4 text-sm text-amber-900 leading-relaxed break-words\">").concat(
+
+
+          safe(row.reason || 'Estimasi tahapan membutuhkan penyesuaian.'), "</div>\n                                    ").concat(
+          row.note ? "<div class=\"mt-2 text-xs text-slate-500\"><b>Catatan:</b> ".concat(safe(row.note), "</div>") : '', "\n                                </div>\n                            ")
+
+        ).join(''), "\n                        </div>\n                    ") : "\n                        <div class=\"p-6 rounded-2xl bg-white border border-slate-100 text-center text-slate-400 font-bold\">\n                            Belum ada detail kemunduran timeline untuk naskah ini.\n                        </div>\n                    ", "\n                </div>\n            "),
+
+
+
+
+
+
+
+
+    confirmButtonText: 'Tutup',
+    confirmButtonColor: '#4763FD'
+  });
+}
+window.openTrackingDelayDetail = openTrackingDelayDetail;
+
+function copyTrackingCode(code) {
+  const value = String(code || '').trim();
+  if (!value) {
+    Swal.fire('Kode belum tersedia', 'Naskah ini belum memiliki kode tracking.', 'info');
+    return;
+  }
+  const done = () => Swal.fire({
+    title: 'Tersalin',
+    text: 'Kode tracking berhasil disalin.',
+    icon: 'success',
+    timer: 1200,
+    showConfirmButton: false
+  });
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(value).then(done).catch(() => {
+      const input = document.createElement('input');
+      input.value = value;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      input.remove();
+      done();
+    });
+    return;
+  }
+  const input = document.createElement('input');
+  input.value = value;
+  document.body.appendChild(input);
+  input.select();
+  document.execCommand('copy');
+  input.remove();
+  done();
+}
+window.copyTrackingCode = copyTrackingCode;
+
+if (!window._trackingDelayDetailClickBound) {
+  window._trackingDelayDetailClickBound = true;
+  document.addEventListener('click', (event) => {
+    const button = event.target && event.target.closest ? event.target.closest('[data-tracking-delay-detail]') : null;
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    openTrackingDelayDetail(button.getAttribute('data-tracking-delay-detail'));
+  }, true);
+}
+
+function openTrackingDelayDialog(id, stageKey, delayId = '', afterSave = null, options = {}) {
+  const stageLabels = {
+    administrasi: 'Administrasi',
+    proofreading: 'Proofreading',
+    layout: 'Desain Cover & Layout',
+    isbn: 'ISBN',
+    produksi: 'Produksi',
+    distribusi: 'Distribusi'
+  };
+  stageKey = trackingDelayStageFromTimeline(stageKey);
+  const role = normalizeRole(state.user?.role || '');
+  if (role === 'editor' || role === 'pic_editor') stageKey = 'proofreading';
+  if (role === 'layouter' || role === 'pic_layouter') stageKey = 'layout';
+  const canChooseStage = (role === 'css' || role === 'manajemen') && !delayId && !options?.requiredLate;
+  const renderDialog = () => {
+    const reasons = getTrackingDelayReasons(stageKey);
+    const needsNoteValues = reasons.filter((row) => row[2]).map((row) => row[0]);
+    const noteValuesJson = JSON.stringify(needsNoteValues);
+    const currentNaskah = findTrackingDelayNaskah(id);
+    const currentRows = getTrackingDelaySummary(currentNaskah || {}).filter((row) => String(row.key) === String(stageKey));
+    const currentDelay = delayId ? currentRows.find((row) => String(row.id || '') === String(delayId)) : null;
+    const deadlines = currentNaskah?.deadlines || {};
+    const baseDeadlines = currentNaskah?.baseDeadlines || {};
+    const activeDeadline = deadlines[stageKey] || baseDeadlines[stageKey] || '-';
+    const requiredLateNoteHtml = options?.requiredLate ? `
+                            <div class="p-4 rounded-2xl bg-red-50 border border-red-100 text-sm text-red-700 font-bold leading-relaxed">
+                                Naskah sudah terlambat, wajib isi alasan kemunduran sebelum melanjutkan aksi.
+                            </div>` : '';
+    const stageSelectorHtml = canChooseStage ? `
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tahapan yang diatur *</label>
+                                <select id="delay_stage" class="swal2-input !mx-0 !mt-0 !w-full" onchange="Swal.close(); openTrackingDelayDialog('${reportSafeText(id)}', this.value)">
+                                    ${Object.keys(stageLabels).map((key) => `<option value="${key}" ${stageKey === key ? 'selected' : ''}>${reportSafeText(stageLabels[key])}</option>`).join('')}
+                                </select>
+                            </div>` : '';
+    Swal.fire({
+      title: "".concat(currentDelay ? 'Edit' : 'Tambah', " Mundur Estimasi ").concat(stageLabels[stageKey] || stageKey),
+      width: 'min(92vw, 1120px)',
+      customClass: { popup: 'naskah-landscape-popup' },
+      html: "\n                <div class=\"text-left max-h-[68vh] overflow-y-auto pr-1\">\n                    <div class=\"grid grid-cols-1 xl:grid-cols-[1.25fr_0.95fr] gap-5\">\n                        <div class=\"space-y-3\">\n                            <div class=\"p-5 rounded-2xl bg-slate-50 border border-slate-100\">\n                                <div class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">Naskah</div>\n                                <div class=\"font-black text-slate-900 mt-1 text-base leading-snug\">".concat(
+
+
+
+
+
+        reportSafeText(currentNaskah?.judul || '-'), "</div>\n                                <div class=\"text-xs text-slate-500 mt-2\">").concat(
+        reportSafeText(currentNaskah?.penulis || '-'), " &bull; Deadline tahap: <b>").concat(reportSafeText(activeDeadline), "</b></div>\n                            </div>\n                            ").concat(requiredLateNoteHtml, "\n                            ").concat(stageSelectorHtml, "\n                            <div class=\"grid grid-cols-1 sm:grid-cols-2 gap-3\">\n                                <div>\n                                    <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1\">Jumlah Hari Kerja Mundur *</label>\n                                    <input id=\"delay_days\" type=\"number\" min=\"0\" value=\"").concat(
+
+
+
+
+        Number(currentDelay?.days || 1), "\" class=\"swal2-input !mx-0 !mt-0 !w-full\" placeholder=\"Contoh: 2\">\n                                </div>\n                                <div>\n                                    <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1\">Alasan Sistem *</label>\n                                    <select id=\"delay_reason\" class=\"swal2-input !mx-0 !mt-0 !w-full\" onchange='document.getElementById(\"delay_note_wrap\").style.display=(").concat(
+
+
+
+        noteValuesJson, ").includes(this.value)?\"block\":\"none\"'>\n                                        ").concat(
+        reasons.map(([value, label]) => "<option value=\"".concat(value, "\" ").concat(currentDelay?.reasonCode === value ? 'selected' : '', ">").concat(reportSafeText(label), "</option>")).join(''), "\n                                    </select>\n                                </div>\n                            </div>\n                            <div id=\"delay_note_wrap\" style=\"display:").concat(
+
+
+
+        needsNoteValues.includes(currentDelay?.reasonCode || reasons[0]?.[0]) ? 'block' : 'none', "\">\n                                <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest\">Catatan Tambahan</label>\n                                <textarea id=\"delay_note\" class=\"swal2-textarea !mx-0 !mt-1 !w-full\" placeholder=\"Contoh: Naskah memerlukan pengecekan struktur lebih mendalam.\">").concat(
+
+        reportSafeText(currentDelay?.note || ''), "</textarea>\n                            </div>\n                            <p class=\"text-xs text-slate-400\">Jika alasan yang sama dipilih lagi pada tahap yang sama, kemunduran akan ditambahkan sebagai catatan baru dan jumlah harinya akan diakumulasikan.</p>\n                        </div>\n                        <div class=\"rounded-2xl border border-amber-100 bg-amber-50/70 p-4\">\n                            <div class=\"text-[10px] font-black text-amber-600 uppercase tracking-widest mb-3\">Kemunduran yang sudah tercatat</div>\n                            ").concat(
+
+
+
+
+
+        currentRows.length ? "\n                                <div class=\"space-y-2\">\n                                    ".concat(
+
+          currentRows.map((row) => "<div class=\"rounded-xl bg-white/80 border border-amber-100 p-3 text-xs\">\n                                        <div class=\"flex items-start justify-between gap-3\">\n                                            <div class=\"min-w-0\">\n                                                <div class=\"font-black text-slate-900\">".concat(
+
+
+            Number(row.days || 0), " hari kerja</div>\n                                                <div class=\"text-amber-800 mt-1 leading-relaxed\">").concat(
+            reportSafeText(row.reason || row.reasonCode || '-'), "</div>\n                                                ").concat(
+            row.note ? "<div class=\"text-slate-500 mt-1\">".concat(reportSafeText(row.note), "</div>") : '', "\n                                            </div>\n                                            <button type=\"button\" onclick=\"Swal.close(); openTrackingDelayDialog('").concat(
+
+            reportSafeText(id), "', '").concat(reportSafeText(stageKey), "', '").concat(reportSafeText(row.id || ''), "')\" class=\"shrink-0 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-[10px] font-black\">Edit</button>\n                                        </div>\n                                    </div>")
+
+          ).join(''), "\n                                </div>") :
+        '<div class="rounded-xl bg-white/70 border border-amber-100 p-5 text-center text-amber-700 text-xs font-bold">Belum ada kemunduran pada tahap ini.</div>', "\n                        </div>\n                    </div>\n                </div>"),
+
+
+
+      showCancelButton: true,
+      confirmButtonText: 'Simpan Penyesuaian',
+      cancelButtonText: 'Batal',
+      preConfirm: () => {
+        const selectedStage = document.getElementById('delay_stage')?.value || stageKey;
+        const days = Number(document.getElementById('delay_days').value || 0);
+        const reason = document.getElementById('delay_reason').value;
+        const note = document.getElementById('delay_note')?.value?.trim() || '';
+        if (days < 0) return Swal.showValidationMessage('Jumlah hari tidak valid.');
+        return { stageKey: selectedStage, days, reason, note };
+      }
+    }).then((result) => {
+      if (!result.isConfirmed) return;
+      gas.withSuccessHandler((res) => {
+        if (!res || res.success === false) {
+          Swal.fire('Gagal', res?.message || 'Penyesuaian estimasi gagal disimpan.', 'error');
+          return;
+        }
+        Swal.fire('Tersimpan', 'Estimasi tracking berhasil diperbarui.', 'success');
+        if (state.activeTab !== 'alert_deadline') {
+          refreshDeadlineAlerts(false);
+          if (state.activeTab === 'progres') loadProgres();
+          if (state.activeTab === 'tugas_naskah') loadTugasNaskah();
+          if (state.activeTab === 'naskah_migrasi') loadNaskahMigrasi();
+        }
+        if (typeof afterSave === 'function') setTimeout(afterSave, 350);
+      }).withFailureHandler((error) => showServerError('Gagal Menyimpan Estimasi', error)).saveNaskahTrackingDelay(id, result.value.stageKey, result.value.days, result.value.reason, result.value.note, state.user?.role || '', delayId || '');
+    });
+  };
+  if (window._delayReasons) renderDialog();else
+  fetchDelayReasonsClient(renderDialog, renderDialog);
+}
+window.openTrackingDelayDialog = openTrackingDelayDialog;
+
+function viewDetailNaskah(id) {
+  const n = mockNaskahDB.find((x) => x.id === id);
+  if (!n) return;
+  const isPicRole = state.user?.role === 'pic_editor' || state.user?.role === 'pic_layouter';
+
+  Swal.fire({
+    title: 'Detail Naskah',
+    customClass: { popup: 'naskah-landscape-popup' },
+    html: "\n                    <div class=\"text-left text-sm space-y-4 mt-4 max-h-[68vh] overflow-y-auto pr-1\">\n                        <div class=\"p-5 bg-slate-50 rounded-2xl border border-slate-100\">\n                            <div class=\"text-[10px] text-accent-600 font-black uppercase tracking-widest mb-2\">Kode Tracking: ".concat(
+
+
+      n.trackingCode || '-', " <button type=\"button\" onclick=\"viewNaskahPhone('").concat(
+      picNaskahAttr(n.id), "')\" class=\"ml-2 px-2 py-1 rounded-lg bg-accent-50 hover:bg-accent-100 text-accent-600 text-[10px] font-black align-middle\"><i class=\"fa-solid fa-phone mr-1\"></i>Lihat No HP</button></div>\n                            <h4 class=\"font-black text-slate-900 text-lg leading-snug mb-2\">").concat(
+      n.judul, "</h4>\n                            <div class=\"grid grid-cols-1 md:grid-cols-3 gap-2 text-xs text-slate-500\">\n                                <div><b>Penulis:</b> ").concat(
+
+      n.penulis || '-', "</div>\n                                <div><b>CS:</b> ").concat(
+      n.cs || '-', "</div>\n                                <div><b>Tahap:</b> ").concat(
+      n.timeline || '-', "</div>\n                            </div>\n                        </div>\n                        <div class=\"grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 text-xs\">\n                            <div class=\"bg-white p-4 rounded-2xl border border-slate-100 shadow-sm\">\n                                <span class=\"text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1\">Penerbit</span>\n                                <span class=\"font-bold text-slate-700\">").concat(
+
+
+
+
+
+      n.penerbit || '-', "</span>\n                            </div>\n                            <div class=\"bg-white p-4 rounded-2xl border border-slate-100 shadow-sm\">\n                                <span class=\"text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1\">Paket</span>\n                                <span class=\"font-bold text-slate-700\">").concat(
+
+
+
+      n.paket || '-', "</span>\n                            </div>\n                            <div class=\"bg-white p-4 rounded-2xl border border-slate-100 shadow-sm\">\n                                <span class=\"text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1\">Ukuran Buku</span>\n                                <span class=\"font-bold text-slate-700\">").concat(
+
+
+
+      n.ukuran || '-', "</span>\n                            </div>\n                            <div class=\"bg-white p-4 rounded-2xl border border-slate-100 shadow-sm\">\n                                <span class=\"text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1\">CSS</span>\n                                <span class=\"font-bold text-slate-700\">").concat(
+
+
+
+      n.assignedCssName || n.assignedCssUsername || '-', "</span>\n                            </div>\n                        </div>\n                        \n                        <div class=\"grid grid-cols-1 xl:grid-cols-2 gap-3\">\n                        <div class=\"p-4 bg-white border border-slate-100 rounded-2xl shadow-sm\">\n                            <div class=\"text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2\">Estimasi Beban Kerja</div>\n                            <div class=\"grid grid-cols-2 gap-2 text-xs font-bold text-slate-700\">\n                                <div><i class=\"fa-solid fa-file-lines text-accent-500 mr-1\"></i> ").concat(
+
+
+
+
+
+
+
+      n.estimasiHalaman || 0, " Hal</div>\n                                <div><i class=\"fa-solid fa-keyboard text-accent-500 mr-1\"></i> ").concat(
+      n.estimasiKata || 0, " Kata</div>\n                            </div>\n                        </div>\n\n                        <div class=\"p-4 bg-white border border-red-50 rounded-2xl shadow-sm\">\n                            <div class=\"text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2\">Informasi Revisi</div>\n                            <div class=\"grid grid-cols-2 gap-2 text-[11px] text-slate-600\">\n                                <div>Batas Editor: <b>").concat(
+
+
+
+
+
+
+      n.batasRevisiProofreading || 0, "x</b></div>\n                                <div>Batas Layout: <b>").concat(
+      n.batasRevisiLayout || 0, "x</b></div>\n                                <div class=\"text-red-500 flex items-center gap-1\">Aktual Editor: ").concat(
+      isPicRole ? `<input type="number" min="0" value="${n.revisiProofreading || 0}" onchange="updateNaskahField('${n.id}', 'revisiProofreading', this.value)" class="w-12 px-1 py-0.5 border border-slate-200 rounded text-[10px] outline-none">` : `<b>${n.revisiProofreading || 0}x</b>`, "</div>\n                                <div class=\"text-red-500 flex items-center gap-1\">Aktual Layout: ").concat(
+      isPicRole ? `<input type="number" min="0" value="${n.revisiLayout || 0}" onchange="updateNaskahField('${n.id}', 'revisiLayout', this.value)" class="w-12 px-1 py-0.5 border border-slate-200 rounded text-[10px] outline-none">` : `<b>${n.revisiLayout || 0}x</b>`, "</div>\n                            </div>\n                        </div>\n\n                        <div class=\"p-4 bg-white border border-blue-50 rounded-2xl shadow-sm\">\n                            <div class=\"text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2\">Target Deadline</div>\n                            <div class=\"grid grid-cols-2 gap-2 text-[11px] text-slate-600\">\n                                <div>Proofreading: <b>").concat(
+      (n.deadlines && n.deadlines.proofreading) || '-', "</b></div>\n                                <div>Layout: <b>").concat(
+      (n.deadlines && n.deadlines.layout) || '-', "</b></div>\n                                <div>ISBN: <b>").concat(
+      (n.deadlines && n.deadlines.isbn) || '-', "</b></div>\n                                <div>Cetak: <b>").concat(
+      (n.deadlines && n.deadlines.produksi) || '-', "</b></div>\n                            </div>\n                        </div>\n\n                        <div class=\"p-4 bg-white border border-purple-50 rounded-2xl shadow-sm\">\n                            <div class=\"text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2\">Status Pengajuan ISBN</div>\n                            ").concat(
+      isPicRole ? `
+        <select onchange="updateIsbnStatus('${n.id}', this.value)" class="w-full p-1.5 border border-slate-200 rounded text-xs font-bold outline-none bg-white">
+            <option value="Menunggu" ${(!n.statusIsbn || n.statusIsbn === 'Menunggu') ? 'selected' : ''}>Menunggu</option>
+            <option value="Pengajuan" ${n.statusIsbn === 'Pengajuan' ? 'selected' : ''}>Pengajuan</option>
+            <option value="Diterima" ${n.statusIsbn === 'Diterima' ? 'selected' : ''}>Diterima</option>
+            <option value="Diperbaiki" ${n.statusIsbn === 'Diperbaiki' ? 'selected' : ''}>Diperbaiki</option>
+            <option value="QRSBN" ${n.statusIsbn === 'QRSBN' ? 'selected' : ''}>QRSBN</option>
+        </select>
+      ` : `<span class="font-bold text-slate-700">${n.statusIsbn || 'Menunggu'}</span>`, "\n                        </div>\n                        </div>\n\n                        ").concat(
+
+
+
+
+      (() => {
+        const linkedDeal = n.dealId ? mockDealDB.find((d) => d.id === n.dealId) : null;
+        const catatan = linkedDeal?.catatan || n.catatanCS || '';
+        return catatan ? "\n                            <div class=\"p-4 bg-amber-50 border border-amber-200 rounded-2xl shadow-sm\">\n                                <div class=\"text-[10px] text-amber-600 font-bold uppercase tracking-wider mb-1\"><i class=\"fa-solid fa-note-sticky mr-1\"></i>Catatan dari CS</div>\n                                <p class=\"text-xs text-amber-800 leading-relaxed italic\">".concat(
+
+
+          catatan, "</p>\n                            </div>") :
+        '';
+      })(), "\n                    </div>\n            "),
+
+
+    confirmButtonColor: '#0ea5e9',
+    confirmButtonText: 'Tutup',
+    width: 'min(92vw, 1080px)'
+  });
+}
+
+function viewNaskahPhone(id) {
+  const n = (mockNaskahDB || []).find((x) => String(x.id) === String(id));
+  if (!n) return;
+  const linkedDeal = n.dealId ? (mockDealDB || []).find((d) => String(d.id) === String(n.dealId)) : null;
+  const phone = n.noHpPenulis || linkedDeal?.noHpPenulis || '-';
+  Swal.fire({
+    title: 'No HP Penulis',
+    html: "<div class=\"text-center\"><div class=\"text-xs text-slate-400 font-black uppercase tracking-widest mb-2\">".concat(
+      picNaskahSafe(n.penulis || 'Penulis'), "</div><div class=\"text-2xl font-black text-slate-900 font-mono\">").concat(
+      picNaskahSafe(phone), "</div></div>"),
+    icon: 'info',
+    confirmButtonText: 'Tutup',
+    confirmButtonColor: '#4763FD'
+  });
+}
+window.viewNaskahPhone = viewNaskahPhone;
+
+function sendWhatsAppTracking(id) {
+  const n = (mockNaskahDB || []).find((x) => String(x.id) === String(id));
+  if (!n) return;
+  const linkedDeal = n.dealId ? (mockDealDB || []).find((d) => String(d.id) === String(n.dealId)) : null;
+  const phone = n.noHpPenulis || linkedDeal?.noHpPenulis || '';
+  let phoneStr = String(phone);
+  if (!phoneStr || phoneStr === '-' || phoneStr === 'undefined') {
+    return Swal.fire('No HP Tidak Tersedia', 'Naskah ini tidak memiliki No HP penulis.', 'error');
+  }
+  
+  let formattedPhone = phoneStr.replace(/\D/g, '');
+  if (formattedPhone.startsWith('0')) {
+    formattedPhone = '62' + formattedPhone.substring(1);
+  }
+  
+  const template = window._whatsAppTrackingTemplate || 'Halo {{nama_penulis}}, progres naskah {{judul_naskah}} tahap {{tahap_saat_ini}}. Kode tracking: {{kode_tracking}}. Estimasi: {{estimasi_selesai}}';
+  
+  const timeline = n.timeline || 'Administrasi';
+  const deadlines = n.deadlines || {};
+  let estimasiSelesai = 'Belum ditentukan';
+  
+  if (timeline === 'Proofreading' && deadlines.proofreading) estimasiSelesai = window.formatDateShort ? formatDateShort(deadlines.proofreading) : deadlines.proofreading;
+  else if (timeline === 'Desain Cover & Layout' && deadlines.layout) estimasiSelesai = window.formatDateShort ? formatDateShort(deadlines.layout) : deadlines.layout;
+  else if (timeline === 'ISBN' && deadlines.isbn) estimasiSelesai = window.formatDateShort ? formatDateShort(deadlines.isbn) : deadlines.isbn;
+  else if (timeline === 'Selesai Cetak' && deadlines.cetak) estimasiSelesai = window.formatDateShort ? formatDateShort(deadlines.cetak) : deadlines.cetak;
+  
+  let message = template
+    .replace(/\{\{nama_penulis\}\}/g, n.penulis || 'Penulis')
+    .replace(/\{\{judul_naskah\}\}/g, n.judul || 'Naskah')
+    .replace(/\{\{tahap_saat_ini\}\}/g, timeline)
+    .replace(/\{\{kode_tracking\}\}/g, n.trackingCode || '-')
+    .replace(/\{\{estimasi_selesai\}\}/g, estimasiSelesai);
+    
+  const encodedMessage = encodeURIComponent(message);
+  window.open('https://wa.me/' + formattedPhone + '?text=' + encodedMessage, '_blank');
+}
+window.sendWhatsAppTracking = sendWhatsAppTracking;
+
+function isBeforeKpiActiveDate(activeDate) {
+  if (!activeDate) return false;
+  const today = new Date().toISOString().split('T')[0];
+  return today < activeDate;
+}
+
+function saveStatusWithoutKpiBeforeActive(naskah, field, val, activeDate) {
+  Swal.fire({
+    title: 'KPI Belum Aktif',
+    html: "Tanggal aktif KPI adalah <b>".concat(activeDate, "</b>.<br>Status naskah akan diperbarui sebagai tracking saja, tanpa mencatat KPI."),
+    icon: 'info',
+    showCancelButton: true,
+    confirmButtonText: 'Update Tracking',
+    cancelButtonText: 'Batal',
+    confirmButtonColor: '#4763FD'
+  }).then((result) => {
+    if (!result.isConfirmed) {
+      if (state.activeTab === 'tugas_naskah') loadTugasNaskah();
+      return;
+    }
+    naskah[field] = val;
+    gas.withSuccessHandler(() => {
+      if (state.activeTab === 'tugas_naskah') loadTugasNaskah();
+      Swal.fire('Tersimpan', 'Status naskah diperbarui tanpa mencatat KPI.', 'success');
+    }).saveNaskahData(naskah);
+  });
+}
+
+
+function logKendala(naskah, jenis, keterangan) {
+  const payload = {
+    naskahId: naskah.id,
+    judul: naskah.judul,
+    jenis: jenis,
+    keterangan: keterangan
+  };
+  gas.withSuccessHandler(() => {}).saveKendalaData(payload);
+}
+
+function updateNaskahField(id, field, value) {
+  const naskah = mockNaskahDB.find((n) => n.id === id);
+  if (naskah) {
+    const oldVal = naskah[field] || 0;
+    naskah[field] = field.includes('revisi') ? Number(value) : value;
+
+    // LOGIC: Catat kendala jika revisi melebihi jatah
+    if (field === 'revisiProofreading') {
+      const limit = naskah.batasRevisiProofreading || 0;
+
+      // Hanya catat jika ada penambahan (value baru > value lama) dan melampaui limit
+      if (Number(value) > limit && Number(value) > oldVal) {
+        logKendala(naskah, 'Revisi Over Limit', "Revisi Proofreading bertambah menjadi ".concat(value, "x, melebihi batas maksimal (").concat(limit, "x)."));
+      }
+    } else if (field === 'revisiLayout') {
+      const limit = naskah.batasRevisiLayout || 0;
+
+      if (Number(value) > limit && Number(value) > oldVal) {
+        logKendala(naskah, 'Revisi Over Limit', "Revisi Layout bertambah menjadi ".concat(value, "x, melebihi batas maksimal (").concat(limit, "x)."));
+      }
+    }
+
+    gas.withSuccessHandler(() => {
+      if (state.activeTab === 'progres') loadProgres();
+    }).saveNaskahData(naskah);
+  }
+}
+
+function updateIsbnStatus(id, value) {
+  const naskah = mockNaskahDB.find((n) => n.id === id);
+  if (naskah) {
+    naskah.statusIsbn = value;
+    if (value === 'Diperbaiki') {
+      // LOGIC: Catat kendala jika ISBN perlu diperbaiki
+      logKendala(naskah, 'ISBN Diperbaiki', 'Pengajuan ISBN dikembalikan/perlu diperbaiki oleh Perpusnas.');
+    }
+
+    gas.withSuccessHandler(() => {
+      if (state.activeTab === 'progres') loadProgres();
+    }).saveNaskahData(naskah);
+  }
+}
+
+function populatePenerbitDropdown(selectId, selectedValue = '', callback = null) {
+  gas.withSuccessHandler((res) => {
+    const select = document.getElementById(selectId);
+    if (!select) return; // Safeguard DOM
+    select.innerHTML = '<option value="">Pilih Penerbit</option>';
+    (res?.data?.penerbit || []).forEach((p) => {
+      const option = document.createElement('option');
+      option.value = p.nama;
+      option.textContent = p.nama;
+      if (p.nama === selectedValue) option.selected = true;
+      select.appendChild(option);
+    });
+    if (callback) callback(); // Panggil fungsi selanjutnya (update paket)
+  }).getSettingsData();
+}
+
+function updatePaketDropdown(penerbitId, paketId, selectedValue = '', callback = null) {
+  const penerbitEl = document.getElementById(penerbitId);
+  if (!penerbitEl) return;
+  const penerbitNama = penerbitEl.value;
+
+  gas.withSuccessHandler((res) => {
+    const paketSelect = document.getElementById(paketId);
+    if (!paketSelect) return; // Safeguard DOM
+    paketSelect.innerHTML = '<option value="">Pilih Paket</option>';
+
+    const pub = (res?.data?.penerbit || []).find((p) => p.nama === penerbitNama);
+    if (pub && pub.paket) {
+      pub.paket.forEach((p) => {
+        const option = document.createElement('option');
+        option.value = p;
+        option.textContent = p;
+        if (p === selectedValue) option.selected = true;
+        paketSelect.appendChild(option);
+      });
+    } else {
+      paketSelect.innerHTML = '<option value="">Pilih Penerbit Dulu</option>';
+    }
+    if (callback) callback();
+  }).getSettingsData();
+}
+
+function autoFillNaskah(dealId) {
+  if (!dealId) {
+    document.getElementById('n_judul').value = '';
+    document.getElementById('n_penulis').value = '';
+    document.getElementById('n_cs').value = '';
+    document.getElementById('n_penerbit').value = '';
+    document.getElementById('n_paket').value = '';
+    return;
+  }
+  gas.withSuccessHandler((res) => {
+    const deal = res.data.find((d) => d.id === dealId);
+    if (deal) {
+      document.getElementById('n_judul').value = deal.judul;
+      document.getElementById('n_penulis').value = deal.penulis;
+      document.getElementById('n_cs').value = deal.csName;
+      document.getElementById('n_penerbit').value = deal.penerbit;
+      document.getElementById('n_paket').value = deal.paket;
+    }
+  }).getDealData();
+}
+
+function populatePICDropdowns(selectedEditor = '', selectedLayouter = '', callback = null) {
+  gas.withSuccessHandler((res) => {
+    const picEditorSelect = document.getElementById('n_pic_editor');
+    const picLayouterSelect = document.getElementById('n_pic_layouter');
+    const data = res?.data || [];
+
+    if (picEditorSelect) {
+      const knownEditors = data.filter((u) => u.role === 'editor' || u.role === 'pic_editor').map((u) => u.nama);
+      picEditorSelect.innerHTML = '<option value="">Pilih Editor...</option>';
+      // Show editors and PIC Editor so PIC can assign proofreading to themselves when needed.
+      knownEditors.forEach((nama) => {
+        picEditorSelect.innerHTML += "<option value=\"".concat(nama, "\" ").concat(nama === selectedEditor ? 'selected' : '', ">").concat(nama, "</option>");
+      });
+      picEditorSelect.innerHTML += '<option value="__manual__">Lainnya / Freelance</option>';
+      if (selectedEditor && !knownEditors.includes(selectedEditor)) {
+        picEditorSelect.value = '__manual__';
+        const manual = document.getElementById('n_pic_editor_manual');
+        if (manual) manual.value = selectedEditor;
+      }
+      picEditorSelect.onchange = () => toggleManualAssignee('n_pic_editor', 'n_pic_editor_manual');
+      toggleManualAssignee('n_pic_editor', 'n_pic_editor_manual');
+    }
+
+    if (picLayouterSelect) {
+      const knownLayouters = data.filter((u) => u.role === 'layouter' || u.role === 'pic_layouter').map((u) => u.nama);
+      picLayouterSelect.innerHTML = '<option value="">Pilih Layouter...</option>';
+      // Show layouters and PIC Layouter so PIC can assign layout to themselves when needed.
+      knownLayouters.forEach((nama) => {
+        picLayouterSelect.innerHTML += "<option value=\"".concat(nama, "\" ").concat(nama === selectedLayouter ? 'selected' : '', ">").concat(nama, "</option>");
+      });
+      picLayouterSelect.innerHTML += '<option value="__manual__">Lainnya / Freelance</option>';
+      if (selectedLayouter && !knownLayouters.includes(selectedLayouter)) {
+        picLayouterSelect.value = '__manual__';
+        const manual = document.getElementById('n_pic_layouter_manual');
+        if (manual) manual.value = selectedLayouter;
+      }
+      picLayouterSelect.onchange = () => toggleManualAssignee('n_pic_layouter', 'n_pic_layouter_manual');
+      toggleManualAssignee('n_pic_layouter', 'n_pic_layouter_manual');
+    }
+
+    if (callback) callback();
+  }).getUsersData();
+}
+
+function openFormNaskah() {
+
+
+
+
+
+
+  // Form ini tidak lagi digunakan untuk Tambah Data, tapi saya akan sisakan function ini untuk antisipasi error
+  // Data ditarik otomatis dari Deal CS.
+}function editNaskah(id) {const d = mockNaskahDB.find((n) => n.id === id);if (!d) return;const role = state.user.role;
+  const roleKey = typeof normalizeRole === 'function' ? normalizeRole(role) : role;
+  const isPicEditor = roleKey === 'pic_editor';
+  const isPicLayouter = roleKey === 'pic_layouter';
+  window._picAssignmentUnlock = null;
+
+  // Set modal title based on role
+  if (isPicEditor) {
+    document.getElementById('naskahModalTitle').innerText = "Tugaskan Editor";
+  } else if (isPicLayouter) {
+    document.getElementById('naskahModalTitle').innerText = "Tugaskan Layouter";
+  } else {
+    document.getElementById('naskahModalTitle').innerText = "Atur Penugasan & Deadline Produksi";
+  }
+
+  document.getElementById('n_id').value = d.id;
+  document.getElementById('n_deal_source').value = d.dealId || '';
+  document.getElementById('n_judul').value = d.judul;
+  document.getElementById('n_penulis').value = d.penulis;
+  document.getElementById('n_cs').value = d.cs;
+  document.getElementById('n_penerbit').value = d.penerbit;
+  document.getElementById('n_paket').value = d.paket;
+  document.getElementById('n_tanggal').value = d.tanggal;
+  document.getElementById('n_batas_revisi_proofreading').value = d.batasRevisiProofreading || 0;
+  document.getElementById('n_batas_revisi_layout').value = d.batasRevisiLayout || 0;
+
+  // --- Show/Hide fields based on role ---
+  const show = (id) => {const el = document.getElementById(id);if (el) el.style.display = '';};
+  const hide = (id) => {const el = document.getElementById(id);if (el) el.style.display = 'none';};
+  const tanggalInput = document.getElementById('n_tanggal');
+  if (tanggalInput) tanggalInput.required = !(isPicEditor || isPicLayouter);
+
+  if (isPicEditor) {
+    // PIC Editor: only editor assignment + proofreading revision limit
+    hide('wrap_n_tanggal');
+    show('wrap_n_pic_editor');
+    hide('wrap_n_pic_layouter');
+    hide('wrap_n_deadline_section_title');
+    hide('wrap_n_deadline_section');
+    show('wrap_n_batas_revisi_proofreading');
+    hide('wrap_n_batas_revisi_layout');
+  } else if (isPicLayouter) {
+    // PIC Layouter: only layouter assignment + layout revision limit
+    hide('wrap_n_tanggal');
+    hide('wrap_n_pic_editor');
+    show('wrap_n_pic_layouter');
+    hide('wrap_n_deadline_section_title');
+    hide('wrap_n_deadline_section');
+    hide('wrap_n_batas_revisi_proofreading');
+    show('wrap_n_batas_revisi_layout');
+  } else {
+    show('wrap_n_tanggal');
+    // Full access (e.g. CSS or admin) Ã¯Â¿Â½ show everything
+    show('wrap_n_pic_editor');
+    show('wrap_n_pic_layouter');
+    show('wrap_n_deadline_section_title');
+    show('wrap_n_deadline_section');
+    show('wrap_n_dl_proofreading');
+    show('wrap_n_dl_layout');
+    show('wrap_n_dl_isbn');
+    show('wrap_n_dl_produksi');
+    show('wrap_n_batas_revisi_proofreading');
+    show('wrap_n_batas_revisi_layout');
+  }
+
+  // Populate PIC dropdowns (always populate both; visibility controlled above)
+  if (isPicEditor || isPicLayouter) {
+    renderPicAssignmentLock(d);
+  }
+
+  populatePICDropdowns(d.picEditor, d.picLayouter, () => {
+    if (isPicEditor || isPicLayouter) {
+      renderPicAssignmentLock(d);
+    } else {
+      setPicAssignmentInputsEnabled('proofreading', true);
+      setPicAssignmentInputsEnabled('layout', true);
+    }
+  });
+
+  const applyDeadlineDefaults = (settings = null) => {
+    document.getElementById('n_dl_proofreading').value = getNaskahDeadlineValue(d, 'proofreading', settings);
+    document.getElementById('n_dl_layout').value = getNaskahDeadlineValue(d, 'layout', settings);
+    document.getElementById('n_dl_isbn').value = getNaskahDeadlineValue(d, 'isbn', settings);
+    document.getElementById('n_dl_produksi').value = getNaskahDeadlineValue(d, 'produksi', settings);
+  };
+  applyDeadlineDefaults(window._deadlineSettings || null);
+  if (!d.deadlines && !d.baseDeadlines && !window._deadlineSettings) {
+    fetchDeadlineSettingsClient((res) => {
+      window._deadlineSettings = res?.data || getDefaultDeadlineSettings();
+      applyDeadlineDefaults(window._deadlineSettings);
+    }, () => applyDeadlineDefaults(getDefaultDeadlineSettings()));
+  }
+
+  openModal('modalNaskah');
+}
+
+function deleteNaskah(id) {Swal.fire({ title: 'Hapus Naskah?', text: 'Tindakan ini permanen!', icon: 'warning', showCancelButton: true }).then((r) => {if (r.isConfirmed) gas.withSuccessHandler(() => loadNaskah()).deleteNaskah(id);});}
+
+function requestDeleteNaskah(id) {
+  const naskah = (mockNaskahDB || []).find((n) => n.id === id);
+  if (!naskah) {
+    Swal.fire('Data Tidak Ditemukan', 'Naskah tidak ditemukan atau data belum termuat.', 'warning');
+    return;
+  }
+  Swal.fire({
+    title: 'Batalkan Naskah?',
+    html: "\n                    <div class=\"text-left text-sm text-slate-600 mb-3\">\n                        Request akan masuk ke akun manajemen untuk dikonfirmasi. Jika disetujui, naskah disembunyikan dari semua role aktif.\n                    </div>\n                    <textarea id=\"cancel_reason\" class=\"w-full min-h-[7rem] p-3 border border-slate-200 rounded-xl outline-none focus:border-red-400 text-sm\" placeholder=\"Tuliskan alasan pembatalan...\"></textarea>\n                ",
+
+
+
+
+
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    confirmButtonText: 'Ajukan Pembatalan',
+    cancelButtonText: 'Batal',
+    preConfirm: () => {
+      const alasan = document.getElementById('cancel_reason')?.value.trim();
+      if (!alasan) {
+        Swal.showValidationMessage('Alasan pembatalan wajib diisi.');
+        return false;
+      }
+      return alasan;
+    }
+  }).then((result) => {
+    if (!result.isConfirmed || !result.value) return;
+    const payload = {
+      naskahId: naskah.id,
+      judul: naskah.judul,
+      penulis: naskah.penulis,
+      cs: naskah.cs,
+      penerbit: naskah.penerbit,
+      paket: naskah.paket,
+      tanggalMasuk: naskah.tanggal,
+      durasiHari: '',
+      jumlahKata: naskah.estimasiKata || 0,
+      jumlahHalaman: naskah.estimasiHalaman || 0,
+      alasan: result.value,
+      requestBy: state.user.nama,
+      role: state.user.role
+    };
+    gas.withSuccessHandler((res) => {
+      if (!res || res.success === false) {
+        Swal.fire('Gagal', res && (res.message || res.error) || 'Request pembatalan gagal dikirim.', 'error');
+        return;
+      }
+      Swal.fire('Terkirim', 'Request pembatalan naskah sudah masuk ke manajemen.', 'success');
+      if (state.activeTab === 'progres') loadProgres();
+    }).saveDeleteRequest(payload);
+  });
+}
+
+function loadApprovalHapusNaskah() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const requests = (res?.data || []).slice().reverse();
+    const pending = requests.filter((r) => r.status === 'pending');
+    const history = requests.filter((r) => r.status !== 'pending').slice(0, 10);
+    const statusBadge = (status) => {
+      if (status === 'approved') return '<span class="px-2 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black">Disetujui</span>';
+      if (status === 'rejected') return '<span class="px-2 py-1 bg-red-50 text-red-600 rounded-full text-[10px] font-black">Ditolak</span>';
+      return '<span class="px-2 py-1 bg-amber-50 text-amber-600 rounded-full text-[10px] font-black">Menunggu</span>';
+    };
+    window.showDeleteRequestDetail = function (id) {
+      const req = requests.find((r) => r.id === id);
+      if (!req) return;
+      Swal.fire({
+        title: req.judul || 'Detail Request',
+        html: "\n                            <div class=\"text-left space-y-3 text-sm\">\n                                <div class=\"grid grid-cols-2 gap-3\">\n                                    <div class=\"bg-slate-50 p-3 rounded-xl\"><div class=\"text-[10px] font-black text-slate-400 uppercase\">Penulis</div><div class=\"font-bold text-slate-700\">".concat(
+
+
+          req.penulis || '-', "</div></div>\n                                    <div class=\"bg-slate-50 p-3 rounded-xl\"><div class=\"text-[10px] font-black text-slate-400 uppercase\">Penerbit/Paket</div><div class=\"font-bold text-slate-700\">").concat(
+          req.penerbit || '-', " / ").concat(req.paket || '-', "</div></div>\n                                    <div class=\"bg-slate-50 p-3 rounded-xl\"><div class=\"text-[10px] font-black text-slate-400 uppercase\">Request By</div><div class=\"font-bold text-slate-700\">").concat(
+          req.requestBy || '-', " (").concat(getRoleLabel(req.role), ")</div></div>\n                                    <div class=\"bg-slate-50 p-3 rounded-xl\"><div class=\"text-[10px] font-black text-slate-400 uppercase\">Tanggal</div><div class=\"font-bold text-slate-700\">").concat(
+          req.requestDate || '-', "</div></div>\n                                </div>\n                                <div class=\"bg-red-50 p-3 rounded-xl border border-red-100\"><div class=\"text-[10px] font-black text-red-400 uppercase\">Alasan Pembatalan</div><div class=\"font-bold text-red-700 whitespace-pre-wrap\">").concat(
+
+          req.alasan || '-', "</div></div>\n                            </div>\n                        "),
+
+
+        showCancelButton: req.status === 'pending',
+        showDenyButton: req.status === 'pending',
+        confirmButtonText: req.status === 'pending' ? 'Setujui' : 'Tutup',
+        denyButtonText: 'Tolak',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#10b981',
+        denyButtonColor: '#ef4444',
+        width: '42rem'
+      }).then((result) => {
+        if (req.status !== 'pending') return;
+        if (result.isConfirmed) {
+          gas.withSuccessHandler(() => {
+            loadApprovalHapusNaskah();
+            Swal.fire('Disetujui', 'Naskah sudah ditandai dibatalkan dan tidak tampil di role aktif.', 'success');
+          }).approveDeleteRequest(req.id);
+        }
+        if (result.isDenied) {
+          gas.withSuccessHandler(() => {
+            loadApprovalHapusNaskah();
+            Swal.fire('Ditolak', 'Request pembatalan ditolak.', 'info');
+          }).rejectDeleteRequest(req.id);
+        }
+      });
+    };
+    content.innerHTML = "\n                    <div class=\"space-y-6\">\n                        <div class=\"bg-white rounded-3xl border border-slate-100 shadow-sm p-6\">\n                            <div class=\"flex items-center justify-between gap-4 mb-5\">\n                                <div>\n                                    <h3 class=\"text-xl font-black text-slate-900\">Persetujuan Pembatalan Naskah</h3>\n                                    <p class=\"text-sm text-slate-400 mt-1\">Klik detail untuk melihat alasan dan memberi keputusan.</p>\n                                </div>\n                                <span class=\"px-4 py-2 bg-amber-50 text-amber-600 text-xs font-black rounded-xl\">".concat(
+
+
+
+
+
+
+
+      pending.length, " Pending</span>\n                            </div>\n                            <div class=\"divide-y divide-slate-100\">\n                                ").concat(
+
+
+      pending.map((req) => "\n                                    <div class=\"py-4 flex flex-col md:flex-row md:items-center justify-between gap-3\">\n                                        <div class=\"min-w-0\">\n                                            <div class=\"font-black text-slate-800 truncate\">".concat(
+
+
+        req.judul || '-', "</div>\n                                            <div class=\"text-[11px] text-slate-400\">").concat(
+        req.requestBy || '-', " &bull; ").concat(req.requestDate || '-', "</div>\n                                        </div>\n                                        <button onclick=\"showDeleteRequestDetail('").concat(
+
+        req.id, "')\" class=\"px-4 py-2 bg-accent-50 hover:bg-accent-600 text-accent-600 hover:text-white rounded-xl text-xs font-black transition\"><i class=\"fa-solid fa-circle-info mr-2\"></i>Detail</button>\n                                    </div>\n                                ")
+
+      ).join(''), "\n                                ").concat(
+      pending.length === 0 ? '<div class="py-12 text-center text-slate-400 italic">Tidak ada request pembatalan yang menunggu persetujuan.</div>' : '', "\n                            </div>\n                        </div>\n                        <div class=\"bg-white rounded-3xl border border-slate-100 shadow-sm p-6\">\n                            <h3 class=\"text-base font-black text-slate-900 mb-4\">Riwayat Terbaru</h3>\n                            <div class=\"divide-y divide-slate-100\">\n                                ").concat(
+
+
+
+
+
+      history.map((req) => "\n                                    <div class=\"py-3 flex items-center justify-between gap-3\">\n                                        <div class=\"min-w-0\">\n                                            <div class=\"font-bold text-slate-700 truncate\">".concat(
+
+
+        req.judul || '-', "</div>\n                                            <div class=\"text-[10px] text-slate-400\">").concat(
+        req.requestBy || '-', " &bull; ").concat(req.requestDate || '-', "</div>\n                                        </div>\n                                        <div class=\"flex items-center gap-2\">").concat(
+
+        statusBadge(req.status), "<button onclick=\"showDeleteRequestDetail('").concat(req.id, "')\" class=\"px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-lg text-[10px] font-black\">Detail</button></div>\n                                    </div>\n                                ")
+
+      ).join(''), "\n                                ").concat(
+      history.length === 0 ? '<div class="py-8 text-center text-slate-400 italic">Belum ada riwayat.</div>' : '', "\n                            </div>\n                        </div>\n                    </div>\n                ");
+
+
+
+
+  }).getDeleteRequests();
+}
+
+function openFormSurat() {
+  document.getElementById('s_jenis').value = '';
+  toggleJenisSurat('');
+  document.getElementById('s_judul_naskah').value = '';
+  document.getElementById('s_penulis_naskah').value = '';
+  populatePenerbitDropdown('s_penerbit');
+  openModal('modalSurat');
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[
+'isNaskahCancelled',
+'picQueueStageForCurrentUser',
+'getPicStageDeadline',
+'getPicStageLabel',
+'isNaskahVisibleInPicDatabase',
+'loadNaskah',
+'picNaskahSafe',
+'picNaskahAttr',
+'loadPicNaskahBaru',
+'enqueuePicNaskahClient',
+'renderAntrianNaskahTable',
+'loadManajemenAntrianNaskah',
+'loadPicAntrianNaskah',
+'loadManajemenTimelineNaskah',
+'loadNaskahPending',
+'renderCSMobileInputTabs',
+'loadNaskahDiprosesCS',
+'openEditNaskahSpesifikasiCetakCS',
+'updateStatusProsesNaskah',
+'lunasiKpiDP',
+'tambahDpKpi',
+'cetakSafeText',
+'cetakFormatRp',
+'toggleCetakDPField',
+'toggleCetakWarnaField',
+'ensureCetakModalRuntime',
+'openFormCetak',
+'normalizeCetakInputDate',
+'setCetakModalValue',
+'openInputCetakDialog',
+'saveCetakModalForm',
+'handleSaveCetak',
+'loadInputCetak',
+'completeCetakJobClient',
+'openCetakDelayDialog',
+'addBusinessDaysClient',
+'businessDaysBetweenClient',
+'cssAssignEscape',
+'renderCssWorkload',
+'openCssAssignmentDialog',
+'autoAssignCssToUnassigned',
+'naskahNeedsProofreading',
+'toggleManualAssignee',
+'getAssigneeValue',
+'toggleJenisSurat',
+'toggleQCErrorCount',
+'handleSaveNaskah',
+'handleGenerateSurat',
+'updateNaskahTimeline',
+'trackingDelayStageFromTimeline',
+'getTrackingDelayReasons',
+'fetchDelayReasonsClient',
+'parseTrackingDelaysClient',
+'getTrackingDelaySummary',
+'findTrackingDelayNaskah',
+'openTrackingDelayDetail',
+'copyTrackingCode',
+'openTrackingDelayDialog',
+'viewDetailNaskah',
+'viewNaskahPhone',
+'sendWhatsAppTracking',
+'isBeforeKpiActiveDate',
+'saveStatusWithoutKpiBeforeActive',
+'logKendala',
+'updateNaskahField',
+'updateIsbnStatus',
+'populatePenerbitDropdown',
+'updatePaketDropdown',
+'autoFillNaskah',
+'populatePICDropdowns',
+'openFormNaskah',
+'editNaskah',
+'deleteNaskah',
+'requestDeleteNaskah',
+'loadApprovalHapusNaskah',
+'openFormSurat'].
+forEach((name) => {
+  try {
+    const fn = eval(name);
+    if (typeof fn === 'function') window[name] = fn;
+  } catch (error) {}
+});
+</script>

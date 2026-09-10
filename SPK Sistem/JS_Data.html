@@ -1,0 +1,178 @@
+<script>
+
+
+
+// --- SIMULASI STORAGE ---
+var mockNaskahDB = [
+{
+  id: 'NSK-101',
+  dealId: 'DEAL-001',
+  judul: 'Teknik Dasar Fotografi',
+  penulis: 'Bagas',
+  cs: 'Siti (CS)',
+  penerbit: 'Nasmedia',
+  paket: 'Exclusive',
+  ukuran: 'A5', estimasiHalaman: 150, estimasiKata: 25000,
+  tanggal: '2026-02-20',
+  timeline: 'Proofreading',
+  lengkap: false,
+  batasRevisiProofreading: 1,
+  batasRevisiLayout: 1,
+  revisiProofreading: 1,
+  revisiLayout: 0,
+  statusIsbn: 'Menunggu',
+  tindakanIsbn: '',
+  picEditor: 'Budi (Editor)',
+  picLayouter: 'Taufik (Layouter)',
+  statusEditor: 'On Process',
+  statusLayouter: 'Menunggu',
+  deadlines: {
+    proofreading: '2026-03-05',
+    layout: '2026-03-15',
+    isbn: '2026-03-20',
+    produksi: '2026-04-01'
+  },
+  catatanCS: 'Buku butuh segera dicetak bulan depan.'
+},
+{
+  id: 'NSK-102',
+  dealId: 'DEAL-002',
+  judul: 'Kumpulan Puisi Senja',
+  penulis: 'Rina',
+  cs: 'Siti (CS)',
+  penerbit: 'Idebuku',
+  paket: '10 buku',
+  ukuran: 'A5', estimasiHalaman: 100, estimasiKata: 15000,
+  tanggal: '2026-02-21',
+  timeline: 'Administrasi',
+  lengkap: false,
+  batasRevisiProofreading: 0,
+  batasRevisiLayout: 0,
+  revisiProofreading: 0,
+  revisiLayout: 0,
+  statusIsbn: 'Diterima',
+  tindakanIsbn: '',
+  picEditor: '',
+  picLayouter: '',
+  statusEditor: 'Menunggu',
+  statusLayouter: 'Menunggu',
+  deadlines: {
+    proofreading: '2026-03-10',
+    layout: '2026-03-20',
+    isbn: '2026-03-25',
+    produksi: '2026-04-05'
+  },
+  catatanCS: ''
+}];
+
+
+var mockSuratDB = [];
+var mockMessagesDB = [];
+var mockNotificationsDB = [];
+var counters = {
+  "LoA": 1, "SPK": 1, "Keaslian Naskah": 1, "SKTT": 1, "Sertifikat": 1, "MoU": 1
+};
+
+var mockUsersDB = [
+{ username: 'pimpinan', password: '123', nama: 'Pimpinan Perusahaan', role: 'pimpinan', employeeId: 'EMP-001', profileComplete: '1' },
+{ username: 'admin', password: '123', nama: 'Admin Persuratan & KPI', role: 'admin', employeeId: 'EMP-002', profileComplete: '0' },
+{ username: 'css', password: '123', nama: 'Customer Care Officer', role: 'css', employeeId: 'EMP-003', profileComplete: '0' },
+{ username: 'layouter', password: '123', nama: 'Taufik (Layouter)', role: 'layouter', employeeId: 'EMP-004', profileComplete: '0' },
+{ username: 'manajemen', password: '123', nama: 'Direktur Utama', role: 'manajemen', employeeId: 'EMP-005', profileComplete: '1' },
+{ username: 'cs', password: '123', nama: 'Siti (CS)', role: 'cs', employeeId: 'EMP-006', profileComplete: '0' },
+{ username: 'editor', password: '123', nama: 'Budi (Editor)', role: 'editor', employeeId: 'EMP-007', profileComplete: '0' },
+{ username: 'marketplace', password: '123', nama: 'Admin Marketplace', role: 'admin_marketplace', employeeId: 'EMP-008', profileComplete: '0' },
+{ username: 'campaign', password: '123', nama: 'Tim Campaign', role: 'campaign', employeeId: 'EMP-009', profileComplete: '0' },
+{ username: 'pic_editor', password: '123', nama: 'Koordinator Editor', role: 'pic_editor', employeeId: 'EMP-010', profileComplete: '0' },
+{ username: 'pic_layouter', password: '123', nama: 'Koordinator Layouter', role: 'pic_layouter', employeeId: 'EMP-011', profileComplete: '0' },
+{ username: 'report', password: '123', nama: 'Report Display', role: 'report', employeeId: 'RPT-001', profileComplete: '1' },
+{ username: 'EMP-012', password: '', nama: 'Karyawan Operasional', role: 'karyawan', employeeId: 'EMP-012', alamat: 'Makassar', telepon: '08123456789', tanggalLahir: '1995-01-01', email: 'karyawan@example.com', profileComplete: '1' }];
+
+
+var mockKPIDB = [
+{ id: 'KPI-003', picName: 'Budi (Editor)', tanggal: '2026-05-02', judul: 'Cara Cepat Belajar Coding', jenis: 'Proofreading', jumlahKata: 25000 },
+{ id: 'KPI-004', picName: 'Taufik (Layouter)', tanggal: '2026-05-02', judul: 'Panduan Desain Modern', jenis: 'Layout', jumlahHalaman: 150 },
+{ id: 'KPI-005', picName: 'Koordinator Editor', tanggal: '2026-05-02', judul: 'Cara Cepat Belajar Coding', jenis: 'Koordinasi Editor', jumlahKata: 30000 },
+{ id: 'KPI-006', picName: 'Koordinator Layouter', tanggal: '2026-05-02', judul: 'Panduan Desain Modern', jenis: 'Koordinasi Layouter', jumlahHalaman: 200 }];
+
+
+var mockDealDB = [
+{ id: 'DEAL-001', csName: 'Siti (CS)', penulis: 'Bagas', judul: 'Teknik Dasar Fotografi', penerbit: 'Nasmedia', paket: 'Exclusive', nilai: 3500000, nominalDP: 0, statusPayment: 'Full Payment', deadline: '2026-05-01', estimasiHalaman: 150, estimasiKata: 25000, ukuran: 'A5', catatan: 'Buku butuh segera dicetak bulan depan.' },
+{ id: 'DEAL-002', csName: 'Siti (CS)', penulis: 'Rina', judul: 'Kumpulan Puisi Senja', penerbit: 'Idebuku', paket: '10 buku', nilai: 4200000, nominalDP: 2000000, statusPayment: 'DP', deadline: '2026-05-05', estimasiHalaman: 100, estimasiKata: 15000, ukuran: 'A5', catatan: '' }];
+
+var mockDealArchiveDB = [];
+var mockNaskahArchiveDB = [];
+
+var mockKendalaDB = [
+{ id: 'KND-001', naskahId: 'NSK-101', judul: 'Teknik Dasar Fotografi', jenis: 'Revisi Over Limit', keterangan: 'Revisi Proofreading bertambah menjadi 2x, melebihi batas maksimal (1x).', tanggal: '2026-02-25' }];
+
+
+var mockArsipDB = [
+{ id: 'ARS-001', judul: 'Teknik Dasar Fotografi', loa: true, spk: true, perpusnas: false, perpusda: false, nasmedia: false }];
+
+
+var mockSettingsDB = {
+  penerbit: [
+  { id: 'PUB-1', nama: 'Nasmedia', paket: ['Exclusive', 'Express', 'Advance'] },
+  { id: 'PUB-2', nama: 'Idebuku', paket: ['2 buku', '10 buku', '20 buku'] },
+  { id: 'PUB-3', nama: 'Inlitera', paket: ['Pro', 'Academic'] }],
+
+  jenisKPI: [
+  { id: 'JKPI-1', nama: 'Proofreading', role: 'editor' },
+  { id: 'JKPI-2', nama: 'Revisi', role: 'editor' },
+  { id: 'JKPI-3', nama: 'Layout', role: 'layouter' },
+  { id: 'JKPI-4', nama: 'Desain Cover', role: 'layouter' },
+  { id: 'JKPI-5', nama: 'Administrasi', role: 'css' },
+  { id: 'JKPI-6', nama: 'Pengajuan ISBN', role: 'css' },
+  { id: 'JKPI-7', nama: 'Pembuatan Surat', role: 'admin' },
+  { id: 'JKPI-8', nama: 'Input Arsip', role: 'admin' }],
+
+  passwordDeal: 'admin123',
+  kpiActiveDate: '2026-06-01'
+};
+
+var mockTargetDB = [
+{ username: 'cs', targetTerbit: 20, targetCetak: 15, targetOmzet: 50000000, targetKata: 0, targetHalaman: 0 },
+{ username: 'editor', targetTerbit: 0, targetCetak: 0, targetOmzet: 0, targetKata: 100000, targetHalaman: 0 },
+{ username: 'layouter', targetTerbit: 0, targetCetak: 0, targetOmzet: 0, targetKata: 0, targetHalaman: 1000 },
+{ username: 'pic_editor', targetTerbit: 0, targetCetak: 0, targetOmzet: 0, targetKata: 150000, targetHalaman: 0 },
+{ username: 'pic_layouter', targetTerbit: 0, targetCetak: 0, targetOmzet: 0, targetKata: 0, targetHalaman: 1500 },
+{ username: 'admin', targetTerbit: 0, targetCetak: 0, targetOmzet: 0, targetKata: 0, targetHalaman: 0, targetPerJenis: { 'Pembuatan Surat': 50, 'Input Arsip': 50 } },
+{ username: 'css', targetTerbit: 0, targetCetak: 0, targetOmzet: 0, targetKata: 0, targetHalaman: 0, targetPerJenis: { 'Administrasi': 30, 'Pengajuan ISBN': 20 } },
+{ username: 'marketplace', targetTerbit: 0, targetCetak: 0, targetOmzet: 0, targetKata: 0, targetHalaman: 0, targetPerJenis: {} },
+{ username: 'campaign', targetTerbit: 0, targetCetak: 0, targetOmzet: 0, targetKata: 0, targetHalaman: 0, targetPerJenis: {} }];
+
+
+var mockStokDB = [
+{ id: 'STK-001', judul: 'Teknik Dasar Fotografi', gudang: 'Jogja', stok: 50, lastUpdate: '2026-02-20' },
+{ id: 'STK-002', judul: 'Teknik Dasar Fotografi', gudang: 'Makassar', stok: 30, lastUpdate: '2026-02-20' },
+{ id: 'STK-003', judul: 'Kumpulan Puisi Senja', gudang: 'Jogja', stok: 25, lastUpdate: '2026-02-21' }];
+
+
+var mockPenjualanDB = [
+{ id: 'PNJ-001', judul: 'Teknik Dasar Fotografi', marketplace: 'Shopee', qty: 5, hargaJual: 85000, tanggal: '2026-02-25', gudang: 'Jogja' },
+{ id: 'PNJ-002', judul: 'Kumpulan Puisi Senja', marketplace: 'Tokopedia', qty: 3, hargaJual: 75000, tanggal: '2026-02-26', gudang: 'Jogja' }];
+
+
+var mockGlobalRoyalti = 10; // Persentase royalti global
+
+var mockDeleteRequestDB = [];
+var mockKpiCorrectionRequestDB = [];
+var mockEventDB = [];
+var mockKehadiranDB = [];var mockKontenDB = [];var mockBroadcastDB = [];
+
+var timelineSteps = ["Administrasi", "Proofreading", "Desain Cover & Layout", "Produksi", "Distribusi", "Selesai"];
+var listJenisSurat = ["LoA", "SPK", "Keaslian Naskah", "SKTT", "Sertifikat Penulis", "Sertifikat Editor", "MoU"];
+var fileTypes = ["File Siap Cetak", "Arsip", "Soft File", "Low Cover", "Pembatas"];
+
+var checklistItems = [
+{ id: 'kataPengantar', label: 'Kata Pengantar' },
+{ id: 'daftarIsi', label: 'Daftar Isi' },
+{ id: 'daftarGambar', label: 'Daftar Gambar / Tabel' },
+{ id: 'isiNaskah', label: 'Isi Naskah' },
+{ id: 'daftarPustaka', label: 'Daftar Pustaka' },
+{ id: 'glosarium', label: 'Glosarium' },
+{ id: 'indeks', label: 'Indeks' },
+{ id: 'biografi', label: 'Biografi Penulis' },
+{ id: 'sinopsis', label: 'Sinopsis' }];
+</script>

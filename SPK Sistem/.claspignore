@@ -1,0 +1,7 @@
+backup-spk-before-portal-kpi-*/**
+portal-kpi-to-spk-stage/**
+scripts/**
+*.pdf
+*.png
+git_log.txt
+replace_slip.ps1

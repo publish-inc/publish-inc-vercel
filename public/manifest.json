@@ -1,0 +1,16 @@
+{
+  "short_name": "Presensi PI",
+  "name": "Presensi Mobile - Publish Inc.",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "type": "image/png",
+      "sizes": "192x192 512x512"
+    }
+  ],
+  "start_url": "/presensi",
+  "background_color": "#0B132B",
+  "theme_color": "#FF5722",
+  "display": "standalone",
+  "orientation": "portrait"
+}

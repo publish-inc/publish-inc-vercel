@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tracking Naskah</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root { --navy:#0A2540; --orange:#FF6B35; --slate:#64748b; --line:#e2e8f0; --soft:#f8fafc; }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; background:#f1f5f9; color:#0f172a; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; }
+    .shell { width:100%; max-width:720px; background:#fff; border:1px solid var(--line); border-radius:28px; box-shadow:0 24px 70px rgba(15,23,42,.12); overflow:hidden; }
+    .hero { background:var(--navy); color:white; padding:28px 32px; border-bottom:6px solid var(--orange); display:flex; gap:16px; align-items:center; }
+    .logo { width:66px; height:66px; border-radius:999px; background:#fff; border:3px solid rgba(255,255,255,.38); display:flex; align-items:center; justify-content:center; box-shadow:0 12px 28px rgba(0,0,0,.2); flex:0 0 auto; overflow:hidden; }
+    .logo img { width:100%; height:100%; object-fit:contain; display:block; }
+    .hero h1 { margin:0; font-size:24px; line-height:1.1; font-weight:900; letter-spacing:0; }
+    .hero p { margin:6px 0 0; color:rgba(255,255,255,.76); font-size:13px; font-weight:700; }
+    .content { padding:32px; }
+    .card-title { margin:0 0 8px; font-size:24px; font-weight:900; letter-spacing:0; }
+    .desc { margin:0 0 24px; color:var(--slate); line-height:1.55; font-size:14px; }
+    .grid { display:grid; gap:16px; }
+    label { display:block; margin:0 0 9px; color:#64748b; font-size:11px; letter-spacing:1px; font-weight:900; text-transform:uppercase; }
+    input { width:100%; height:56px; border:2px solid var(--line); border-radius:16px; padding:0 16px; font:700 15px inherit; color:#0f172a; background:#fff; outline:none; transition:.2s; }
+    input:focus { border-color:var(--orange); box-shadow:0 0 0 4px rgba(255,107,53,.12); }
+    .row { display:grid; grid-template-columns:1fr 180px; gap:14px; }
+    button { width:100%; height:56px; border:0; border-radius:999px; background:var(--orange); color:white; font-weight:900; font-size:15px; cursor:pointer; box-shadow:0 14px 30px rgba(255,107,53,.24); }
+    button:disabled { background:#cbd5e1; cursor:not-allowed; box-shadow:none; }
+    .state { text-align:center; padding:34px 18px; }
+    .state i { width:64px; height:64px; display:inline-flex; align-items:center; justify-content:center; border-radius:999px; margin-bottom:18px; font-size:26px; }
+    .state.error i { background:#fef2f2; color:#ef4444; }
+    .state.loading i { background:#fff7ed; color:var(--orange); }
+    .summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:22px 0; }
+    .box { border:1px solid var(--line); border-radius:18px; padding:16px; background:#fff; }
+    .box small { display:block; margin-bottom:6px; color:#94a3b8; font-size:10px; text-transform:uppercase; font-weight:900; letter-spacing:.8px; }
+    .box strong { display:block; color:#0f172a; font-size:15px; line-height:1.35; }
+    .timeline { margin-top:22px; border:1px solid var(--line); border-radius:20px; overflow:hidden; }
+    .step { display:grid; grid-template-columns:26px 1fr auto; gap:12px; align-items:start; padding:16px; border-top:1px solid var(--line); background:#fff; }
+    .step:first-child { border-top:0; }
+    .dot { width:26px; height:26px; border-radius:999px; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:900; background:#e2e8f0; color:#64748b; }
+    .step.done .dot { background:#dcfce7; color:#16a34a; }
+    .step.active .dot { background:#fff7ed; color:var(--orange); }
+    .step h3 { margin:0; font-size:15px; font-weight:900; }
+    .step p { margin:5px 0 0; color:#64748b; font-size:12px; line-height:1.45; }
+    .pill { border-radius:999px; padding:7px 10px; font-size:11px; font-weight:900; background:#f1f5f9; color:#475569; white-space:nowrap; }
+    .done .pill { background:#ecfdf5; color:#059669; }
+    .active .pill { background:#fff7ed; color:#ea580c; }
+    .hidden { display:none !important; }
+    @media (max-width:640px) {
+      body { padding:14px; align-items:flex-start; }
+      .hero { padding:24px; }
+      .content { padding:24px; }
+      .row, .summary { grid-template-columns:1fr; }
+      .step { grid-template-columns:24px 1fr; }
+      .pill { grid-column:2; justify-self:start; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="logo"><img src="<?= getPublishLogoDataUri_() ?>" alt="Publish Inc."></div>
+      <div>
+        <h1>Tracking Naskah</h1>
+        <p>Publish Inc. Progress Naskah</p>
+      </div>
+    </section>
+    <section class="content">
+      <form id="trackingForm">
+        <h2 class="card-title">Cek Progress Naskah</h2>
+        <p class="desc">Masukkan kode tracking dan 4 digit terakhir nomor HP penulis untuk melihat tahapan naskah.</p>
+        <div class="grid">
+          <div>
+            <label for="trackingCode">Kode Tracking</label>
+            <input id="trackingCode" type="text" placeholder="Contoh: TRK-12345" required autocomplete="off">
+          </div>
+          <div>
+            <label for="phone4">4 Digit Terakhir No. HP</label>
+            <input id="phone4" type="text" placeholder="Contoh: 7890" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required autocomplete="off">
+          </div>
+          <button id="submitBtn" type="submit">Lihat Progress</button>
+        </div>
+      </form>
+
+      <div id="statusArea" class="state hidden"></div>
+      <div id="resultArea" class="hidden"></div>
+    </section>
+  </main>
+
+  <script>
+    var form = document.getElementById('trackingForm');
+    var btn = document.getElementById('submitBtn');
+    var statusArea = document.getElementById('statusArea');
+    var resultArea = document.getElementById('resultArea');
+
+    function escapeHtml(value) {
+      return String(value == null ? '' : value).replace(/[&<>"']/g, function(ch) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
+      });
+    }
+
+    function showState(type, title, message) {
+      statusArea.className = 'state ' + type;
+      statusArea.innerHTML = '<i class="fa-solid ' + (type === 'error' ? 'fa-triangle-exclamation' : 'fa-spinner fa-spin') + '"></i><h2 class="card-title">' + escapeHtml(title) + '</h2><p class="desc">' + escapeHtml(message || '') + '</p>';
+      statusArea.classList.remove('hidden');
+      resultArea.classList.add('hidden');
+    }
+
+    function resetButton() {
+      btn.disabled = false;
+      btn.textContent = 'Lihat Progress';
+    }
+
+    function formatRange(range, fallback) {
+      range = range || {};
+      if (range.start && range.end) return range.start + ' s.d. ' + range.end;
+      return fallback || '-';
+    }
+
+    function renderResult(res) {
+      resetButton();
+      if (!res || !res.success) {
+        showState('error', 'Gagal', res ? res.message : 'Data tracking tidak ditemukan.');
+        return;
+      }
+      var data = res.data || {};
+      var steps = Array.isArray(data.tahapan) ? data.tahapan : [];
+      statusArea.classList.add('hidden');
+      form.classList.add('hidden');
+      resultArea.classList.remove('hidden');
+      resultArea.innerHTML =
+        '<h2 class="card-title">Progress Naskah</h2>' +
+        '<p class="desc">Status saat ini: <strong>' + escapeHtml(data.timeline || '-') + '</strong></p>' +
+        '<div class="summary">' +
+          '<div class="box"><small>Kode Tracking</small><strong>' + escapeHtml(data.trackingCode || '-') + '</strong></div>' +
+          '<div class="box"><small>Penulis</small><strong>' + escapeHtml(data.penulis || '-') + '</strong></div>' +
+          '<div class="box"><small>Judul</small><strong>' + escapeHtml(data.judul || '-') + '</strong></div>' +
+          '<div class="box"><small>Penerbit / Paket</small><strong>' + escapeHtml((data.penerbit || '-') + ' / ' + (data.paket || '-')) + '</strong></div>' +
+          '<div class="box"><small>Estimasi Selesai Awal</small><strong>' + escapeHtml(data.estimasiSelesaiAwal || '-') + '</strong></div>' +
+          '<div class="box"><small>Estimasi Selesai Terbaru</small><strong>' + escapeHtml(data.estimasiSelesaiTerbaru || '-') + '</strong></div>' +
+        '</div>' +
+        '<div class="timeline">' + steps.map(function(step) {
+          var status = String(step.status || '');
+          var cls = /selesai/i.test(status) ? 'done' : (/sedang/i.test(status) ? 'active' : '');
+          var range = formatRange(step.rangeTerbaru, step.estimasiTerbaru);
+          var delay = Number(step.delayDays || 0) > 0 ? '<p>Kemunduran: ' + Number(step.delayDays || 0) + ' hari' + (step.reason ? ' - ' + escapeHtml(step.reason) : '') + '</p>' : '';
+          return '<div class="step ' + cls + '">' +
+            '<div class="dot">' + (cls === 'done' ? '<i class="fa-solid fa-check"></i>' : '') + '</div>' +
+            '<div><h3>' + escapeHtml(step.label || '-') + '</h3><p>' + escapeHtml(range) + '</p>' + delay + '</div>' +
+            '<div class="pill">' + escapeHtml(status || 'Menunggu') + '</div>' +
+          '</div>';
+        }).join('') + '</div>' +
+        '<button type="button" style="margin-top:22px;" onclick="location.reload()">Cek Kode Lain</button>';
+    }
+
+    form.onsubmit = function(event) {
+      event.preventDefault();
+      var code = document.getElementById('trackingCode').value.trim();
+      var phone4 = document.getElementById('phone4').value.replace(/\D/g, '');
+      if (!code || !/^\d{4}$/.test(phone4)) {
+        showState('error', 'Data Belum Lengkap', 'Kode tracking dan 4 digit terakhir nomor HP wajib diisi.');
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = 'Memeriksa...';
+      showState('loading', 'Memeriksa', 'Mohon tunggu sebentar.');
+      google.script.run
+        .withSuccessHandler(renderResult)
+        .withFailureHandler(function(err) {
+          resetButton();
+          showState('error', 'Gagal', err && err.message ? err.message : 'Server tidak merespons.');
+        })
+        .getPublicTrackingData(code, phone4);
+    };
+  </script>
+</body>
+</html>

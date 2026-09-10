@@ -1,0 +1,656 @@
+<script>
+
+
+
+// --- MODUL PENGATURAN (SETTINGS) ---
+
+function getDefaultDeadlineSettings() {
+  return [
+  { id: 'DL-EXCLUSIVE', penerbit: '', paket: 'Exclusive', totalHari: 14, administrasi: 1, administrasiMulai: 0, administrasiSelesai: 1, proofreading: 2, proofreadingMulai: 1, proofreadingSelesai: 2, layout: 4, layoutMulai: 2, layoutSelesai: 4, produksi: 10, produksiMulai: 4, produksiSelesai: 10, distribusi: 12, distribusiMulai: 10, distribusiSelesai: 12, selesai: 14, selesaiMulai: 12, selesaiSelesai: 14 },
+  { id: 'DL-EXPRESS', penerbit: '', paket: 'Express', totalHari: 7, administrasi: 1, administrasiMulai: 0, administrasiSelesai: 1, proofreading: 1, proofreadingMulai: 1, proofreadingSelesai: 1, layout: 2, layoutMulai: 1, layoutSelesai: 2, produksi: 5, produksiMulai: 2, produksiSelesai: 5, distribusi: 6, distribusiMulai: 5, distribusiSelesai: 6, selesai: 7, selesaiMulai: 6, selesaiSelesai: 7 },
+  { id: 'DL-ADVANCE', penerbit: '', paket: 'Advance', totalHari: 21, administrasi: 2, administrasiMulai: 0, administrasiSelesai: 2, proofreading: 4, proofreadingMulai: 2, proofreadingSelesai: 4, layout: 7, layoutMulai: 4, layoutSelesai: 7, produksi: 15, produksiMulai: 7, produksiSelesai: 15, distribusi: 18, distribusiMulai: 15, distribusiSelesai: 18, selesai: 21, selesaiMulai: 18, selesaiSelesai: 21 },
+  { id: 'DL-VIP', penerbit: '', paket: 'VIP', totalHari: 21, administrasi: 2, administrasiMulai: 0, administrasiSelesai: 2, proofreading: 4, proofreadingMulai: 2, proofreadingSelesai: 4, layout: 7, layoutMulai: 4, layoutSelesai: 7, produksi: 15, produksiMulai: 7, produksiSelesai: 15, distribusi: 18, distribusiMulai: 15, distribusiSelesai: 18, selesai: 21, selesaiMulai: 18, selesaiSelesai: 21 },
+  { id: 'DL-VVIP', penerbit: '', paket: 'VVIP', totalHari: 14, administrasi: 1, administrasiMulai: 0, administrasiSelesai: 1, proofreading: 2, proofreadingMulai: 1, proofreadingSelesai: 2, layout: 4, layoutMulai: 2, layoutSelesai: 4, produksi: 10, produksiMulai: 4, produksiSelesai: 10, distribusi: 12, distribusiMulai: 10, distribusiSelesai: 12, selesai: 14, selesaiMulai: 12, selesaiSelesai: 14 }];
+
+}
+
+function getDeadlineTimelineStagesClient() {
+  return [
+    ['administrasi', 'Adm'],
+    ['proofreading', 'Proof'],
+    ['layout', 'Layout'],
+    ['produksi', 'Produksi'],
+    ['distribusi', 'Distribusi'],
+    ['selesai', 'Selesai']
+  ];
+}
+
+function normalizeDeadlineSettingClient(row) {
+  const stages = getDeadlineTimelineStagesClient().map(([key]) => key);
+  const normalized = { ...(row || {}) };
+  let previousEnd = 0;
+  stages.forEach((key) => {
+    const startKey = key + 'Mulai';
+    const endKey = key + 'Selesai';
+    const legacyEnd = Number(normalized[key] || 0);
+    const end = Math.max(0, Number(normalized[endKey] || legacyEnd || previousEnd));
+    const start = Math.max(0, Number(normalized[startKey] ?? previousEnd));
+    normalized[startKey] = Math.min(start, end);
+    normalized[endKey] = end;
+    normalized[key] = end;
+    previousEnd = end;
+  });
+  normalized.totalHari = Math.max(1, Number(normalized.totalHari || normalized.selesaiSelesai || normalized.selesai || previousEnd || 0));
+  normalized.selesaiSelesai = Math.max(Number(normalized.selesaiSelesai || 0), normalized.totalHari);
+  normalized.selesai = normalized.selesaiSelesai;
+  return normalized;
+}
+
+
+function normalizeDealPublisherKeyClient(penerbit) {
+  const compact = String(penerbit || '').trim().toLowerCase().replace(/\s+/g, '');
+  if (compact === 'idebuku') return 'idebuku';
+  return String(penerbit || '').trim().toLowerCase();
+}
+
+function findDeadlineSettingClient(penerbit, paket, settings = null) {
+  const rows = settings || window._deadlineSettings || getDefaultDeadlineSettings();
+  const pkg = String(paket || '').trim().toLowerCase();
+  const pub = normalizeDealPublisherKeyClient(penerbit);
+  return rows.find((row) => String(row.paket || '').trim().toLowerCase() === pkg && normalizeDealPublisherKeyClient(row.penerbit) === pub) ||
+  rows.find((row) => String(row.paket || '').trim().toLowerCase() === pkg && !String(row.penerbit || '').trim()) ||
+  null;
+}
+
+function getDealAccelerationDaysClient(penerbit, percepatanProses) {
+  const acceleration = String(percepatanProses || '').trim().toUpperCase();
+  if (acceleration === 'VVIP') return 14;
+  if (acceleration === 'VIP') return 21;
+  return 0;
+}
+
+function findDeadlineSettingByWorkdaysClient(workdays, settings = null) {
+  const target = Number(workdays || 0);
+  if (!target) return null;
+  const rows = settings || window._deadlineSettings || getDefaultDeadlineSettings();
+  return rows.find((row) => Number(row.totalHari || row.selesai || 0) === target) || null;
+}
+
+function resolveDealDeadlineSettingClient(penerbit, paket, percepatanProses = '', settings = null) {
+  const accelerationDays = getDealAccelerationDaysClient(penerbit, percepatanProses);
+  if (accelerationDays) {
+    const normAcceleration = String(percepatanProses || '').trim().toUpperCase();
+    if (normAcceleration === 'VIP' || normAcceleration === 'VVIP') {
+      const accelerationSpecificSetting = findDeadlineSettingClient(penerbit, normAcceleration, settings) || findDeadlineSettingClient('', normAcceleration, settings);
+      if (accelerationSpecificSetting) return accelerationSpecificSetting;
+    }
+    const accelerationSetting = findDeadlineSettingByWorkdaysClient(accelerationDays, settings);
+    if (accelerationSetting) return accelerationSetting;
+  }
+  return findDeadlineSettingClient(penerbit, paket, settings);
+}
+
+
+function hasGasMethod(name) {
+  return !!(gas && typeof gas[name] === 'function');
+}
+
+
+function fetchDeadlineSettingsClient(onSuccess, onFailure) {
+  gas.withSuccessHandler(onSuccess).
+  withFailureHandler(onFailure || (() => onSuccess({ success: true, data: getDefaultDeadlineSettings() }))).
+  getDeadlineSettings();
+}
+
+
+
+function buildNaskahDeadlineDefaults(naskah, settings = null) {
+  const rawSetting = resolveDealDeadlineSettingClient(naskah?.penerbit, naskah?.paket, naskah?.percepatanProses, settings);
+  if (!rawSetting) return {};
+  const setting = normalizeDeadlineSettingClient(rawSetting);
+  const startDate = naskah?.tanggal || new Date().toISOString().slice(0, 10);
+  if (!setting || !startDate) return {};
+  const dayFor = (key) => Number(setting[key + 'Selesai'] || setting[key] || setting.totalHari || setting.selesai || 0);
+  return {
+    administrasi: addBusinessDaysClient(startDate, dayFor('administrasi')),
+    proofreading: String(naskah?.butuhProofreading ?? '1') === '0' ? '' : addBusinessDaysClient(startDate, dayFor('proofreading')),
+    layout: addBusinessDaysClient(startDate, dayFor('layout')),
+    produksi: addBusinessDaysClient(startDate, dayFor('produksi')),
+    distribusi: addBusinessDaysClient(startDate, dayFor('distribusi')),
+    selesai: addBusinessDaysClient(startDate, dayFor('selesai'))
+  };
+}
+
+
+function getNaskahDeadlineValue(naskah, key, settings = null) {
+  const existing = naskah?.deadlines || {};
+  if (existing && existing[key]) return existing[key];
+  const base = naskah?.baseDeadlines || {};
+  if (base && base[key]) return base[key];
+  const generated = buildNaskahDeadlineDefaults(naskah, settings);
+  return generated[key] || '';
+}
+
+
+function loadDeadlineTrackingSettings() {
+  fetchDeadlineSettingsClient((res) => {
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const rows = (res?.data || []).map(normalizeDeadlineSettingClient);
+    window._deadlineSettings = rows;
+    const safe = reportSafeText;
+    const stages = getDeadlineTimelineStagesClient();
+    const rangeText = (row, key) => "H+".concat(Number(row[key + 'Mulai'] || 0), " - H+").concat(Number(row[key + 'Selesai'] || row[key] || 0));
+    const renderRow = (row) => "\n                <tr class=\"border-b border-slate-100\">\n                    <td class=\"px-3 py-3 font-black text-slate-800\">".concat(
+
+      safe(row.paket), "</td>\n                    <td class=\"px-3 py-3 text-slate-500\">").concat(
+      safe(row.penerbit || 'Semua'), "</td>\n                    <td class=\"px-3 py-3 text-center font-black text-accent-600\">").concat(
+      Number(row.totalHari || row.selesai || 0), "</td>\n                    ").concat(
+      stages.map(([k]) => "<td class=\"px-3 py-3 text-center font-bold text-slate-700\">".concat(rangeText(row, k), "</td>")).join(''), "\n                    <td class=\"px-3 py-3 text-right\">\n                        <button onclick=\"openDeadlineSettingForm('").concat(
+
+      safe(row.id), "')\" class=\"px-3 py-1.5 rounded-lg bg-accent-50 text-accent-600 text-[10px] font-black mr-1\">Edit</button>\n                        <button onclick=\"deleteDeadlineSettingItem('").concat(
+      safe(row.id), "', '").concat(safe(row.paket), "')\" class=\"px-3 py-1.5 rounded-lg bg-red-50 text-red-500 text-[10px] font-black\">Hapus</button>\n                    </td>\n                </tr>");
+
+
+    content.innerHTML = "\n                <div class=\"space-y-5\">\n                    <div class=\"bg-white border border-slate-100 shadow-sm p-6 flex flex-col md:flex-row md:items-center justify-between gap-4\">\n                        <div>\n                            <h3 class=\"text-xl font-black text-slate-900\">Deadline Tracking Paket</h3>\n                            <p class=\"text-sm text-slate-400 mt-1\">Atur template deadline keseluruhan dan per tahapan. Berlaku otomatis saat CS input deal.</p>\n                        </div>\n                        <div class=\"flex flex-wrap gap-2\">\n                            <button onclick=\"confirmSyncNaskahDeadlines()\" class=\"px-5 py-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-accent-600 border border-blue-100 font-black text-sm transition\"><i class=\"fa-solid fa-arrows-rotate mr-2\"></i>Sinkronkan Naskah</button>\n                            <button onclick=\"openDeadlineSettingForm()\" class=\"btn-gradient text-white px-5 py-2.5 rounded-xl font-black text-sm\"><i class=\"fa-solid fa-plus mr-2\"></i>Tambah Paket</button>\n                        </div>\n                    </div>\n                    <div class=\"bg-white border border-slate-100 shadow-sm overflow-x-auto\">\n                        <table class=\"w-full text-left text-sm min-w-[980px]\">\n                            <thead class=\"bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400\">\n                                <tr><th class=\"px-3 py-3\">Paket</th><th class=\"px-3 py-3\">Penerbit</th><th class=\"px-3 py-3 text-center\">Total Hari</th>".concat(stages.map(([key, label]) => "<th class=\"px-3 py-3 text-center\">".concat(safe(label), "</th>")).join(''), "<th class=\"px-3 py-3\"></th></tr>\n                            </thead>\n                            <tbody>").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      rows.map(renderRow).join(''), "</tbody>\n                        </table>\n                    </div>\n                </div>");
+
+
+
+  }, (error) => showServerError('Gagal Memuat Deadline Tracking', error));
+}
+
+
+function confirmSyncNaskahDeadlines() {
+  Swal.fire({
+    title: 'Sinkronkan deadline naskah?',
+    html: "\n                <div class=\"text-left text-sm text-slate-600 space-y-2\">\n                    <p>Sistem akan memperbarui deadline semua naskah berdasarkan pengaturan paket terbaru dari manajemen.</p>\n                    <p class=\"font-bold text-slate-800\">Semua deadline akan ditimpa dengan setting baru.</p>\n                    <p>Delay yang sudah tercatat (keterlambatan) tetap dipertahankan.</p>\n                </div>\n            ",
+
+
+
+
+
+
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Ya, Sinkronkan',
+    cancelButtonText: 'Batal'
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+    Swal.fire({
+      title: 'Menyinkronkan...',
+      text: 'Mohon tunggu sebentar.',
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading()
+    });
+    gas.withSuccessHandler((res) => {
+      if (!res || res.success === false) {
+        Swal.fire('Gagal', res?.message || res?.error || 'Sinkronisasi deadline gagal.', 'error');
+        return;
+      }
+      const data = res.data || {};
+      Swal.fire(
+        'Selesai', "Deadline berhasil disinkronkan. Terisi: ".concat(
+          Number(data.updated || 0), " naskah, dilewati: ").concat(Number(data.skipped || 0), ", tanpa setting paket: ").concat(Number(data.noPlan || 0), "."),
+        'success'
+      );
+      loadDeadlineTrackingSettings();
+    }).withFailureHandler((error) => showServerError('Gagal Sinkronisasi Deadline', error)).syncNaskahDeadlinesFromSettings();
+  });
+}
+
+
+function getDelayStageLabels() {
+  return {
+    administrasi: 'Administrasi',
+    proofreading: 'Proofreading',
+    layout: 'Desain Cover & Layout',
+    produksi: 'Produksi',
+    distribusi: 'Distribusi'
+  };
+}
+
+
+function loadDelayReasons() {
+  fetchDelayReasonsClient((res) => {
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const rows = res?.data || [];
+    const labels = getDelayStageLabels();
+    const safe = reportSafeText;
+    const renderReason = (row) => "\n                <div class=\"flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 border border-slate-100 rounded-2xl bg-white\">\n                    <div class=\"min-w-0\">\n                        <div class=\"font-black text-slate-800\">".concat(
+
+
+      safe(row.label), "</div>\n                        <div class=\"text-[10px] text-slate-400 font-bold mt-1\">\n                            <span class=\"font-mono\">").concat(
+
+      safe(row.reasonCode), "</span>\n                            <span class=\"mx-1\">&bull;</span>\n                            ").concat(
+
+      String(row.needsNote || '0') === '1' ? 'Butuh catatan tambahan' : 'Tanpa catatan tambahan', "\n                            <span class=\"mx-1\">&bull;</span>\n                            ").concat(
+
+      String(row.active || '1') === '0' ? '<span class="text-red-500">Nonaktif</span>' : '<span class="text-emerald-600">Aktif</span>', "\n                        </div>\n                    </div>\n                    <div class=\"flex items-center gap-2 shrink-0\">\n                        <button onclick=\"openDelayReasonForm('").concat(
+
+
+
+      safe(row.id), "')\" class=\"px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-accent-600 text-xs font-black border border-blue-100\"><i class=\"fa-solid fa-pen mr-1\"></i>Edit</button>\n                        <button onclick=\"deleteDelayReasonItem('").concat(
+      safe(row.id), "')\" class=\"px-3 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 text-xs font-black border border-red-100\"><i class=\"fa-solid fa-trash mr-1\"></i>Hapus</button>\n                    </div>\n                </div>");
+
+
+    const renderStage = (key) => {
+      const items = rows.filter((row) => String(row.stageKey || '') === key);
+      return "\n                    <div class=\"bg-slate-50 border border-slate-100 rounded-3xl p-5\">\n                        <div class=\"flex items-center justify-between mb-4\">\n                            <div>\n                                <h4 class=\"font-black text-slate-900\">".concat(
+
+
+
+        labels[key], "</h4>\n                                <p class=\"text-xs text-slate-400 mt-1\">").concat(
+        items.length, " alasan tersedia</p>\n                            </div>\n                            <button onclick=\"openDelayReasonForm('', '").concat(
+
+        key, "')\" class=\"px-3 py-2 rounded-xl bg-white hover:bg-blue-50 text-accent-600 text-xs font-black border border-blue-100\"><i class=\"fa-solid fa-plus mr-1\"></i>Tambah</button>\n                        </div>\n                        <div class=\"space-y-3\">").concat(
+
+        items.length ? items.map(renderReason).join('') : '<div class="p-5 text-center text-slate-300 italic bg-white rounded-2xl border border-slate-100">Belum ada alasan.</div>', "</div>\n                    </div>");
+
+    };
+    content.innerHTML = "\n                <div class=\"space-y-5\">\n                    <div class=\"bg-white border border-slate-100 shadow-sm p-6 flex flex-col md:flex-row md:items-center justify-between gap-4\">\n                        <div>\n                            <h3 class=\"text-xl font-black text-slate-900\">Alasan Keterlambatan</h3>\n                            <p class=\"text-sm text-slate-400 mt-1\">Atur pilihan alasan yang muncul saat tim memundurkan estimasi timeline.</p>\n                        </div>\n                        <button onclick=\"openDelayReasonForm()\" class=\"btn-gradient text-white px-5 py-2.5 rounded-xl font-black text-sm\"><i class=\"fa-solid fa-plus mr-2\"></i>Tambah Alasan</button>\n                    </div>\n                    <div class=\"grid grid-cols-1 xl:grid-cols-2 gap-5\">\n                        ".concat(
+
+
+
+
+
+
+
+
+
+      Object.keys(labels).map(renderStage).join(''), "\n                    </div>\n                </div>");
+
+
+  }, (error) => showServerError('Gagal Memuat Alasan Keterlambatan', error));
+}
+
+
+function openDelayReasonForm(id = '', forcedStage = '') {
+  const rows = window._delayReasons || [];
+  const labels = getDelayStageLabels();
+  const existing = rows.find((row) => String(row.id) === String(id)) || {
+    id: '',
+    stageKey: forcedStage || 'proofreading',
+    reasonCode: '',
+    label: '',
+    needsNote: '0',
+    active: '1'
+  };
+  Swal.fire({
+    title: id ? 'Edit Alasan' : 'Tambah Alasan',
+    width: 620,
+    html: "\n                <div class=\"text-left space-y-3\">\n                    <input type=\"hidden\" id=\"delay_reason_id\" value=\"".concat(
+
+      reportSafeText(existing.id || ''), "\">\n                    <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest\">Tahap *</label>\n                    <select id=\"delay_reason_stage\" class=\"swal2-input !mx-0 !mt-0 !w-full\">\n                        ").concat(
+
+
+      Object.entries(labels).map(([key, label]) => "<option value=\"".concat(key, "\" ").concat(existing.stageKey === key ? 'selected' : '', ">").concat(label, "</option>")).join(''), "\n                    </select>\n                    <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest\">Kode Alasan *</label>\n                    <input id=\"delay_reason_code\" value=\"").concat(
+
+
+      reportSafeText(existing.reasonCode || ''), "\" class=\"swal2-input !mx-0 !mt-0 !w-full\" placeholder=\"contoh: proof_time\">\n                    <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest\">Teks Alasan *</label>\n                    <textarea id=\"delay_reason_label\" class=\"swal2-textarea !mx-0 !mt-0 !w-full\" rows=\"2\" placeholder=\"Tulis alasan yang akan tampil di pilihan tim\">").concat(
+
+      reportSafeText(existing.label || ''), "</textarea>\n                    <div class=\"grid grid-cols-1 md:grid-cols-2 gap-3\">\n                        <label class=\"flex items-center gap-2 p-3 rounded-xl border border-slate-100 bg-slate-50 text-sm font-bold text-slate-600\">\n                            <input id=\"delay_reason_needs_note\" type=\"checkbox\" ").concat(
+
+
+      String(existing.needsNote || '0') === '1' ? 'checked' : '', ">\n                            Butuh catatan tambahan\n                        </label>\n                        <label class=\"flex items-center gap-2 p-3 rounded-xl border border-slate-100 bg-slate-50 text-sm font-bold text-slate-600\">\n                            <input id=\"delay_reason_active\" type=\"checkbox\" ").concat(
+
+
+
+      String(existing.active || '1') !== '0' ? 'checked' : '', ">\n                            Aktif\n                        </label>\n                    </div>\n                </div>"),
+
+
+
+
+    showCancelButton: true,
+    confirmButtonText: 'Simpan',
+    cancelButtonText: 'Batal',
+    preConfirm: () => {
+      const payload = {
+        id: document.getElementById('delay_reason_id').value,
+        stageKey: document.getElementById('delay_reason_stage').value,
+        reasonCode: document.getElementById('delay_reason_code').value.trim(),
+        label: document.getElementById('delay_reason_label').value.trim(),
+        needsNote: document.getElementById('delay_reason_needs_note').checked ? '1' : '0',
+        active: document.getElementById('delay_reason_active').checked ? '1' : '0'
+      };
+      if (!payload.stageKey || !payload.reasonCode || !payload.label) return Swal.showValidationMessage('Tahap, kode, dan alasan wajib diisi.');
+      return payload;
+    }
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+    gas.withSuccessHandler((res) => {
+      if (!res || res.success === false) {
+        Swal.fire('Gagal', res?.message || res?.error || 'Alasan gagal disimpan.', 'error');
+        return;
+      }
+      Swal.fire('Tersimpan', 'Alasan keterlambatan berhasil diperbarui.', 'success');
+      window._delayReasons = null;
+      loadDelayReasons();
+    }).withFailureHandler((error) => showServerError('Gagal Menyimpan Alasan', error)).saveDelayReason(result.value);
+  });
+}
+
+
+function deleteDelayReasonItem(id) {
+  Swal.fire({
+    title: 'Hapus alasan?',
+    text: 'Alasan ini tidak akan muncul lagi pada pilihan mundur estimasi.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Hapus',
+    cancelButtonText: 'Batal'
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+    gas.withSuccessHandler((res) => {
+      if (!res || res.success === false) {
+        Swal.fire('Gagal', res?.message || res?.error || 'Alasan gagal dihapus.', 'error');
+        return;
+      }
+      Swal.fire('Terhapus', 'Alasan keterlambatan berhasil dihapus.', 'success');
+      window._delayReasons = null;
+      loadDelayReasons();
+    }).withFailureHandler((error) => showServerError('Gagal Menghapus Alasan', error)).deleteDelayReason(id);
+  });
+}
+
+
+function normalizePublisherSettingsForDeadline(settings) {
+  return (settings || []).map((pub) => ({
+    ...pub,
+    paket: Array.isArray(pub.paket) ? pub.paket : String(pub.paket || '').split(',').map((item) => item.trim()).filter(Boolean)
+  }));
+}
+
+
+function updateDeadlinePackageOptions(selectedValue = '') {
+  const publisherEl = document.getElementById('dl_penerbit');
+  const packageEl = document.getElementById('dl_paket');
+  if (!publisherEl || !packageEl) return;
+  const publishers = normalizePublisherSettingsForDeadline(window._deadlinePublisherSettings || []);
+  const selectedPublisher = publisherEl.value;
+  const packages = selectedPublisher ?
+  publishers.find((pub) => pub.nama === selectedPublisher)?.paket || [] :
+  [...new Set(publishers.flatMap((pub) => pub.paket || []))];
+  const fallbackPackages = [...new Set([...packages, selectedValue].filter(Boolean))];
+  packageEl.innerHTML = '<option value="">Pilih Paket</option>' + fallbackPackages.map((pkt) => "<option value=\"".concat(reportSafeText(pkt), "\" ").concat(pkt === selectedValue ? 'selected' : '', ">").concat(reportSafeText(pkt), "</option>")).join('');
+}
+
+
+function deleteDeadlineSettingItem(id, paket) {
+  Swal.fire({
+    title: 'Hapus Deadline Paket?',
+    html: "Yakin ingin menghapus pengaturan deadline untuk paket <b>".concat(reportSafeText(paket), "</b>?"),
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    confirmButtonText: 'Ya, Hapus',
+    cancelButtonText: 'Batal'
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+    Swal.fire({ title: 'Menghapus...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    gas.withSuccessHandler((res) => {
+      if (res && res.success === false) {
+        Swal.fire('Gagal', res.message || 'Gagal menghapus deadline.', 'error');
+        return;
+      }
+      Swal.fire('Terhapus', "Pengaturan deadline ".concat(paket, " berhasil dihapus."), 'success');
+      loadDeadlineTrackingSettings();
+    }).withFailureHandler((error) => showServerError('Gagal Menghapus Deadline', error)).deleteDeadlineSetting(id);
+  });
+}
+
+
+function openDeadlineSettingForm(id = '') {
+  const rows = window._deadlineSettings || [];
+  const d = normalizeDeadlineSettingClient(rows.find((row) => row.id === id) || { id: '', penerbit: '', paket: '', totalHari: 14, administrasi: 1, administrasiMulai: 0, administrasiSelesai: 1, proofreading: 2, proofreadingMulai: 1, proofreadingSelesai: 2, layout: 4, layoutMulai: 2, layoutSelesai: 4, produksi: 10, produksiMulai: 4, produksiSelesai: 10, distribusi: 12, distribusiMulai: 10, distribusiSelesai: 12, selesai: 14, selesaiMulai: 12, selesaiSelesai: 14 });
+  const stages = getDeadlineTimelineStagesClient();
+  const openForm = (publishersRaw) => {
+    const publishers = normalizePublisherSettingsForDeadline(publishersRaw);
+    window._deadlinePublisherSettings = publishers;
+    const publisherOptions = ['<option value="">Semua Penerbit</option>'].
+    concat(publishers.map((pub) => "<option value=\"".concat(reportSafeText(pub.nama), "\" ").concat(pub.nama === d.penerbit ? 'selected' : '', ">").concat(reportSafeText(pub.nama), "</option>"))).
+    join('');
+    const initialPackages = d.penerbit ?
+    publishers.find((pub) => pub.nama === d.penerbit)?.paket || [] :
+    [...new Set(publishers.flatMap((pub) => pub.paket || []))];
+    const packageOptions = [...new Set([...initialPackages, d.paket].filter(Boolean))].
+    map((pkt) => "<option value=\"".concat(reportSafeText(pkt), "\" ").concat(pkt === d.paket ? 'selected' : '', ">").concat(reportSafeText(pkt), "</option>")).
+    join('');
+    Swal.fire({
+      title: id ? 'Edit Deadline Paket' : 'Tambah Deadline Paket',
+      width: 'min(980px, 96vw)',
+      customClass: { popup: 'deadline-landscape-popup', htmlContainer: 'deadline-landscape-html' },
+      html: "\n                <div class=\"deadline-form-wrap\">\n                  <div class=\"deadline-form-top\">\n                    <input type=\"hidden\" id=\"dl_id\" value=\"".concat(
+
+        reportSafeText(d.id || ''), "\">\n                    <label class=\"deadline-field-label\">Penerbit\n                        <select id=\"dl_penerbit\" onchange=\"updateDeadlinePackageOptions()\" class=\"deadline-field-input\">").concat(
+
+        publisherOptions, "</select>\n                    </label>\n                    <label class=\"deadline-field-label\">Paket *\n                        <select id=\"dl_paket\" class=\"deadline-field-input\"><option value=\"\">Pilih Paket</option>").concat(
+
+
+        packageOptions, "</select>\n                    </label>\n                    <label class=\"deadline-field-label\">Total Hari Keseluruhan Timeline *\n                        <input id=\"dl_totalHari\" type=\"number\" min=\"1\" value=\"").concat(Number(d.totalHari || d.selesaiSelesai || d.selesai || 0), "\" class=\"deadline-field-input\">\n                    </label>\n                  </div>\n                  <div class=\"deadline-stage-head\"><div>Tahap</div><div>Mulai H+</div><div>Selesai H+</div></div>\n                  <div class=\"deadline-stage-grid\">\n                    ").concat(
+
+        stages.map(([key, label]) => "<div class=\"deadline-stage-card\"><div class=\"deadline-stage-name\">".concat(reportSafeText(label), "</div><input id=\"dl_").concat(key, "Mulai\" type=\"number\" min=\"0\" value=\"").concat(Number(d[key + 'Mulai'] || 0), "\" class=\"deadline-stage-input\"><input id=\"dl_").concat(key, "Selesai\" type=\"number\" min=\"0\" value=\"").concat(Number(d[key + 'Selesai'] || d[key] || 0), "\" class=\"deadline-stage-input\"></div>")).join(''), "\n                  </div>\n                </div>"),
+
+      showCancelButton: true,
+      confirmButtonText: 'Simpan',
+      cancelButtonText: 'Batal',
+      preConfirm: () => {
+        const payload = {
+          id: document.getElementById('dl_id').value,
+          paket: document.getElementById('dl_paket').value.trim(),
+          penerbit: document.getElementById('dl_penerbit').value.trim()
+        };
+        payload.totalHari = Number(document.getElementById('dl_totalHari').value || 0);
+        stages.forEach(([key]) => {
+          payload[key + 'Mulai'] = Number(document.getElementById('dl_' + key + 'Mulai').value || 0);
+          payload[key + 'Selesai'] = Number(document.getElementById('dl_' + key + 'Selesai').value || 0);
+          payload[key] = payload[key + 'Selesai'];
+        });
+        if (!payload.paket) return Swal.showValidationMessage('Nama paket wajib diisi.');
+        if (payload.totalHari <= 0) return Swal.showValidationMessage('Total hari keseluruhan timeline wajib lebih dari 0.');
+        for (const [key, label] of stages) {
+          if (payload[key + 'Selesai'] < payload[key + 'Mulai']) return Swal.showValidationMessage(label + ' selesai tidak boleh lebih kecil dari mulai.');
+          if (payload[key + 'Selesai'] > payload.totalHari) return Swal.showValidationMessage(label + ' selesai tidak boleh melewati total hari keseluruhan timeline.');
+        }
+        payload.selesaiSelesai = payload.totalHari;
+        payload.selesai = payload.totalHari;
+        return payload;
+      }
+    }).then((result) => {
+      if (!result.isConfirmed) return;
+      gas.withSuccessHandler((res) => {
+        if (!res || res.success === false) {
+          Swal.fire('Gagal', res?.message || 'Pengaturan deadline gagal disimpan.', 'error');
+          return;
+        }
+        Swal.fire('Tersimpan', 'Template deadline paket berhasil diperbarui.', 'success');
+        loadDeadlineTrackingSettings();
+      }).withFailureHandler((error) => showServerError('Gagal Menyimpan Deadline', error)).saveDeadlineSetting(result.value);
+    });
+  };
+  if (window._deadlinePublisherSettings) {
+    openForm(window._deadlinePublisherSettings);
+    return;
+  }
+  gas.withSuccessHandler((res) => {
+    openForm(res?.data?.penerbit || []);
+  }).withFailureHandler(() => {
+    openForm([]);
+  }).getSettingsData();}
+
+function loadHolidaySettings() {
+  gas.withSuccessHandler((res) => {
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const rows = res?.data || [];
+    window._holidaySettings = rows;
+
+    const monthFilter = window._holidayMonthFilter || new Date().toISOString().slice(0, 7);
+    const availableMonths = [...new Set(rows.map((r) => String(r.tanggal || '').slice(0, 7)).filter((d) => /^\d{4}-\d{2}$/.test(d)))].sort().reverse();
+    if (!availableMonths.includes(new Date().toISOString().slice(0, 7))) availableMonths.unshift(new Date().toISOString().slice(0, 7));
+
+    const filteredRows = monthFilter === 'semua' ? rows : rows.filter((r) => String(r.tanggal || '').startsWith(monthFilter));
+
+    const safe = reportSafeText;
+    const renderRow = (row) => "\n                <tr class=\"border-b border-slate-100\">\n                    <td class=\"px-3 py-3 text-slate-500\">".concat(
+
+      safe(row.tanggal || '-'), "</td>\n                    <td class=\"px-3 py-3 font-black text-slate-800\">").concat(
+      safe(row.nama || '-'), "</td>\n                    <td class=\"px-3 py-3\">\n                        ").concat(
+
+      String(row.active || '1') !== '0' ?
+      '<span class="px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black">Aktif</span>' :
+      '<span class="px-2 py-1 bg-red-50 text-red-500 rounded-lg text-[10px] font-black">Nonaktif</span>', "\n                    </td>\n                    <td class=\"px-3 py-3 text-right\">\n                        <button onclick=\"openHolidaySettingForm('").concat(
+
+
+      safe(row.id), "')\" class=\"px-3 py-1.5 rounded-lg bg-accent-50 text-accent-600 text-[10px] font-black mr-1\">Edit</button>\n                        <button onclick=\"deleteHolidaySettingItem('").concat(
+      safe(row.id), "')\" class=\"px-3 py-1.5 rounded-lg bg-red-50 text-red-500 text-[10px] font-black\">Hapus</button>\n                    </td>\n                </tr>");
+
+
+
+    content.innerHTML = "\n                <div class=\"space-y-5\">\n                    <div class=\"bg-white border border-slate-100 shadow-sm p-6 flex flex-col md:flex-row md:items-center justify-between gap-4\">\n                        <div>\n                            <h3 class=\"text-xl font-black text-slate-900\">Pengaturan Tanggal Merah</h3>\n                            <p class=\"text-sm text-slate-400 mt-1\">Daftar hari libur yang akan menghentikan perhitungan otomatis pada estimasi deadline.</p>\n                        </div>\n                        <div class=\"flex gap-2\">\n                            <select onchange=\"window._holidayMonthFilter=this.value; loadHolidaySettings()\" class=\"px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none bg-white focus:border-accent-400\">\n                                <option value=\"semua\" ".concat(
+
+
+
+
+
+
+
+
+      monthFilter === 'semua' ? 'selected' : '', ">Semua Bulan</option>\n                                ").concat(
+      availableMonths.map((m) => "<option value=\"".concat(m, "\" ").concat(monthFilter === m ? 'selected' : '', ">").concat(m, "</option>")).join(''), "\n                            </select>\n                            <button onclick=\"openHolidaySettingForm()\" class=\"btn-gradient text-white px-5 py-2.5 rounded-xl font-black text-sm\"><i class=\"fa-solid fa-plus mr-2\"></i>Tambah Libur</button>\n                        </div>\n                    </div>\n                    <div class=\"bg-white border border-slate-100 shadow-sm overflow-x-auto\">\n                        <table class=\"w-full text-left text-sm min-w-[700px]\">\n                            <thead class=\"bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400\">\n                                <tr>\n                                    <th class=\"px-3 py-3\">Tanggal</th>\n                                    <th class=\"px-3 py-3\">Keterangan Libur</th>\n                                    <th class=\"px-3 py-3\">Status</th>\n                                    <th class=\"px-3 py-3\"></th>\n                                </tr>\n                            </thead>\n                            <tbody>\n                                ").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      filteredRows.length > 0 ? filteredRows.map(renderRow).join('') : '<tr><td colspan="4" class="px-3 py-6 text-center text-slate-400 font-bold italic">Belum ada data tanggal merah untuk bulan ini.</td></tr>', "\n                            </tbody>\n                        </table>\n                    </div>\n                </div>");
+
+
+
+
+  }).withFailureHandler((error) => showServerError('Gagal Memuat Tanggal Merah', error)).getHolidaySettings();
+}
+
+function openHolidaySettingForm(id = '') {
+  const rows = window._holidaySettings || [];
+  const existing = rows.find((row) => String(row.id) === String(id)) || {
+    id: '',
+    tanggal: new Date().toISOString().slice(0, 10),
+    nama: '',
+    active: '1'
+  };
+  Swal.fire({
+    title: id ? 'Edit Tanggal Merah' : 'Tambah Tanggal Merah',
+    width: 480,
+    html: "\n                <div class=\"text-left space-y-3\">\n                    <input type=\"hidden\" id=\"holiday_id\" value=\"".concat(
+
+      reportSafeText(existing.id || ''), "\">\n                    <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest\">Tanggal *</label>\n                    <input id=\"holiday_tanggal\" type=\"date\" value=\"").concat(
+
+      reportSafeText(existing.tanggal || ''), "\" class=\"swal2-input !mx-0 !mt-0 !w-full\">\n                    <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest\">Keterangan *</label>\n                    <input id=\"holiday_nama\" value=\"").concat(
+
+      reportSafeText(existing.nama || ''), "\" class=\"swal2-input !mx-0 !mt-0 !w-full\" placeholder=\"contoh: Libur Lebaran\">\n                    <label class=\"flex items-center gap-2 p-3 rounded-xl border border-slate-100 bg-slate-50 text-sm font-bold text-slate-600 mt-2\">\n                        <input id=\"holiday_active\" type=\"checkbox\" ").concat(
+
+      String(existing.active || '1') !== '0' ? 'checked' : '', ">\n                        Status Aktif\n                    </label>\n                </div>"),
+
+
+
+    showCancelButton: true,
+    confirmButtonText: 'Simpan',
+    cancelButtonText: 'Batal',
+    preConfirm: () => {
+      const payload = {
+        id: document.getElementById('holiday_id').value,
+        tanggal: document.getElementById('holiday_tanggal').value,
+        nama: document.getElementById('holiday_nama').value.trim(),
+        active: document.getElementById('holiday_active').checked ? '1' : '0'
+      };
+      if (!payload.tanggal || !payload.nama) return Swal.showValidationMessage('Tanggal dan keterangan wajib diisi.');
+      return payload;
+    }
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+    Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    gas.withSuccessHandler((res) => {
+      if (!res || res.success === false) {
+        Swal.fire('Gagal', res?.message || res?.error || 'Gagal menyimpan.', 'error');
+        return;
+      }
+      Swal.fire('Tersimpan', 'Pengaturan libur berhasil diperbarui.', 'success');
+      window._holidaySettings = null;
+      loadHolidaySettings();
+    }).withFailureHandler((error) => showServerError('Gagal Menyimpan', error)).saveHolidaySetting(result.value);
+  });
+}
+
+function deleteHolidaySettingItem(id) {
+  Swal.fire({
+    title: 'Hapus tanggal libur?',
+    text: 'Data yang dihapus tidak akan diperhitungkan dalam estimasi deadline.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Hapus',
+    cancelButtonText: 'Batal'
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+    Swal.fire({ title: 'Menghapus...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    gas.withSuccessHandler((res) => {
+      if (!res || res.success === false) {
+        Swal.fire('Gagal', res?.message || res?.error || 'Gagal dihapus.', 'error');
+        return;
+      }
+      Swal.fire('Terhapus', 'Tanggal libur berhasil dihapus.', 'success');
+      window._holidaySettings = null;
+      loadHolidaySettings();
+    }).withFailureHandler((error) => showServerError('Gagal Menghapus', error)).deleteHolidaySetting(id);
+  });
+}
+
+[
+'getDealAccelerationDaysClient',
+'findDeadlineSettingByWorkdaysClient',
+'resolveDealDeadlineSettingClient',
+'getDeadlineTimelineStagesClient',
+'normalizeDeadlineSettingClient',
+'loadDeadlineTrackingSettings',
+'openDeadlineSettingForm',
+'deleteDeadlineSettingItem',
+'openDelayReasonForm',
+'deleteDelayReasonItem',
+'loadHolidaySettings',
+'openHolidaySettingForm',
+'deleteHolidaySettingItem',
+'confirmSyncNaskahDeadlines'].
+forEach((name) => {
+  try {
+    const fn = eval(name);
+    if (typeof fn === 'function') window[name] = fn;
+  } catch (error) {}
+});
+</script>

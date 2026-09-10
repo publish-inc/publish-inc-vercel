@@ -1,0 +1,105 @@
+export const SPK_TEMPLATE_KEY = "publishinc_spk_template_v1";
+
+export const DEFAULT_SPK_TEMPLATE = {
+  nomor_format: "{nomor}/SPK-PI/{bulan_romawi}/{tahun}",
+  pihak_pertama: {
+    nama: "Muh Kahfli",
+    jabatan: "CEO/Founder",
+    bertindak_atas_nama: "Publish Inc.",
+  },
+  pembuka: "Kedua belah pihak sepakat mengadakan kerjasama penerbitan buku berjudul \"{judul_naskah}\" dengan pilihan {paket}, dengan ketentuan sebagai berikut:",
+  clauses: [
+    {
+      title: "DEFINISI",
+      body: "1. Penerbit adalah perusahaan yang bergerak dalam bidang penerbitan dan percetakan buku dengan nama hukum CV. Publish Inc. dan nama brand Publish Inc., yang bertindak sebagai mitra Penulis dalam proses penerbitan buku.\n2. Penulis adalah pihak yang menyerahkan naskah buku orisinal kepada Penerbit untuk diterbitkan, dicetak, didistribusikan, dipasarkan, dan diperjualbelikan.\n3. Penjualan Mandiri adalah mekanisme penjualan buku di mana Penulis memiliki kewenangan penuh dalam menentukan harga, melakukan pemasaran, serta mengelola penjualan buku.\n4. Penjualan Penerbit adalah mekanisme penjualan buku di mana Penerbit memiliki kewenangan penuh dalam menentukan harga, pemasaran, dan pengelolaan penjualan.\n5. Penjualan Mitra Ketiga adalah mekanisme penjualan e-book melalui jaringan mitra Penerbit.\n6. Royalti adalah imbalan uang yang menjadi hak Penulis berdasarkan hasil penjualan buku karya Penulis.\n7. Jasa Administrasi adalah biaya administrasi yang dikenakan atau dipotong dari hasil penjualan buku melalui toko buku, marketplace, maupun platform daring.\n8. PPN adalah pajak atas transaksi penerbitan, percetakan, dan penjualan buku sesuai peraturan yang berlaku.\n9. Buku yang tidak termasuk kategori buku pelajaran umum mengikuti ketentuan perpajakan dan klasifikasi yang ditentukan Penerbit.\n10. Kebijakan Privasi adalah dokumen yang menjelaskan tata cara Penerbit mengelola dan melindungi data pribadi.\n11. Syarat dan Ketentuan adalah dokumen yang memuat pedoman, kondisi, hak, dan kewajiban pengguna layanan Penerbit.",
+    },
+    {
+      title: "Ruang Lingkup",
+      body: "1. Kerja sama ini mencakup kegiatan penerbitan, konversi, percetakan, dan penjualan buku dengan judul \"{judul_naskah}\".\n2. Perjanjian ini menetapkan hak, kewajiban, tanggung jawab, kewenangan, alur kerja, legalitas penerbitan, ISBN, hak cipta, promosi, royalti, kerahasiaan data, dan pencegahan perselisihan.\n3. Ketentuan berlaku secara khusus sesuai layanan atau paket yang dipilih Penulis.\n4. Persyaratan teknis masing-masing paket merupakan bagian yang tidak terpisahkan dari perjanjian.\n5. Kerja sama tambahan dapat dibuat kemudian melalui kesepakatan tersendiri.",
+    },
+    {
+      title: "Hak Cipta",
+      body: "1. Hak cipta atas naskah tetap menjadi milik Penulis.\n2. Hak cipta atas buku Penulis dilindungi oleh Undang-Undang Nomor 28 Tahun 2014 tentang Hak Cipta.\n3. Penulis menjamin naskah yang diserahkan adalah karya orisinal, bukan hasil penjiplakan, tidak melanggar hak cipta pihak lain, dan tidak mengandung fitnah, pelecehan, penghinaan, maupun SARA negatif.\n4. Penulis bertanggung jawab sepenuhnya atas tuntutan hukum yang timbul akibat pelanggaran jaminan tersebut.",
+    },
+    {
+      title: "Editing Naskah",
+      body: "1. Standar penyuntingan naskah adalah proofreading, meliputi perbaikan typo, ejaan, tanda baca, dan tata bahasa.\n2. Editing tidak mencakup teks Arab, bahasa asing, istilah khusus, outline, bullet, numbering, dan bentuk editing di luar proofreading.\n3. Editing di luar ketentuan proofreading dikenakan biaya tambahan.\n4. Revisi naskah yang dimaksud adalah revisi minor.\n5. Revisi mayor atau penggantian draft naskah baru dikenakan biaya tambahan.\n6. Penulis berhak mendapatkan hasil editing dan memberi persetujuan untuk dilanjutkan ke tahap layout.\n7. Aturan teknis editing lainnya diatur terpisah dan menjadi satu kesatuan dengan perjanjian ini.",
+    },
+    {
+      title: "Desain Grafis dan Tata Letak",
+      body: "1. Penerbit berkewajiban melaksanakan tata letak dan desain sampul dengan standar kualitas template layout dan desain premium.\n2. Penulis berhak memilih style tata letak dan desain sampul yang disediakan Penerbit.\n3. Jika Penulis tidak memilih style, naskah dikerjakan dengan style default.\n4. Request khusus yang bersifat premium dikenakan biaya tambahan.\n5. Penerbit menjamin originalitas desain sampul dan penggunaan elemen gambar berlisensi.\n6. Ilustrasi premium dikenakan biaya tambahan.\n7. Penulis wajib memeriksa hasil tata letak dan desain sampul.\n8. Penulis berhak mengajukan revisi sesuai fasilitas paket.\n9. Revisi di luar ketentuan paket dikenakan biaya tambahan.\n10. Penulis wajib memeriksa draft buku dan memberi persetujuan sebelum produksi. Kesalahan setelah persetujuan menjadi tanggung jawab Penulis.\n11. Aturan teknis tata letak dan desain grafis diatur terpisah.",
+    },
+    {
+      title: "Hak ISBN",
+      body: "1. Hak ISBN adalah milik Penerbit.\n2. Penerbit bertanggung jawab atas administrasi pengurusan ISBN.\n3. Penulis wajib memberikan data dan administrasi yang dibutuhkan untuk pengurusan ISBN.\n4. Penerbit memiliki hak cetak, penggandaan, dan distribusi untuk buku yang menggunakan ISBN Penerbit.\n5. Penulis dilarang menyalahgunakan ISBN tanpa izin Penerbit.",
+    },
+    {
+      title: "Hak Naskah",
+      body: "1. Hak naskah adalah milik Penerbit sepanjang berkaitan dengan draft produksi, master layout, dan master cover.\n2. Penerbit bertanggung jawab menjaga draft naskah dan kerahasiaan data fisik maupun elektronik.\n3. Penerbit dapat menyimpan dan menghapus draft naskah secara berkala setelah kerja sama dianggap selesai.\n4. Penulis berhak meminta soft file yang telah diproteksi untuk kebutuhan administrasi.\n5. Penulis dilarang menyalahgunakan soft file yang diberikan Penerbit.\n6. Pelanggaran dapat menyebabkan kontrak diputus dan perjanjian batal demi hukum.\n7. Kerugian akibat pelanggaran dapat dituntut secara materiil, immateriil, dan rehabilitasi nama baik.",
+    },
+    {
+      title: "Hak Penerbitan",
+      body: "1. Hak penerbitan adalah milik Penerbit.\n2. Bagian hak penerbitan meliputi ISBN, hasil tata letak, desain sampul final, dan identitas Penerbit.\n3. Penerbit wajib memberikan fasilitas yang tersedia dalam paket penerbitan.\n4. Penerbit berhak membatalkan ISBN apabila terjadi wanprestasi atau pelanggaran perjanjian.\n5. Setelah ISBN diterbitkan PNRI, Penulis dilarang membatalkan paket, mengubah identitas buku, atau mengubah isi naskah final secara sepihak.\n6. PNRI berwenang menolak pengajuan ISBN yang tidak sesuai standar.\n7. Penerbit dapat mengurus QRCBN apabila buku tidak layak memiliki ISBN.\n8. Jika pembatalan terjadi akibat pelanggaran, kewajiban Penerbit dianggap selesai tanpa ganti rugi.",
+    },
+    {
+      title: "Hak Cetak",
+      body: "1. Hak cetak adalah milik Penerbit.\n2. Penerbit berhak mencetak, memperbanyak, atau menggandakan buku berdasarkan order Penulis, toko buku, marketplace, dan pihak lainnya.\n3. Penulis dan pihak lain dilarang mencetak atau menggandakan buku menggunakan ISBN, layout, dan desain sampul Penerbit tanpa izin.\n4. Penulis dilarang menyerahkan naskah kepada pihak lain untuk diterbitkan atau dicetak ulang.\n5. Para pihak berkomitmen mencegah pencetakan ilegal.\n6. Pelanggaran cetak dapat dituntut ganti rugi secara materiil dan immateriil.\n7. Pelanggaran oleh Penulis dapat menyebabkan perjanjian batal demi hukum.",
+    },
+    {
+      title: "Hak Distribusi",
+      body: "1. Hak pengiriman adalah hak para pihak.\n2. Hak distribusi adalah hak Penerbit.\n3. Gratis ongkos kirim berlaku sesuai syarat dan ketentuan khusus.\n4. Penerbit berhak menentukan mitra ekspedisi.\n5. Penerbit bertanggung jawab atas kerusakan atau cacat yang tidak dapat ditoleransi.\n6. Jika Penulis menentukan ekspedisi sendiri, biaya dan garansi menjadi tanggungan Penulis.\n7. Distribusi nasional ke mitra Gramedia dilakukan sesuai syarat dan ketentuan khusus.",
+    },
+    {
+      title: "Metode Penjualan Mandiri",
+      body: "1. Penulis berhak mempromosikan dan menjual buku secara mandiri dengan mematuhi ketentuan Penerbit.\n2. Penulis berhak menentukan harga jual dengan mempertimbangkan rasionalitas pemasaran.\n3. Penulis berhak atas keuntungan penjualan mandiri.\n4. Penulis dapat melakukan order cetak ulang sesuai ketentuan harga cetak.\n5. Penerbit wajib mencetak buku sesuai order Penulis.",
+    },
+    {
+      title: "Metode Penjualan Melalui Penerbit",
+      body: "1. Penerbit berhak mempromosikan dan menjual buku yang diterbitkan sesuai ketentuan yang berlaku.\n2. Penerbit menjual buku fisik secara online di marketplace resmi Publish Inc.\n3. Konsekuensi biaya, administrasi, promosi, dan kebijakan platform menjadi konsekuensi yang diterima para pihak.\n4. Penerbit berhak menentukan harga jual dengan mempertimbangkan harga produksi.\n5. Buku dengan sistem penjualan melalui Penerbit tidak diperbolehkan order cetak ulang dengan sistem CU.\n6. Jangka waktu promosi dan penjualan berlaku selama perjanjian ini berlaku.\n7. Penerbit dapat menghentikan penjualan jika tidak ada progress penjualan dalam tiga bulan.\n8. Penerbit dapat menghentikan penjualan apabila terjadi pemutusan perjanjian atau pelanggaran.\n9. Penghentian penjualan berdampak pada penghapusan data dan identitas buku pada marketplace dan mitra Penerbit.",
+    },
+    {
+      title: "Metode Penjualan Melalui Mitra Ketiga",
+      body: "1. Penerbit dan Penulis menyerahkan kendali penjualan dan promosi e-book kepada mitra ketiga melalui akun Penerbit.\n2. Penulis tidak diperkenankan menjual e-book melalui akun lain.\n3. Penulis berhak menentukan harga jual e-book dengan harga minimal 60% dari harga buku fisik.\n4. Penerbit bertanggung jawab mengurus administrasi e-book hingga terbit di mitra ketiga.\n5. Publikasi dan penjualan mitra ketiga berlaku selama perjanjian ini berlaku.\n6. Penerbit dapat menghentikan penjualan mitra ketiga jika terjadi pemutusan perjanjian atau pelanggaran.\n7. Penghentian penjualan berdampak pada penghapusan data dan identitas e-book pada mitra ketiga.",
+    },
+    {
+      title: "Royalti",
+      body: "1. Penulis berhak mendapat 100% keuntungan penjualan dari sistem penjualan mandiri.\n2. Penulis berhak mendapat 20% royalti dari hasil penjualan bersih buku melalui Penerbit.\n3. Penulis berhak mendapat 20% royalti dari hasil penjualan bersih e-book melalui mitra ketiga.\n4. Laporan penjualan dan pembayaran royalti dapat dikonfirmasi melalui CS Konsultan Publish Inc.\n5. Royalti dipotong PPh Pasal 23 sesuai kepemilikan NPWP dan ketentuan yang berlaku.\n6. Royalti dapat diklaim apabila mencapai minimal Rp200.000 setelah potongan PPh.\n7. Royalti di bawah minimum dapat diklaim dalam bentuk voucher layanan penerbitan dengan nilai setara.\n8. Jika dalam satu tahun royalti belum mencapai minimum dan terjadi pemutusan kerja sama, royalti dibayarkan setelah pemutusan kerja sama ditandatangani.",
+    },
+    {
+      title: "Hak dan Kewajiban Penulis",
+      body: "1. Penulis berhak mendapatkan pelayanan prima.\n2. Penulis berhak mendapatkan seluruh fasilitas penerbitan yang dijanjikan dalam paket.\n3. Penulis berhak menentukan sistem penjualan buku.\n4. Penulis berhak mendapatkan royalti sesuai Pasal 14.\n5. Penulis wajib tunduk pada isi perjanjian, syarat, dan ketentuan Penerbit.\n6. Penulis wajib membantu promosi dan penjualan buku sesuai ketentuan penjualan Penerbit.\n7. Penulis wajib bekerja sama dengan mengedepankan norma kesopanan.",
+    },
+    {
+      title: "Hak dan Kewajiban Penerbit",
+      body: "1. Penerbit wajib mematuhi isi perjanjian, syarat, dan ketentuan secara adil dan transparan.\n2. Penerbit wajib memberikan pelayanan prima.\n3. Penerbit wajib memberikan fasilitas penerbitan yang dijanjikan dalam paket.\n4. Penerbit wajib bekerja sama dengan mengedepankan norma kesopanan.\n5. Penerbit wajib memberikan laporan penjualan dan royalti dengan amanah dan tanggung jawab.\n6. Penerbit wajib menyerahkan bukti terbit buku sesuai ketentuan serah simpan karya cetak dan karya rekam.\n7. Penerbit berhak menghentikan kontrak sepihak jika terdapat wanprestasi Penulis yang merugikan Penerbit.\n8. Penerbit berhak menghentikan penjualan buku sesuai ketentuan perjanjian.\n9. Penerbit berhak membatalkan atau menolak naskah yang mengandung muatan negatif, pelanggaran hukum, atau pembajakan.",
+    },
+    {
+      title: "Layanan, Harga dan Promosi",
+      body: "1. Seluruh layanan Publish Inc. terlampir pada website official publishinc.id dan menjadi satu kesatuan dengan perjanjian ini.\n2. Harga layanan Publish Inc. ditetapkan berdasarkan perhitungan dan pertimbangan rasional.\n3. Promosi atau diskon layanan dapat dilakukan secara situasional oleh Penerbit dan mengikat dalam perjanjian ini.",
+    },
+    {
+      title: "Hari Kerja",
+      body: "1. Hari kerja adalah Senin sampai Jumat pukul 09.00-17.00.\n2. Hari libur adalah Sabtu, Minggu, dan hari libur nasional.\n3. Seluruh proses pengerjaan layanan penerbitan diatur dalam timeline yang menjadi satu kesatuan dengan perjanjian ini.",
+    },
+    {
+      title: "Garansi dan Refund",
+      body: "1. Garansi 100% berlaku apabila terjadi kesalahan cetak, cacat fisik, kualitas rendah, atau tidak sesuai spesifikasi.\n2. Garansi diberikan dalam bentuk cetak ulang.\n3. Penulis wajib melampirkan bukti gambar atau video secara jelas.\n4. Garansi tidak berlaku jika klaim diajukan lebih dari tujuh hari sejak buku diterima.\n5. Garansi tidak berlaku jika kerusakan disebabkan kelalaian Penulis.\n6. Refund berlaku sesuai tahapan pengerjaan.\n7. Refund 70% berlaku setelah payment, 50% saat tahap editorial, 25% saat layout dan desain cover, 15% saat permohonan ISBN, dan tidak berlaku setelah tahap produksi.\n8. Persentase refund dihitung dari DP Penulis.",
+    },
+    {
+      title: "Lama Perjanjian",
+      body: "1. Perjanjian berlaku sejak ditandatangani hingga waktu yang tidak ditentukan selama Penulis menggunakan identitas Penerbit.\n2. Para pihak tidak saling mengikat hak dan kewajiban yang merugikan salah satu pihak.\n3. Perubahan kebijakan Penerbit atau peraturan pemerintah diselesaikan melalui musyawarah mufakat sesuai peraturan yang berlaku.",
+    },
+    {
+      title: "Kebijakan Privasi",
+      body: "1. Penulis menyetujui pengumpulan dan penggunaan data pribadi sesuai Kebijakan Privasi Publish Inc.\n2. Setiap layanan tunduk pada Syarat dan Ketentuan yang berlaku di website resmi Publish Inc.\n3. Penulis menyetujui bahwa pelaksanaan kerja sama mengikuti aturan yang tercantum pada halaman resmi, termasuk perubahan kebijakan dari waktu ke waktu.",
+    },
+    {
+      title: "Force Majeure",
+      body: "1. Jika terjadi keadaan terpaksa yang menyebabkan para pihak tidak dapat memenuhi kewajiban, konsekuensi ditanggung bersama.\n2. Keadaan terpaksa meliputi bencana alam, perang, Penerbit bangkrut, akuisisi, merger, Penulis meninggal dunia, dan kondisi lain di luar kuasa para pihak.",
+    },
+    {
+      title: "Penyelesaian Perselisihan",
+      body: "1. Perjanjian ini dibuat berdasarkan kepercayaan penuh dari Penulis dan Penerbit. Perselisihan diselesaikan secara kekeluargaan dan musyawarah mufakat.\n2. Jika tidak dapat diselesaikan secara musyawarah, para pihak sepakat menyerahkan penyelesaian melalui Kepaniteraan Pengadilan Negeri sesuai kedudukan Penerbit.\n3. Demikian surat perjanjian kerja sama ini disepakati dan ditandatangani oleh kedua belah pihak.",
+    },
+  ],
+};

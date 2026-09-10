@@ -1,0 +1,1173 @@
+<script>
+
+// --- MODUL MANAJEMEN PRODUKSI & TUGAS TIM KREATIF ---
+
+function showNaskahSpesifikasiCetak(id) {
+  const naskah = (window._progressNaskahCache || mockNaskahDB || []).find((row) => String(row.id || '') === String(id || ''));
+  if (!naskah) {
+    Swal.fire('Data Tidak Ditemukan', 'Spesifikasi cetak belum tersedia. Coba muat ulang Tracking Progres.', 'warning');
+    return;
+  }
+  Swal.fire({
+    title: 'Spesifikasi Cetak',
+    html: `<div class="text-left text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">${reportSafeText(naskah.spesifikasiCetak || 'Spesifikasi cetak belum diisi.')}</div>`,
+    confirmButtonColor: '#4763FD',
+    confirmButtonText: 'Tutup'
+  });
+}
+
+function loadProgres() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const isCsProgressView = state.activeTab === 'naskah_diproses_cs';
+    const isReadOnlyProgress = isCsProgressView || state.user.role === 'manajemen' || state.user.role === 'pimpinan';
+    const showCancelledProgress = !isCsProgressView && window._progressShowCancelled === true;
+    const allProgressRows = res?.data || [];
+    mockNaskahDB = allProgressRows || mockNaskahDB || [];
+    window._progressNaskahCache = mockNaskahDB;
+    const data = allProgressRows.filter((n) => {
+      const naskahSource = String(n.source || '').toLowerCase();
+      const isMigrasiManajemen = naskahSource === 'migrasi' || String(n.cs || '').toLowerCase() === 'migrasi manajemen';
+      const csOwner = String(n.cs || '').trim().toLowerCase();
+      const currentCsName = String(state.user.nama || '').trim().toLowerCase();
+      const currentCsUsername = String(state.user.username || '').trim().toLowerCase();
+      const matchesOwner = !isCsProgressView || isMigrasiManajemen || csOwner === currentCsName || csOwner === currentCsUsername;
+      const nUser = String(n.assignedCssUsername || '').trim().toLowerCase();
+      const nName = String(n.assignedCssName || '').trim().toLowerCase();
+      const uUser = String(state.user.username || '').trim().toLowerCase();
+      const uName = String(state.user.nama || '').trim().toLowerCase();
+      const matchesCssAssignment = state.user.role !== 'css' ||
+      nUser === uUser || nUser === uName && uName || nName === uUser || nName === uName && uName;
+      const matchesStatus = showCancelledProgress ?
+      isNaskahCancelled(n) :
+      (n.statusProses === 'Siap Proses' || !n.statusProses || isMigrasiManajemen) && !isNaskahCancelled(n);
+      return matchesOwner && matchesCssAssignment && matchesStatus;
+    });
+
+    const safeText = (value) => String(value || '-').replace(/[&<>"']/g, (ch) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    })[ch]);
+    const safeAttr = (value) => String(value || '').replace(/[&<>"']/g, (ch) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    })[ch]);
+    const formatDateShort = (value) => {
+      if (!value) return '-';
+      const date = new Date(value);
+      if (isNaN(date.getTime())) return String(value);
+      return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+    };
+    const stepIcon = (step) => ({
+      'Administrasi': 'fa-file-signature',
+      'Proofreading': 'fa-pen-nib',
+      'Desain Cover & Layout': 'fa-object-group',
+      'ISBN': 'fa-barcode',
+      'Produksi': 'fa-print',
+      'Distribusi': 'fa-truck-fast',
+      'Selesai': 'fa-flag-checkered'
+    })[step] || 'fa-circle-check';
+    const getEffectiveProgressStage = (n) => {
+      const storedIdx = timelineSteps.indexOf(n.timeline);
+      const proofIdx = timelineSteps.indexOf('Proofreading');
+      const layoutIdx = timelineSteps.indexOf('Desain Cover & Layout');
+      const produksiIdx = timelineSteps.indexOf('Produksi');
+      let effectiveIdx = storedIdx < 0 ? 0 : storedIdx;
+      if (!naskahNeedsProofreading(n) || n.statusEditor === 'Complete') {
+        if (effectiveIdx <= proofIdx) effectiveIdx = layoutIdx;
+      }
+      if (n.statusLayouter === 'Complete') {
+        if (effectiveIdx <= layoutIdx) effectiveIdx = produksiIdx;
+      }
+      return timelineSteps[effectiveIdx] || n.timeline || timelineSteps[0];
+    };
+    window._progressSearch = window._progressSearch || '';
+    window._progressPublisher = window._progressPublisher || '';
+    window._progressStage = window._progressStage || '';
+    window._progressPage = Number(window._progressPage || 1);
+    window.setProgressSearch = (value) => {window._progressSearch = value || '';window._progressPage = 1;loadProgres();};
+    window.setProgressPublisher = (value) => {window._progressPublisher = value || '';window._progressPage = 1;loadProgres();};
+    window.setProgressStage = (value) => {window._progressStage = value || '';window._progressPage = 1;loadProgres();};
+    window.setProgressPage = (page) => {window._progressPage = Number(page || 1);loadProgres();};
+    const searchText = String(window._progressSearch || '').toLowerCase();
+    const publishers = [...new Set(data.map((n) => n.penerbit).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b)));
+    const filteredData = data.filter((n) => {
+      const haystack = [n.judul, n.penulis, n.trackingCode, n.penerbit, n.paket, n.picEditor, n.picLayouter].map((v) => String(v || '').toLowerCase()).join(' ');
+      return (!searchText || haystack.includes(searchText)) && (
+      !window._progressPublisher || n.penerbit === window._progressPublisher) && (
+      !window._progressStage || getEffectiveProgressStage(n) === window._progressStage);
+    });
+    const pageSize = 10;
+    const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
+    if (window._progressPage > totalPages) window._progressPage = totalPages;
+    if (window._progressPage < 1) window._progressPage = 1;
+    const pageStart = (window._progressPage - 1) * pageSize;
+    const pagedData = filteredData.slice(pageStart, pageStart + pageSize);
+
+    content.innerHTML = "\n                    <div class=\"space-y-6\">\n                        <div class=\"flex items-center gap-4 text-[11px] font-bold text-slate-300 bg-slate-800 p-3 rounded-2xl border border-slate-700 shadow-sm\"><span class=\"uppercase tracking-wider text-slate-400\"><i class=\"fa-solid fa-palette mr-1\"></i>Penerbit:</span><div class=\"flex items-center gap-1.5\"><span class=\"w-3 h-3 rounded\" style=\"background:#eff6ff;border:1px solid #dbeafe\"></span> Nasmedia</div><div class=\"flex items-center gap-1.5\"><span class=\"w-3 h-3 rounded\" style=\"background:#faf5ff;border:1px solid #f3e8ff\"></span> Idebuku</div></div>\n                        <div class=\"bg-white border border-slate-100 rounded-3xl shadow-sm p-4\">\n                            <div class=\"grid grid-cols-1 ".concat(
+
+
+
+
+
+
+
+
+
+      isCsProgressView ? 'lg:grid-cols-[1fr_13rem_13rem_8rem]' : 'lg:grid-cols-[1fr_13rem_13rem_8rem_12rem]', " gap-3\">\n                                <div class=\"relative\">\n                                    <i class=\"fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-sm\"></i>\n                                    <input id=\"progress_search_input\" type=\"text\" value=\"").concat(
+
+
+      safeAttr(window._progressSearch), "\" onkeydown=\"if(event.key==='Enter') setProgressSearch(this.value)\" placeholder=\"Cari judul, kode, penulis, penerbit, PIC...\" class=\"w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-200 outline-none focus:border-accent-600 text-sm font-semibold\">\n                                </div>\n                                <select onchange=\"setProgressPublisher(this.value)\" class=\"w-full px-4 py-3 rounded-2xl border border-slate-200 outline-none focus:border-accent-600 text-sm font-bold bg-white\">\n                                    <option value=\"\">Semua Penerbit</option>\n                                    ").concat(
+
+
+
+      publishers.map((p) => "<option value=\"".concat(safeAttr(p), "\" ").concat(window._progressPublisher === p ? 'selected' : '', ">").concat(safeText(p), "</option>")).join(''), "\n                                </select>\n                                <select onchange=\"setProgressStage(this.value)\" class=\"w-full px-4 py-3 rounded-2xl border border-slate-200 outline-none focus:border-accent-600 text-sm font-bold bg-white\">\n                                    <option value=\"\">Semua Tahap</option>\n                                    ").concat(
+
+
+
+      timelineSteps.map((step) => "<option value=\"".concat(safeAttr(step), "\" ").concat(window._progressStage === step ? 'selected' : '', ">").concat(safeText(step), "</option>")).join(''), "\n                                </select>\n                                <button onclick=\"setProgressSearch(document.getElementById('progress_search_input')?.value || '')\" class=\"px-4 py-3 rounded-2xl bg-accent-600 hover:bg-accent-700 text-white text-sm font-black shadow-sm\"><i class=\"fa-solid fa-search mr-2\"></i>Cari</button>\n                                ").concat(
+
+
+      !isCsProgressView ? "<button onclick=\"window._progressShowCancelled=!window._progressShowCancelled; window._progressPage=1; loadProgres()\" class=\"px-4 py-3 rounded-2xl ".concat(showCancelledProgress ? 'bg-red-50 text-red-600 border-red-100' : 'bg-slate-50 text-slate-600 border-slate-200', " border text-sm font-black hover:border-red-200 hover:text-red-600\">\n                                    <i class=\"fa-solid ").concat(
+        showCancelledProgress ? 'fa-list-check' : 'fa-ban', " mr-2\"></i>").concat(showCancelledProgress ? 'Tampilkan Aktif' : 'Naskah Batal', "\n                                </button>") :
+      '', "\n                            </div>\n                            <div class=\"mt-3 text-xs font-bold text-slate-400\">Menampilkan ").concat(
+
+      pagedData.length, " dari ").concat(filteredData.length, " progress").concat(showCancelledProgress ? ' dibatalkan' : '', ". Halaman ").concat(window._progressPage, " / ").concat(totalPages, "</div>\n                        </div>\n\n                        ").concat(
+
+
+      pagedData.map((n) => {
+        let alertsHTML = '';
+        const storedIdx = timelineSteps.indexOf(n.timeline);
+        const proofIdx = timelineSteps.indexOf('Proofreading');
+        const layoutIdx = timelineSteps.indexOf('Desain Cover & Layout');
+        const produksiIdx = timelineSteps.indexOf('Produksi');
+        let effectiveIdx = storedIdx < 0 ? 0 : storedIdx;
+        let autoProof = false;
+        let autoLayout = false;
+        const skipProofreading = !naskahNeedsProofreading(n);
+
+        if (skipProofreading || n.statusEditor === 'Complete') {
+          autoProof = true;
+          if (effectiveIdx <= proofIdx) effectiveIdx = layoutIdx;
+        }
+        if (n.statusLayouter === 'Complete') {
+          autoLayout = true;
+          if (effectiveIdx <= layoutIdx) effectiveIdx = produksiIdx;
+        }
+
+        const effectiveTimeline = timelineSteps[effectiveIdx] || n.timeline || timelineSteps[0];
+        const delaySummary = getTrackingDelaySummary(n);
+        const delayDetailButton = "<button type=\"button\" data-tracking-delay-detail=\"".concat(safeAttr(n.id), "\" class=\"px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-600 border border-amber-100 rounded-xl text-[10px] font-black tracking-wider transition-colors cursor-pointer relative z-10\"><i class=\"fa-solid fa-clock mr-1\"></i>Delay").concat(delaySummary.length ? " (".concat(delaySummary.length, ")") : '', "</button>");
+        const detailNaskahBtn = "<button type=\"button\" onclick=\"viewDetailNaskah('".concat(safeAttr(n.id), "')\" class=\"px-3 py-2 bg-blue-50 hover:bg-blue-100 text-accent-600 border border-blue-100 rounded-xl text-[10px] font-black tracking-wider transition-colors cursor-pointer relative z-10\"><i class=\"fa-solid fa-circle-info mr-1\"></i>Detail</button>");
+        const spesifikasiCetakBtn = state.user.role === 'css' ? "<button type=\"button\" onclick=\"showNaskahSpesifikasiCetak('".concat(
+          safeAttr(n.id), "')\" class=\"px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-100 rounded-xl text-[10px] font-black tracking-wider transition-colors cursor-pointer relative z-10\"><i class=\"fa-solid fa-print mr-1\"></i>Lihat Spesifikasi Cetak</button>") : '';
+        const trackingCode = String(n.trackingCode || '').trim();
+        const trackingCodeBadge = trackingCode ? "<button type=\"button\" onclick=\"copyTrackingCode('".concat(
+          safeAttr(trackingCode), "')\" class=\"mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-accent-50 hover:bg-accent-100 border border-accent-100 text-accent-700 text-[10px] font-black tracking-wider transition\">\n                            <i class=\"fa-solid fa-barcode\"></i>\n                            <span>Kode: ").concat(
+
+          safeText(trackingCode), "</span>\n                            <i class=\"fa-solid fa-copy text-[9px]\"></i>\n                       </button>") : "<div class=\"mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-100 text-slate-400 text-[10px] font-black tracking-wider\">\n                            <i class=\"fa-solid fa-barcode\"></i>\n                            <span>Kode: -</span>\n                       </div>";
+        const phoneButton = "<button type=\"button\" onclick=\"viewNaskahPhone('".concat(
+          safeAttr(n.id), "')\" class=\"inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-emerald-700 text-[10px] font-black tracking-wider transition\">\n                            <i class=\"fa-solid fa-phone\"></i>\n                            <span>No HP</span>\n                       </button>");
+        const whatsappButton = "<button type=\"button\" onclick=\"sendWhatsAppTracking('".concat(
+          safeAttr(n.id), "')\" class=\"inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-green-500 hover:bg-green-600 border border-green-500 text-white text-[10px] font-black tracking-wider transition shadow-sm\">\n                            <i class=\"fa-brands fa-whatsapp\"></i>\n                            <span>Chat WA</span>\n                       </button>");
+
+
+
+
+
+
+        if (effectiveIdx > storedIdx) {
+          n.timeline = effectiveTimeline;
+          const naskahRef = mockNaskahDB.find((x) => x.id === n.id);
+          if (naskahRef) naskahRef.timeline = effectiveTimeline;
+        }
+
+        // Deadline tetap ditampilkan pada timeline; alert keterlambatan tidak ditampilkan di sistem utama.
+
+        let autoBadges = '';
+
+        const cssSelectableSteps = timelineSteps.filter((s, i) => i >= effectiveIdx);
+        const progressPct = Math.max(0, Math.min(100, effectiveIdx / Math.max(timelineSteps.length - 1, 1) * 100));
+        const importantDates = {
+          'Administrasi': n.tanggal,
+          'Proofreading': n.deadlines?.proofreading,
+          'Desain Cover & Layout': n.deadlines?.layout
+        };
+        let statusBadge = '';
+        let cancelButton = '';
+        if (state.user.role === 'css' && isNaskahCancelled(n)) {
+          statusBadge = "<div class=\"flex flex-wrap items-center gap-2\"><div class=\"text-xs px-4 py-2 border rounded-xl bg-red-50 font-bold text-red-600 border-red-100\"><i class=\"fa-solid fa-ban mr-1\"></i>Dibatalkan</div><div class=\"text-[10px] text-slate-400 max-w-xs\">".concat(safeText(n.cancelReason || 'Tanpa alasan'), "</div></div>");
+        } else {
+          cancelButton = state.user.role === 'css' ? "<button type=\"button\" onclick=\"requestDeleteNaskah('".concat(n.id, "')\" class=\"px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-[10px] font-black tracking-wider shadow-sm transition-colors\"><i class=\"fa-solid fa-ban mr-1\"></i>Batalkan</button>") : '';
+          
+          if (isReadOnlyProgress || state.user.role === 'css' || (state.user.role !== 'pic_editor' && state.user.role !== 'pic_layouter')) {
+             statusBadge = "<div class=\"text-xs px-4 py-2 border rounded-xl bg-white font-bold text-slate-600 border-slate-200 inline-block\">Status: <span class=\"text-accent-600\">".concat(safeText(effectiveTimeline), "</span></div>");
+          } else {
+             statusBadge = "<select onchange=\"updateNaskahTimeline('".concat(n.id, "', this.value)\" class=\"text-xs p-2 border rounded-xl bg-white font-bold outline-none border-slate-200 inline-block\">").concat(cssSelectableSteps.map((s) => "<option value=\"".concat(s, "\" ").concat(effectiveTimeline === s ? 'selected' : '', ">").concat(s, "</option>")).join(''), "</select>");
+          }
+        }
+
+
+
+        const isNasmedia = String(n.penerbit || '').toLowerCase().replace(/\s/g, '').includes('nasmedia');
+        const isIdebuku = String(n.penerbit || '').toLowerCase().replace(/\s/g, '').includes('idebuku');
+        const rowStyle = isNasmedia ? 'background-color: #eff6ff !important;' : isIdebuku ? 'background-color: #faf5ff !important;' : '';
+        return "\n                            <div class=\"rounded-3xl border border-slate-100 shadow-sm overflow-hidden transition-colors \" style=\"".concat(rowStyle, "\">\n                                <div class=\"px-6 py-3 border-b border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-4\">\n                                    <div class=\"min-w-0\">\n                                        <h4 class=\"font-black text-lg text-slate-900 truncate\">").concat(
+          safeText(n.judul), " <span class=\"text-slate-300 mx-1\">||</span> <span class=\"text-sm text-slate-500\">").concat(
+          safeText(n.penulis), "</span></h4>\n                                        ").concat(
+          "<div>", trackingCodeBadge, "</div><div class=\"mt-2\">", statusBadge, "</div>\n                                        ").concat(
+          alertsHTML || autoBadges ? "<div class=\"flex flex-wrap gap-1.5 mt-2\">".concat(autoBadges).concat(alertsHTML, "</div>") : '', "\n                                    </div>\n                                    <div class=\"flex flex-wrap items-center gap-2\">").concat(
+          
+          detailNaskahBtn).concat(spesifikasiCetakBtn).concat(delayDetailButton).concat(whatsappButton).concat(phoneButton).concat(cancelButton, "</div>\n                                </div>\n\n                                <div class=\"p-4 lg:p-6\">\n                                    <div class=\"overflow-x-auto custom-scroll pb-2\">\n                                        <div class=\"relative min-w-[900px] px-6 pt-4 pb-6\">\n                                            <div class=\"absolute left-10 right-10 h-3 rounded-full bg-accent-50 overflow-hidden\" style=\"top: 26px;\">\n                                                <div class=\"h-full rounded-full bg-gradient-to-r from-emerald-400 to-accent-600\" style=\"width:").concat(
+          progressPct, "%\"></div>\n                                            </div>\n                                            <div class=\"grid\" style=\"grid-template-columns: repeat(").concat(
+
+          timelineSteps.length, ", minmax(120px, 1fr));\">\n                                                ").concat(
+          timelineSteps.map((step, idx) => {
+            const isCurrent = effectiveTimeline === step;
+            const isPast = effectiveIdx >= idx;
+            const isBypassed = idx === proofIdx && skipProofreading;
+            return `
+                                                    <div class="relative flex flex-col items-center text-center px-3">
+                                                        <div class="relative z-10 w-8 h-8 rounded-full ${
+              isCurrent ? 'bg-accent-600 text-white shadow-lg shadow-accent-600/30' : isPast ? isBypassed ? 'bg-red-500 text-white' : 'bg-white text-accent-600 border-2 border-accent-600' : 'bg-white text-slate-300 border-2 border-accent-100'} flex items-center justify-center">
+                                                            <i class="fa-solid ${
+              isPast ? isBypassed ? 'fa-forward-step' : 'fa-check' : stepIcon(step)} text-[10px]"></i>
+                                                        </div>
+                                                        <div class="mt-2 text-xs font-black ${
+              isCurrent ? 'text-slate-900' : isPast ? 'text-slate-700' : 'text-slate-400'}">${safeText(step)}</div>
+                                                        <div class="text-[10px] text-slate-400 mt-1 leading-tight">${
+              isCurrent ? 'Tahap aktif' : isPast ? isBypassed ? 'Langsung Layout' : 'Selesai' : 'Menunggu'}</div>
+                                                        <div class="text-[11px] font-black ${
+              isPast ? 'text-accent-600' : 'text-slate-400'} mt-2">${formatDateShort(importantDates[step])}</div>
+                                                        ${
+              isBypassed && isPast ? '<span class="mt-2 px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[8px] font-black border border-red-100">BYPASS</span>' : ''}
+                                                    </div>
+                                                `;
+
+
+          }).join(''), "\n                                            </div>\n                                        </div>\n                                    </div>\n                                </div>\n                            </div>\n                        ");
+
+
+
+
+
+      }).join(''), "\n                        ").concat(
+      filteredData.length === 0 ? '<div class="text-center py-10 text-slate-400 italic">Tidak ada progress yang cocok dengan pencarian/filter.</div>' : '', "\n                        ").concat(
+      filteredData.length > 0 ? "\n                            <div class=\"flex flex-wrap items-center justify-between gap-3 bg-white border border-slate-100 rounded-3xl shadow-sm p-4\">\n                                <button onclick=\"setProgressPage(".concat(
+
+        Math.max(1, window._progressPage - 1), ")\" ").concat(window._progressPage <= 1 ? 'disabled' : '', " class=\"px-4 py-2 rounded-xl border border-slate-200 text-xs font-black ").concat(window._progressPage <= 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:border-accent-300 hover:text-accent-600', "\"><i class=\"fa-solid fa-chevron-left mr-2\"></i>Sebelumnya</button>\n                                <div class=\"flex flex-wrap gap-1\">\n                                    ").concat(
+
+        Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => "<button onclick=\"setProgressPage(".concat(page, ")\" class=\"w-9 h-9 rounded-xl text-xs font-black ").concat(page === window._progressPage ? 'bg-accent-600 text-white' : 'bg-slate-50 text-slate-500 hover:bg-accent-50 hover:text-accent-600', "\">").concat(page, "</button>")).join(''), "\n                                </div>\n                                <button onclick=\"setProgressPage(").concat(
+
+        Math.min(totalPages, window._progressPage + 1), ")\" ").concat(window._progressPage >= totalPages ? 'disabled' : '', " class=\"px-4 py-2 rounded-xl border border-slate-200 text-xs font-black ").concat(window._progressPage >= totalPages ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:border-accent-300 hover:text-accent-600', "\">Selanjutnya<i class=\"fa-solid fa-chevron-right ml-2\"></i></button>\n                            </div>\n                        ") :
+
+      '', "\n                    </div>\n                ");
+
+
+    content.querySelectorAll('[data-tracking-delay-detail]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openTrackingDelayDetail(button.dataset.trackingDelayDetail);
+      });
+    });
+  }).getNaskahData();
+}
+
+
+function getHiddenTugasNaskahKey() {
+  return 'hidden_tugas_naskah_' + (state.user && state.user.username || 'guest');
+}
+
+
+function getHiddenTugasNaskahIds() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(getHiddenTugasNaskahKey()) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    return [];
+  }
+}
+
+
+function setHiddenTugasNaskahIds(ids) {
+  localStorage.setItem(getHiddenTugasNaskahKey(), JSON.stringify([...new Set(ids)]));
+}
+
+
+function hideCompletedTugasNaskah(id) {
+  const ids = getHiddenTugasNaskahIds();
+  if (!ids.includes(id)) ids.push(id);
+  setHiddenTugasNaskahIds(ids);
+  window._tugasNaskahPage = 1;
+  loadTugasNaskah();
+}
+
+
+function restoreHiddenTugasNaskah(id) {
+  setHiddenTugasNaskahIds(getHiddenTugasNaskahIds().filter((item) => item !== id));
+  loadTugasNaskah();
+}
+
+
+function loadTugasNaskah() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    mockNaskahDB = res?.data || [];
+    const data = mockNaskahDB.filter((n) => {
+      const isReadyProcess = n.statusProses === 'Siap Proses' || !n.statusProses;
+      const isCsSource = String(n.source || '').toLowerCase() === 'cs';
+      const isCsProductionActive = !isCsSource ||
+        String(n.intakeStatus || '').toLowerCase() === 'production_started' ||
+        !!String(n.productionStartedAt || '').trim() ||
+        n.statusProses === 'Siap Proses';
+      return isReadyProcess && !isNaskahCancelled(n) && isCsProductionActive;
+    });
+
+    const userNameKey = String(state.user.nama || '').trim().toLowerCase();
+    const userUsernameKey = String(state.user.username || '').trim().toLowerCase();
+    const assignedToCurrentUser = (value) => {
+      const assigneeKey = String(value || '').trim().toLowerCase();
+      return assigneeKey && (assigneeKey === userNameKey || assigneeKey === userUsernameKey);
+    };
+    const myNaskah = data.filter((n) => {
+      const workflowStage = String(n.workflowStage || '').toLowerCase();
+      const editorDone = ['done', 'complete', 'selesai'].includes(String(n.statusEditor || '').toLowerCase());
+      const layouterDone = ['done', 'complete', 'selesai'].includes(String(n.statusLayouter || '').toLowerCase());
+      if (state.user.role === 'editor' || state.user.role === 'pic_editor') return workflowStage === 'editor' && !editorDone && naskahNeedsProofreading(n) && assignedToCurrentUser(n.picEditor);
+      if (state.user.role === 'layouter' || state.user.role === 'pic_layouter') return workflowStage === 'layouter' && !layouterDone && assignedToCurrentUser(n.picLayouter);
+      return false;
+    });
+    const searchQuery = String(window._tugasNaskahSearch || '').trim().toLowerCase();
+    const penerbitFilter = window._tugasNaskahPenerbit || 'semua';
+    const progressFilter = window._tugasNaskahProgress || 'semua';
+    const showHidden = window._tugasNaskahShowHidden === true;
+    const hiddenIds = getHiddenTugasNaskahIds();
+    const penerbitOptions = [...new Set(myNaskah.map((n) => n.penerbit || 'Tanpa Penerbit'))].sort((a, b) => a.localeCompare(b));
+    const progressOptions = [...new Set(myNaskah.map((n) => {
+      const statusField = state.user.role === 'editor' || state.user.role === 'pic_editor' ? 'statusEditor' : 'statusLayouter';
+      return n[statusField] || 'Menunggu';
+    }))].sort((a, b) => a.localeCompare(b));
+    const filteredNaskah = myNaskah.filter((n) => {
+      const statusField = state.user.role === 'editor' || state.user.role === 'pic_editor' ? 'statusEditor' : 'statusLayouter';
+      const taskStatus = n[statusField] || 'Menunggu';
+      const haystack = [n.judul, n.penulis, n.trackingCode, n.penerbit, n.paket, n.timeline, taskStatus].join(' ').toLowerCase();
+      return (!searchQuery || haystack.includes(searchQuery)) && (
+      penerbitFilter === 'semua' || (n.penerbit || 'Tanpa Penerbit') === penerbitFilter) && (
+      progressFilter === 'semua' || taskStatus === progressFilter) && (
+      showHidden || !hiddenIds.includes(n.id));
+    });
+    const pageSize = 10;
+    const currentPage = Math.max(1, Number(window._tugasNaskahPage || 1));
+    const totalPages = Math.max(1, Math.ceil(filteredNaskah.length / pageSize));
+    const safePage = Math.min(currentPage, totalPages);
+    window._tugasNaskahPage = safePage;
+    const pagedNaskah = filteredNaskah.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+    content.innerHTML = "\n                    <div class=\"mb-4 flex items-center gap-4 text-[11px] font-bold text-slate-300 bg-slate-800 p-3 rounded-2xl border border-slate-700 shadow-sm\"><span class=\"uppercase tracking-wider text-slate-400\"><i class=\"fa-solid fa-palette mr-1\"></i>Penerbit:</span><div class=\"flex items-center gap-1.5\"><span class=\"w-3 h-3 rounded\" style=\"background:#eff6ff;border:1px solid #dbeafe\"></span> Nasmedia</div><div class=\"flex items-center gap-1.5\"><span class=\"w-3 h-3 rounded\" style=\"background:#faf5ff;border:1px solid #f3e8ff\"></span> Idebuku</div></div>\n                    <div class=\"bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden\">\n                        <div class=\"p-4 border-b border-slate-100 grid grid-cols-1 md:grid-cols-4 gap-3\">\n                            <input value=\"".concat(
+
+
+      window._tugasNaskahSearch || '', "\" oninput=\"window._tugasNaskahSearch=this.value; window._tugasNaskahPage=1; loadTugasNaskah()\" placeholder=\"Cari judul, kode, penulis...\" class=\"px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-accent-400\">\n                            <select onchange=\"window._tugasNaskahPenerbit=this.value; window._tugasNaskahPage=1; loadTugasNaskah()\" class=\"px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none bg-white focus:border-accent-400\">\n                                <option value=\"semua\" ").concat(
+
+      penerbitFilter === 'semua' ? 'selected' : '', ">Semua Penerbit</option>\n                                ").concat(
+      penerbitOptions.map((p) => "<option value=\"".concat(p, "\" ").concat(penerbitFilter === p ? 'selected' : '', ">").concat(p, "</option>")).join(''), "\n                            </select>\n                            <select onchange=\"window._tugasNaskahProgress=this.value; window._tugasNaskahPage=1; loadTugasNaskah()\" class=\"px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none bg-white focus:border-accent-400\">\n                                <option value=\"semua\" ").concat(
+
+
+      progressFilter === 'semua' ? 'selected' : '', ">Semua Progress</option>\n                                ").concat(
+      progressOptions.map((p) => "<option value=\"".concat(p, "\" ").concat(progressFilter === p ? 'selected' : '', ">").concat(p, "</option>")).join(''), "\n                            </select>\n                            <button onclick=\"window._tugasNaskahShowHidden=!window._tugasNaskahShowHidden; window._tugasNaskahPage=1; loadTugasNaskah()\" class=\"px-4 py-2.5 rounded-xl border ").concat(
+
+      showHidden ? 'border-accent-200 bg-accent-50 text-accent-600' : 'border-slate-200 bg-white text-slate-500', " text-xs font-black hover:border-accent-200 hover:text-accent-600 transition\">\n                                <i class=\"fa-solid ").concat(
+      showHidden ? 'fa-eye' : 'fa-eye-slash', " mr-2\"></i>").concat(showHidden ? 'Tampilkan Aktif' : 'Lihat Hidden', " (").concat(hiddenIds.length, ")\n                            </button>\n                        </div>\n                        <div class=\"overflow-x-auto\">\n                        <table class=\"w-full text-left\">\n                            <thead class=\"bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest\">\n                                <tr>\n                                    <th class=\"px-4 py-3\">Judul Naskah</th>\n                                    <th class=\"px-4 py-3\">Spesifikasi Target</th>\n                                    <th class=\"px-4 py-3\">Deadline Anda</th>\n                                    <th class=\"px-4 py-3 text-center\">Update Status</th>\n                                </tr>\n                            </thead>\n            <tbody class=\"divide-y divide-slate-50\">\n                                ").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+      pagedNaskah.map((n) => {
+        const isNasmedia = String(n.penerbit || '').toLowerCase().replace(/\s/g, '').includes('nasmedia');
+        const isIdebuku = String(n.penerbit || '').toLowerCase().replace(/\s/g, '').includes('idebuku');
+        const rowStyle = isNasmedia ? 'background-color: #eff6ff !important;' : isIdebuku ? 'background-color: #faf5ff !important;' : '';
+        let deadlineText = '-';
+        if (n.timelineRanges) {
+          const range = (state.user.role === 'editor' || state.user.role === 'pic_editor') ? n.timelineRanges.proofreading : n.timelineRanges.layout;
+          deadlineText = range && range.start && range.end ? range.start + ' - ' + range.end : range && range.end || '-';
+        } else if (n.deadlines) {
+          if (state.user.role === 'editor' || state.user.role === 'pic_editor') deadlineText = n.deadlines.proofreading || '-';
+          if (state.user.role === 'layouter' || state.user.role === 'pic_layouter') deadlineText = n.deadlines.layout || '-';
+        }
+
+        return "\n                                    <tr class=\"text-[13px] transition-colors \" style=\"".concat(rowStyle, "\">\n                                        <td class=\"px-8 py-4\">\n                                            <div class=\"font-bold text-slate-800\">").concat(
+
+
+          n.judul, "</div>\n                                            <div class=\"text-[11px] text-slate-400 mb-1\">Penulis: ").concat(
+          n.penulis, "</div>\n                                            <button onclick=\"viewDetailNaskah('").concat(
+          n.id, "')\" class=\"mt-1 mb-1 mr-1 px-2 py-1 bg-slate-100 hover:bg-accent-50 hover:text-accent-600 text-slate-500 rounded text-[9px] font-bold transition-colors border border-slate-200 hover:border-accent-200\">\n                                                <i class=\"fa-solid fa-circle-info mr-1\"></i> Detail Naskah\n                                            </button>\n                                            <button onclick=\"openTrackingDelayDialog('").concat(
+
+
+          n.id, "', '").concat(state.user.role === 'layouter' || state.user.role === 'pic_layouter' ? 'layout' : 'proofreading', "')\" class=\"mt-1 mb-1 mr-1 px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded text-[9px] font-bold transition-colors border border-amber-100\">\n                                                <i class=\"fa-solid fa-clock mr-1\"></i> Mundur Estimasi\n                                            </button>\n                                            ").concat(
+
+
+          (() => {
+            const statusField = state.user.role === 'editor' || state.user.role === 'pic_editor' ? 'statusEditor' : 'statusLayouter';
+            const taskStatus = String(n[statusField] || '');
+            const isCompletedTask = taskStatus === 'Complete' || taskStatus === 'Selesai';
+            if (!isCompletedTask) return '';
+            if (showHidden && hiddenIds.includes(n.id)) {
+              return "<button onclick=\"restoreHiddenTugasNaskah('".concat(n.id, "')\" class=\"mt-1 mb-1 mr-1 px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded text-[9px] font-bold transition-colors border border-emerald-100\"><i class=\"fa-solid fa-rotate-left mr-1\"></i> Tampilkan Lagi</button>");
+            }
+            return "<button onclick=\"hideCompletedTugasNaskah('".concat(n.id, "')\" class=\"mt-1 mb-1 mr-1 px-2 py-1 bg-slate-50 hover:bg-slate-200 text-slate-500 rounded text-[9px] font-bold transition-colors border border-slate-200\"><i class=\"fa-solid fa-eye-slash mr-1\"></i> Hide</button>");
+          })(), "\n                                            ").concat(
+          (state.user.role === 'editor' || state.user.role === 'pic_editor') && n.revisiProofreading > 0 ? "<span class=\"px-1.5 py-0.5 bg-red-50 text-red-600 rounded text-[9px] font-bold border border-red-100\"><i class=\"fa-solid fa-rotate-left mr-0.5\"></i>Telah Direvisi: ".concat(n.revisiProofreading, "x</span>") : '', "\n                                            ").concat(
+          (state.user.role === 'layouter' || state.user.role === 'pic_layouter') && n.revisiLayout > 0 ? "<span class=\"px-1.5 py-0.5 bg-red-50 text-red-600 rounded text-[9px] font-bold border border-red-100\"><i class=\"fa-solid fa-rotate-left mr-0.5\"></i>Telah Direvisi: ".concat(n.revisiLayout, "x</span>") : '', "\n                                        </td>\n                                        <td class=\"px-8 py-4\">\n                                            <div class=\"font-semibold text-slate-700 text-[11px]\">").concat(
+
+
+          n.paket, "</div>\n                                            <div class=\"text-[10px] text-slate-500 mt-1\">Ukuran: ").concat(
+          n.ukuran || '-', "</div>\n                                            <div class=\"text-[10px] text-slate-500\">&plusmn;").concat(
+          n.estimasiHalaman || 0, " Hal | &plusmn;").concat(n.estimasiKata || 0, " Kata</div>\n                                        </td>\n                                        <td class=\"px-8 py-4\">\n                                            <div class=\"text-[11px] font-bold text-slate-600\">\n                                                <i class=\"fa-solid fa-calendar-day mr-1\"></i> ").concat(
+
+
+
+          deadlineText, "\n                                            </div>\n                                        </td>\n                                        <td class=\"px-8 py-4 text-center\">\n                                            <div class=\"flex flex-col items-center gap-2\">\n                                                ").concat(
+
+
+
+
+          (() => {
+            if ((state.user.role === 'layouter' || state.user.role === 'pic_layouter') && naskahNeedsProofreading(n) && n.statusEditor !== 'Complete' && n.statusEditor !== 'Selesai') {
+              return "\n                                    <button disabled class=\"px-3 py-2 bg-slate-100 text-slate-400 border border-slate-200 rounded-lg text-[10px] font-bold cursor-not-allowed text-center opacity-75\">\n                                        <i class=\"fa-solid fa-lock mb-1 block text-sm\"></i> Naskah belum selesai<br>proofreading\n                                    </button>\n                                ";
+
+
+
+
+            }
+            const statusField = state.user.role === 'editor' || state.user.role === 'pic_editor' ? 'statusEditor' : 'statusLayouter';
+            const currentTaskStatus = n[statusField] || 'Menunggu';
+
+            // Logika agar tidak bisa mundur ke tahapan sebelumnya
+            const isLayouterTask = (state.user.role === 'layouter' || state.user.role === 'pic_layouter') && statusField === 'statusLayouter';
+            const layoutRevisionCount = Number(n.revisiLayout || 0);
+            const allOptions = ['Menunggu', 'On Process', 'Done', 'Revisi', 'Revisi 2', 'Revisi 3', 'Complete'];
+            let availableOptions = ['On Process', 'Done', 'Revisi', 'Complete'];
+            if (isLayouterTask) {
+              if (currentTaskStatus === 'Revisi') {
+                const nextRevision = Math.min(layoutRevisionCount + 1, 3);
+                availableOptions = ['Complete'];
+                if (layoutRevisionCount < 3) availableOptions.unshift('Revisi ' + nextRevision);
+              } else {
+                availableOptions = ['On Process', 'Done', layoutRevisionCount > 0 ? 'Revisi ' + Math.min(layoutRevisionCount + 1, 3) : 'Revisi', 'Complete'];
+              }
+            }
+            if (currentTaskStatus === 'Menunggu') availableOptions.unshift('Menunggu');
+            const currentIndex = allOptions.indexOf(currentTaskStatus) !== -1 ? allOptions.indexOf(currentTaskStatus) : 0;
+
+            return "\n                                                        <select onchange=\"updateTugasNaskahStatus('".concat(
+              n.id, "', '").concat(statusField, "', this.value)\" class=\"text-xs p-2 border rounded-lg bg-slate-50 font-bold outline-none border-slate-200 cursor-pointer hover:border-accent-600 focus:ring-2 focus:ring-accent-600/20\">\n                                                            ").concat(
+              availableOptions.map((s) => {
+                const isDisabled = allOptions.indexOf(s) < currentIndex;
+                const displayLabel = isLayouterTask && s === 'Revisi' ? 'Revisi 1' : s;
+                return "<option value=\"".concat(s, "\" ").concat(currentTaskStatus === s ? 'selected' : '', " ").concat(isDisabled ? 'disabled' : '', ">").concat(displayLabel, "</option>");
+              }).join(''), "\n                                                            ").concat(
+              isLayouterTask && currentTaskStatus === 'Revisi' ? "<option value=\"Revisi\" selected>Revisi ".concat(Math.max(1, layoutRevisionCount), "</option>") : '', "\n                                                        </select>\n                                                        <div class=\"text-[9px] text-slate-400\">").concat(
+
+              isLayouterTask && layoutRevisionCount > 0 ? "Revisi berjalan: ".concat(layoutRevisionCount, "/3") : 'Update status tugas', "</div>\n                                                    ");
+
+          })(), "\n                                            </div>\n                                        </td>\n                                    </tr>");
+
+
+
+      }).join(''), "\n                                ").concat(
+      filteredNaskah.length === 0 ? '<tr><td colspan="4" class="p-16 text-center text-slate-300 italic">Tidak ada naskah ditugaskan yang sesuai pencarian/filter.</td></tr>' : '', "\n                            </tbody>\n                        </table>\n                        </div>\n                        <div class=\"flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-5 py-4 border-t border-slate-100\">\n                            <div class=\"text-[10px] font-bold text-slate-400\">Menampilkan ").concat(
+
+
+
+
+      pagedNaskah.length, " dari ").concat(filteredNaskah.length, " naskah &bull; Halaman ").concat(safePage, " / ").concat(totalPages, "</div>\n                            <div class=\"flex items-center gap-2\">\n                                <button onclick=\"window._tugasNaskahPage=Math.max(1,(window._tugasNaskahPage||1)-1); loadTugasNaskah()\" class=\"px-3 py-2 rounded-lg border border-slate-200 text-xs font-black text-slate-500 hover:border-accent-200 hover:text-accent-600\">Prev</button>\n                                <span class=\"px-3 py-2 rounded-lg bg-accent-50 text-accent-600 text-xs font-black\">").concat(
+
+
+      safePage, "</span>\n                                <button onclick=\"window._tugasNaskahPage=Math.min(").concat(
+      totalPages, ",(window._tugasNaskahPage||1)+1); loadTugasNaskah()\" class=\"px-3 py-2 rounded-lg border border-slate-200 text-xs font-black text-slate-500 hover:border-accent-200 hover:text-accent-600\">Next</button>\n                            </div>\n                        </div>\n                    </div>");
+
+
+
+  }).getNaskahData();
+}
+
+
+function loadDetailTimKreatif() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const d = res?.data || {};
+    const users = d.users || [];
+    const targets = d.target || [];
+    const kpiRows = d.kpi || [];
+    const currentMonth = getReportCurrentMonth();
+    const activeType = window._detailKreatifType || 'editor';
+    const creativeUsers = users.
+    map((u) => ({ ...u, role: normalizeRole(u.role) })).
+    filter((u) => activeType === 'editor' ? ['editor', 'pic_editor'].includes(u.role) : ['layouter', 'pic_layouter'].includes(u.role)).
+    sort((a, b) => {
+      const priority = (role) => activeType === 'editor' ?
+      role === 'pic_editor' ? 0 : 1 :
+      role === 'pic_layouter' ? 0 : 1;
+      return priority(a.role) - priority(b.role) || String(a.nama || '').localeCompare(String(b.nama || ''));
+    });
+    const editorKpiTypes = ['Proofreading', 'Revisi', 'KPI Tambahan', 'Lainnya'];
+    const layouterKpiTypes = ['Layout', 'Desain Cover', 'Revisi', 'KPI Tambahan', 'Quality Control', 'Evaluasi Tim', 'Lainnya'];
+    const makeKpiTitle = (row) => row.judul || row.spesifikasi || row.evalLayouter || row.jenis || 'Tanpa Judul';
+    const makeKpiSubtitle = (row) => row.spesifikasi || row.evalLayouter || row.qcResult || '-';
+    const latestDate = (rows) => rows.map((r) => r.tanggal || '').filter(Boolean).sort().pop() || '-';
+    const groups = creativeUsers.map((u) => {
+      const allowedTypes = activeType === 'editor' ? editorKpiTypes : layouterKpiTypes;
+      const userRows = kpiRows.filter((row) => row.picName === u.nama && String(row.tanggal || '').startsWith(currentMonth) && allowedTypes.includes(row.jenis));
+      const grouped = {};
+      userRows.forEach((row) => {
+        const key = makeKpiTitle(row);
+        if (!grouped[key]) {
+          grouped[key] = {
+            judul: key,
+            subtitle: makeKpiSubtitle(row),
+            jenis: new Set(),
+            kata: 0,
+            halaman: 0,
+            revisi: 0,
+            qc: 0,
+            evaluasi: { total: 0, memenuhi: 0 },
+            lainnya: 0,
+            entri: 0,
+            tanggalRows: []
+          };
+        }
+        const item = grouped[key];
+        item.jenis.add(row.jenis || '-');
+        item.kata += Number(row.jumlahKata || 0);
+        item.halaman += Number(row.jumlahHalaman || 0);
+        item.tanggalRows.push(row);
+        item.entri++;
+        if (row.jenis === 'Revisi') item.revisi += 1;
+        if (row.jenis === 'Quality Control') item.qc += Number(row.qcErrorCount || 0);
+        if (row.jenis === 'Evaluasi Tim') {
+          item.evaluasi.total++;
+          const met = row.evalMet === '1' || row.evalMet === 1 || row.evalMet === true;
+          if (met) item.evaluasi.memenuhi++;
+        }
+        if (row.jenis === 'Lainnya') item.lainnya += Number(row.jumlahKinerja || row.jumlahUmum || 0);
+      });
+      const rows = Object.values(grouped).map((item) => ({
+        ...item,
+        jenisText: [...item.jenis].join(', '),
+        tanggal: latestDate(item.tanggalRows),
+        qcText: item.qc > 0 ? item.qc + ' kesalahan' : '-',
+        evaluasiText: item.evaluasi.total ? item.evaluasi.memenuhi + '/' + item.evaluasi.total + ' memenuhi' : '-'
+      })).sort((a, b) => String(b.tanggal).localeCompare(String(a.tanggal)) || String(a.judul).localeCompare(String(b.judul)));
+      const summary = rows.reduce((sum, row) => {
+        sum.kata += Number(row.kata || 0);
+        sum.halaman += Number(row.halaman || 0);
+        sum.revisi += Number(row.revisi || 0);
+        sum.qc += Number(row.qc || 0);
+        sum.evaluasi += Number(row.evaluasi?.total || 0);
+        sum.evaluasiMemenuhi += Number(row.evaluasi?.memenuhi || 0);
+        sum.lainnya += Number(row.lainnya || 0);
+        return sum;
+      }, { kata: 0, halaman: 0, revisi: 0, qc: 0, evaluasi: 0, evaluasiMemenuhi: 0, lainnya: 0 });
+      return { nama: u.nama, role: getRoleLabel(u.role), roleKey: u.role, rows, summary };
+    }).filter((group) => group.rows.length > 0);
+    groups.forEach((group, index) => {
+      const key = "detail_tim_kreatif_".concat(activeType, "_").concat(index);
+      const page = getReportDetailPage(key, group.rows.length);
+      const start = (page - 1) * REPORT_DETAIL_PAGE_SIZE;
+      group.pageRows = group.rows.slice(start, start + REPORT_DETAIL_PAGE_SIZE);
+      group.paginationKey = key;
+    });
+    const targetCards = creativeUsers.map((u) => {
+      const t = targets.find((row) => row.username === u.username) || {};
+      const userKpi = kpiRows.filter((row) => row.picName === u.nama && String(row.tanggal || '').startsWith(currentMonth));
+      const items = [];
+      const roleKey = normalizeRole(u.role);
+      if (activeType === 'editor' && Number(t.targetKata || 0) > 0) {
+        const achieved = userKpi.filter((row) => typeof isEditorWordKpi === 'function' ? isEditorWordKpi(row.jenis) : ['Proofreading', 'KPI Tambahan'].includes(row.jenis)).reduce((sum, row) => sum + Number(row.jumlahKata || 0), 0);
+        const pct = reportTargetPercent(achieved, t.targetKata);
+        items.push({ label: 'Kata', achievedText: "".concat(achieved.toLocaleString('id-ID'), " Kata"), targetText: "".concat(Number(t.targetKata || 0).toLocaleString('id-ID'), " Kata"), valueText: "".concat(achieved.toLocaleString('id-ID'), " / ").concat(Number(t.targetKata || 0).toLocaleString('id-ID')), pct, over: reportOverTargetInfo(achieved, t.targetKata, 'Kata') });
+      }
+      if (activeType === 'layouter' && Number(t.targetHalaman || 0) > 0) {
+        const achieved = userKpi.filter((row) => typeof isLayouterPageKpi === 'function' ? isLayouterPageKpi(row.jenis) : ['Layout', 'Desain Cover', 'KPI Tambahan'].includes(row.jenis)).reduce((sum, row) => sum + Number(row.jumlahHalaman || 0), 0);
+        const pct = reportTargetPercent(achieved, t.targetHalaman);
+        items.push({ label: 'Halaman', achievedText: "".concat(achieved.toLocaleString('id-ID'), " Hal"), targetText: "".concat(Number(t.targetHalaman || 0).toLocaleString('id-ID'), " Hal"), valueText: "".concat(achieved.toLocaleString('id-ID'), " / ").concat(Number(t.targetHalaman || 0).toLocaleString('id-ID')), pct, over: reportOverTargetInfo(achieved, t.targetHalaman, 'Hal') });
+      }
+      const avgPct = items.length ? Math.round(items.reduce((sum, item) => sum + item.pct, 0) / items.length) : 0;
+      return { nama: u.nama, role: getRoleLabel(u.role), items, avgPct };
+    }).filter((card) => card.items.length > 0);
+    const renderCreativeTable = (group) => {
+      const isEditorTab = activeType === 'editor';
+      const isPicLayouterGroup = group.roleKey === 'pic_layouter';
+      return "\n                        <div class=\"overflow-x-auto\">\n                            <table class=\"w-full text-left text-xs table-fixed\">\n                                <colgroup>\n                                    <col><col class=\"w-[8rem]\">".concat(
+
+
+
+        isEditorTab ? '<col class="w-[6rem]"><col class="w-[5rem]"><col class="w-[8rem]">' : isPicLayouterGroup ? '<col class="w-[6rem]"><col class="w-[5rem]"><col class="w-[7rem]"><col class="w-[8rem]"><col class="w-[7rem]"><col class="w-[8rem]">' : '<col class="w-[6rem]"><col class="w-[5rem]">', "\n                                </colgroup>\n                                <thead class=\"bg-slate-50 text-[10px] text-slate-400 uppercase tracking-widest\">\n                                    <tr>\n                                        <th class=\"px-3 py-3\">Judul</th>\n                                        <th class=\"px-3 py-3\">Tanggal</th>\n                                        ").concat(
+
+
+
+
+
+        isEditorTab ? "\n                                            <th class=\"px-2 py-3 text-center\">Kata</th>\n                                            <th class=\"px-2 py-3 text-center\">Revisi</th>\n                                            <th class=\"px-3 py-3 text-center\">Lainnya</th>\n                                        " :
+
+
+
+        isPicLayouterGroup ? "\n                                            <th class=\"px-2 py-3 text-center\">Halaman</th>\n                                            <th class=\"px-2 py-3 text-center\">Revisi</th>\n                                            <th class=\"px-2 py-3 text-center\">QC</th>\n                                            <th class=\"px-2 py-3 text-center\">Evaluasi</th>\n                                            <th class=\"px-2 py-3 text-center\">Lainnya</th>\n                                            <th class=\"px-3 py-3\">Jenis KPI</th>\n                                        " : "\n                                            <th class=\"px-2 py-3 text-center\">Halaman</th>\n                                            <th class=\"px-2 py-3 text-center\">Revisi</th>\n                                        ", "\n                                    </tr>\n                                </thead>\n                                <tbody class=\"divide-y divide-slate-50\">\n                                    ").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+        group.pageRows.map((row) => "\n                                        <tr class=\"hover:bg-slate-50\">\n                                            <td class=\"px-3 py-3 font-bold text-slate-800 truncate\" title=\"".concat(
+
+          reportSafeText(row.judul), "\">").concat(reportSafeText(row.judul), "</td>\n                                            <td class=\"px-3 py-3 font-mono text-[11px] text-slate-500 whitespace-nowrap\">").concat(
+          reportSafeText(row.tanggal), "</td>\n                                            ").concat(
+          isEditorTab ? "\n                                                <td class=\"px-2 py-3 text-center font-black text-slate-700\">".concat(
+            Number(row.kata || 0).toLocaleString('id-ID'), "</td>\n                                                <td class=\"px-2 py-3 text-center font-black ").concat(
+            row.revisi > 0 ? 'text-amber-600' : 'text-slate-700', "\">").concat(Number(row.revisi || 0), "</td>\n                                                <td class=\"px-3 py-3 text-center font-black text-slate-700\">").concat(
+            Number(row.lainnya || 0).toLocaleString('id-ID'), "</td>\n                                            ") :
+          isPicLayouterGroup ? "\n                                                <td class=\"px-2 py-3 text-center font-black text-slate-700\">".concat(
+            Number(row.halaman || 0).toLocaleString('id-ID'), "</td>\n                                                <td class=\"px-2 py-3 text-center font-black ").concat(
+            row.revisi > 0 ? 'text-amber-600' : 'text-slate-700', "\">").concat(Number(row.revisi || 0), "</td>\n                                                <td class=\"px-2 py-3 text-center font-black ").concat(
+            row.qc > 0 ? 'text-red-500' : 'text-slate-700', "\">").concat(reportSafeText(row.qcText), "</td>\n                                                <td class=\"px-2 py-3 text-center font-black text-slate-700\">").concat(
+            reportSafeText(row.evaluasiText), "</td>\n                                                <td class=\"px-2 py-3 text-center font-black text-slate-700\">").concat(
+            Number(row.lainnya || 0).toLocaleString('id-ID'), "</td>\n                                                <td class=\"px-3 py-3 text-slate-500 truncate\" title=\"").concat(
+            reportSafeText(row.jenisText), "\">").concat(reportSafeText(row.jenisText), "</td>\n                                            ") : "\n                                                <td class=\"px-2 py-3 text-center font-black text-slate-700\">".concat(
+
+            Number(row.halaman || 0).toLocaleString('id-ID'), "</td>\n                                                <td class=\"px-2 py-3 text-center font-black ").concat(
+            row.revisi > 0 ? 'text-amber-600' : 'text-slate-700', "\">").concat(Number(row.revisi || 0), "</td>\n                                            "), "\n                                        </tr>\n                                    ")
+
+
+        ).join(''), "\n                                </tbody>\n                            </table>\n                        </div>");
+
+
+
+    };
+    const renderCreativeSummary = (group) => {
+      const isEditorTab = activeType === 'editor';
+      const isPicLayouterGroup = group.roleKey === 'pic_layouter';
+      const items = isEditorTab ?
+      [
+      { label: 'Total Kata', value: Number(group.summary.kata || 0).toLocaleString('id-ID') },
+      { label: 'Total Revisi', value: Number(group.summary.revisi || 0).toLocaleString('id-ID') },
+      { label: 'Total Lainnya', value: Number(group.summary.lainnya || 0).toLocaleString('id-ID') }] :
+
+      isPicLayouterGroup ?
+      [
+      { label: 'Total Halaman', value: Number(group.summary.halaman || 0).toLocaleString('id-ID') },
+      { label: 'Total Revisi', value: Number(group.summary.revisi || 0).toLocaleString('id-ID') },
+      { label: 'Total QC', value: Number(group.summary.qc || 0).toLocaleString('id-ID') },
+      { label: 'Total Evaluasi', value: "".concat(Number(group.summary.evaluasiMemenuhi || 0).toLocaleString('id-ID'), " / ").concat(Number(group.summary.evaluasi || 0).toLocaleString('id-ID')) },
+      { label: 'Total Lainnya', value: Number(group.summary.lainnya || 0).toLocaleString('id-ID') }] :
+
+      [
+      { label: 'Total Halaman', value: Number(group.summary.halaman || 0).toLocaleString('id-ID') },
+      { label: 'Total Revisi', value: Number(group.summary.revisi || 0).toLocaleString('id-ID') }];
+
+      return "<div class=\"px-5 py-4 border-b border-slate-100 bg-slate-50/50 grid grid-cols-2 md:grid-cols-".concat(Math.min(items.length, 5), " gap-3\">\n                        ").concat(
+        items.map((item) => "<div class=\"bg-white border border-slate-100 px-3 py-2\"><div class=\"text-[9px] font-black uppercase tracking-widest text-slate-400\">".concat(item.label, "</div><div class=\"mt-1 text-lg font-black text-slate-900\">").concat(item.value, "</div></div>")).join(''), "\n                    </div>");
+
+    };
+
+    content.innerHTML = "\n                    <div class=\"space-y-6\">\n                        <div class=\"bg-white border border-slate-100 shadow-sm p-6\">\n                            <div class=\"flex flex-col lg:flex-row lg:items-end justify-between gap-4\">\n                                <div><h3 class=\"text-xl font-black text-slate-900\">Detail Tim Kreatif</h3><p class=\"text-sm text-slate-400 mt-1\">Capaian KPI tercatat bulan berjalan untuk editor/PIC editor dan layouter/PIC layouter.</p></div>\n                                <div class=\"flex gap-2\">\n                                    <button onclick=\"window._detailKreatifType='editor'; loadDetailTimKreatif()\" class=\"px-4 py-2 rounded-xl text-xs font-black ".concat(
+
+
+
+
+
+      activeType === 'editor' ? 'bg-accent-600 text-white' : 'bg-slate-100 text-slate-500', "\">Editor</button>\n                                    <button onclick=\"window._detailKreatifType='layouter'; loadDetailTimKreatif()\" class=\"px-4 py-2 rounded-xl text-xs font-black ").concat(
+      activeType === 'layouter' ? 'bg-accent-600 text-white' : 'bg-slate-100 text-slate-500', "\">Layouter</button>\n                                </div>\n                            </div>\n                        </div>\n                        ").concat(
+
+
+
+      renderReportTargetCards(targetCards, "detail_tim_kreatif_".concat(activeType, "_target")), "\n                        ").concat(
+      groups.map((group, groupIndex) => {
+        return "\n                            <div class=\"bg-white border border-slate-100 shadow-sm overflow-hidden\">\n                                <div class=\"px-5 py-4 border-b border-accent-100 bg-accent-50/60 flex items-center gap-3\">\n                                    <div class=\"w-10 h-10 rounded-xl bg-accent-600 text-white flex items-center justify-center font-black\">".concat(
+
+
+          reportSafeText(String(group.nama || 'T').charAt(0).toUpperCase()), "</div>\n                                    <div>\n                                        <div class=\"text-[10px] font-black text-accent-500 uppercase tracking-widest\">").concat(
+
+          reportSafeText(group.role), "</div>\n                                        <div class=\"font-black text-slate-900\">").concat(
+          reportSafeText(group.nama), "</div>\n                                    </div>\n                                </div>\n                                ").concat(
+
+
+          renderCreativeSummary(group), "\n                                ").concat(
+          renderCreativeTable(group), "\n                                ").concat(
+          renderReportDetailPagination(group.paginationKey, group.rows.length, 'loadDetailTimKreatif'), "\n                            </div>");
+
+      }).join(''), "\n                        ").concat(
+      groups.length === 0 ? '<div class="bg-white border border-dashed border-slate-200 p-12 text-center text-slate-400 italic">Belum ada pekerjaan pada kategori ini.</div>' : '', "\n                    </div>");
+
+  }).getInitialData();
+}
+
+
+function loadDetailTimNonTarget() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const d = res?.data || {};
+    const users = d.users || [];
+    const targets = d.target || [];
+    const kpi = d.kpi || [];
+    const currentMonth = getReportCurrentMonth();
+    const roles = ['admin', 'css', 'campaign', 'admin_marketplace'];
+    const groups = users.filter((u) => roles.includes(normalizeRole(u.role))).map((u) => {
+      const userKpi = kpi.filter((row) => row.picName === u.nama && String(row.tanggal || '').startsWith(currentMonth));
+      const rows = userKpi.map((row) => ({
+        tanggal: row.tanggal || '-',
+        judul: row.judul || row.spesifikasi || row.keterangan || row.uraian || row.jenis || 'Tanpa Judul',
+        jenis: row.jenis || 'Tanpa Jenis',
+        nilai: Number(row.jumlahKinerja || row.jumlahUmum || row.jumlahHalaman || row.jumlahKata || 1)
+      })).sort((a, b) => String(b.tanggal || '').localeCompare(String(a.tanggal || '')) || a.judul.localeCompare(b.judul));
+      const perJenis = {};
+      rows.forEach((row) => {
+        if (!perJenis[row.jenis]) perJenis[row.jenis] = { jenis: row.jenis, nilai: 0, entri: 0 };
+        perJenis[row.jenis].nilai += Number(row.nilai || 0);
+        perJenis[row.jenis].entri++;
+      });
+      const summary = {
+        entri: rows.length,
+        nilai: rows.reduce((sum, row) => sum + Number(row.nilai || 0), 0),
+        perJenis: Object.values(perJenis).sort((a, b) => b.nilai - a.nilai || a.jenis.localeCompare(b.jenis))
+      };
+      return { nama: u.nama, role: getRoleLabel(u.role), rows, summary };
+    }).filter((group) => group.rows.length > 0);
+    groups.forEach((group, index) => {
+      const key = "detail_tim_non_target_".concat(index);
+      const page = getReportDetailPage(key, group.rows.length);
+      const start = (page - 1) * REPORT_DETAIL_PAGE_SIZE;
+      group.pageRows = group.rows.slice(start, start + REPORT_DETAIL_PAGE_SIZE);
+      group.paginationKey = key;
+    });
+    const targetCards = users.filter((u) => roles.includes(normalizeRole(u.role))).map((u) => {
+      const t = targets.find((row) => row.username === u.username) || {};
+      const perJenis = normalizeReportTargetPerJenis(t.targetPerJenis);
+      const userKpi = kpi.filter((row) => row.picName === u.nama && String(row.tanggal || '').startsWith(currentMonth));
+      const items = Object.keys(perJenis).map((jenis) => {
+        const targetValue = Number(perJenis[jenis] || 0);
+        if (targetValue <= 0) return null;
+        const achieved = userKpi.
+        filter((row) => row.jenis === jenis).
+        reduce((sum, row) => sum + Number(row.jumlahKinerja || row.jumlahUmum || row.jumlahHalaman || row.jumlahKata || 0), 0);
+        const pct = reportTargetPercent(achieved, targetValue);
+        return { label: jenis, achievedText: achieved.toLocaleString('id-ID'), targetText: targetValue.toLocaleString('id-ID'), valueText: "".concat(achieved.toLocaleString('id-ID'), " / ").concat(targetValue.toLocaleString('id-ID')), pct, over: reportOverTargetInfo(achieved, targetValue) };
+      }).filter(Boolean);
+      const avgPct = items.length ? Math.round(items.reduce((sum, item) => sum + item.pct, 0) / items.length) : 0;
+      return { nama: u.nama, role: getRoleLabel(u.role), items, avgPct };
+    }).filter((card) => card.items.length > 0);
+
+    content.innerHTML = "\n                    <div class=\"space-y-6\">\n                        <div class=\"bg-white border border-slate-100 shadow-sm p-6\"><h3 class=\"text-xl font-black text-slate-900\">Detail Tim Non Target</h3><p class=\"text-sm text-slate-400 mt-1\">Detail entri KPI per judul pada bulan berjalan (".concat(
+
+      currentMonth, ").</p></div>\n                        ").concat(
+      renderReportTargetCards(targetCards, 'detail_tim_non_target_target'), "\n                        <div class=\"grid grid-cols-1 lg:grid-cols-2 gap-5\">\n                            ").concat(
+
+      groups.map((group) => "\n                                <div class=\"bg-white border border-slate-100 shadow-sm overflow-hidden\">\n                                    <div class=\"px-5 py-4 border-b border-accent-100 bg-accent-50/60 flex items-center gap-3\">\n                                        <div class=\"w-10 h-10 rounded-xl bg-accent-600 text-white flex items-center justify-center font-black\">".concat(
+
+
+        reportSafeText(String(group.nama || 'T').charAt(0).toUpperCase()), "</div>\n                                        <div>\n                                            <div class=\"text-[10px] font-black text-accent-500 uppercase tracking-widest\">").concat(
+
+        reportSafeText(group.role), "</div>\n                                            <div class=\"font-black text-slate-900\">").concat(
+        reportSafeText(group.nama), "</div>\n                                        </div>\n                                    </div>\n                                    <div class=\"px-5 py-4 border-b border-slate-100 bg-white\">\n                                        <div class=\"grid grid-cols-2 gap-3 mb-3\">\n                                            <div class=\"bg-slate-50 border border-slate-100 px-3 py-2\"><div class=\"text-[9px] font-black uppercase tracking-widest text-slate-400\">Total Entri</div><div class=\"mt-1 text-lg font-black text-slate-900\">").concat(
+
+
+
+
+        Number(group.summary.entri || 0).toLocaleString('id-ID'), "</div></div>\n                                            <div class=\"bg-slate-50 border border-slate-100 px-3 py-2\"><div class=\"text-[9px] font-black uppercase tracking-widest text-slate-400\">Total Nilai</div><div class=\"mt-1 text-lg font-black text-accent-600\">").concat(
+        Number(group.summary.nilai || 0).toLocaleString('id-ID'), "</div></div>\n                                        </div>\n                                        <div class=\"flex flex-wrap gap-2\">\n                                            ").concat(
+
+
+        group.summary.perJenis.map((item) => "<span class=\"px-3 py-1.5 rounded-lg bg-accent-50 text-accent-700 text-[10px] font-black\">".concat(reportSafeText(item.jenis), ": ").concat(Number(item.nilai || 0).toLocaleString('id-ID'), "</span>")).join(''), "\n                                        </div>\n                                    </div>\n                                    <div class=\"overflow-x-auto\">\n                                        <table class=\"w-full text-sm table-fixed\">\n                                            <colgroup><col><col class=\"w-[7rem]\"><col class=\"w-[6rem]\"></colgroup>\n                                            <thead><tr class=\"text-[10px] uppercase tracking-widest text-slate-400 bg-white border-b border-slate-100\"><th class=\"p-3 text-left\">Judul</th><th class=\"p-3 text-left\">KPI</th><th class=\"p-3 text-right\">Nilai</th></tr></thead>\n                                            <tbody>\n                                                ").concat(
+
+
+
+
+
+
+
+        group.pageRows.map((row) => "\n                                                    <tr class=\"border-b border-slate-50 last:border-0\">\n                                                        <td class=\"p-3 min-w-0\">\n                                                            <div class=\"font-black text-slate-800 truncate\" title=\"".concat(
+
+
+          reportSafeText(row.judul), "\">").concat(reportSafeText(row.judul), "</div>\n                                                            <div class=\"text-[10px] text-slate-400\">").concat(
+          reportSafeText(row.tanggal), "</div>\n                                                        </td>\n                                                        <td class=\"p-3 text-slate-600 font-bold truncate\" title=\"").concat(
+
+          reportSafeText(row.jenis), "\">").concat(reportSafeText(row.jenis), "</td>\n                                                        <td class=\"p-3 text-right font-black text-accent-600\">").concat(
+          row.nilai.toLocaleString('id-ID'), "</td>\n                                                    </tr>\n                                                ")
+
+        ).join(''), "\n                                            </tbody>\n                                        </table>\n                                    </div>\n                                    ").concat(
+
+
+
+        renderReportDetailPagination(group.paginationKey, group.rows.length, 'loadDetailTimNonTarget'), "\n                                </div>\n                            ")
+
+      ).join(''), "\n                            ").concat(
+      groups.length === 0 ? '<div class="lg:col-span-2 bg-white border border-dashed border-slate-200 p-12 text-center text-slate-400 italic">Belum ada capaian tim non target pada bulan berjalan.</div>' : '', "\n                        </div>\n                    </div>");
+
+
+  }).getInitialData();
+}
+
+
+function updateTugasNaskahStatus(id, field, val) {
+  const naskah = mockNaskahDB.find((n) => n.id === id);
+  if (naskah) {
+    const isKpiClaimAttempt =
+    (state.user.role === 'editor' || state.user.role === 'pic_editor') && field === 'statusEditor' && (val === 'Done' || val === 'Revisi') ||
+    (state.user.role === 'layouter' || state.user.role === 'pic_layouter') && field === 'statusLayouter' && (val === 'Done' || String(val).startsWith('Revisi'));
+
+    if (isKpiClaimAttempt && !window._skipKpiActiveCheck) {
+      gas.withSuccessHandler((res) => {
+        const activeDate = res?.data?.kpiActiveDate || naskah.kpiEligibleFrom || '';
+        if (isBeforeKpiActiveDate(activeDate)) {
+          saveStatusWithoutKpiBeforeActive(naskah, field, val, activeDate);
+          return;
+        }
+        window._skipKpiActiveCheck = true;
+        updateTugasNaskahStatus(id, field, val);
+        window._skipKpiActiveCheck = false;
+      }).getKpiTransitionSettings();
+      return;
+    }
+    // Logika penyelesaian/klaim KPI Editor
+    if ((state.user.role === 'editor' || state.user.role === 'pic_editor') && field === 'statusEditor' && (val === 'Done' || val === 'Revisi')) {
+      if (val === 'Done') {
+        Swal.fire({
+          title: 'Klaim KPI Proofreading',
+          html: "Masukkan jumlah kata aktual yang diselesaikan untuk diklaim ke KPI Anda.<br><small class=\"text-slate-500\">Estimasi awal: ".concat(naskah.estimasiKata || 0, " Kata</small>"),
+          icon: 'info',
+          input: 'number',
+          inputValue: naskah.estimasiKata || 0,
+          showCancelButton: true,
+          confirmButtonColor: '#10b981',
+          confirmButtonText: 'Klaim KPI',
+          cancelButtonText: 'Batal',
+          inputValidator: (value) => {
+            if (!value || value <= 0) return 'Jumlah kata tidak valid!';
+          }
+        }).then((r) => {
+          if (r.isConfirmed && r.value) {
+            naskah[field] = val;
+            const kpiPayload = {
+              id: '',
+              picName: state.user.nama,
+              tanggal: new Date().toISOString().split('T')[0],
+              jenis: 'Proofreading',
+              judul: naskah.judul,
+              jumlahKata: Number(r.value)
+            };
+
+            gas.withSuccessHandler(() => {
+              gas.withSuccessHandler(() => {
+                if (state.activeTab === 'tugas_naskah') loadTugasNaskah();
+                Swal.fire('Berhasil!', 'Status diubah dan KPI berhasil dicatat.', 'success');
+              }).saveNaskahData(naskah);
+            }).saveKPIData(kpiPayload);
+          } else {
+            if (state.activeTab === 'tugas_naskah') loadTugasNaskah();
+          }
+        });
+      } else if (val === 'Revisi') {
+        Swal.fire({
+          title: 'Klaim Revisi Naskah',
+          html:
+          '<p class="text-sm text-slate-600 mb-4 text-left">Masukkan poin revisi dan kata tambahan (jika ada). Poin revisi hanya masuk KPI Revisi, kata tambahan masuk capaian kata.</p>' +
+          '<div class="text-left space-y-4">' +
+          '<div>' +
+          '<label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Poin Revisi (KPI Revisi)</label>' +
+          '<input type="number" id="swal-revisi" class="w-full p-2 border border-slate-200 rounded-lg outline-none focus:border-amber-500 font-bold" value="0" min="0">' +
+          '</div>' +
+          '<div>' +
+          '<label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Kata Tambahan (Masuk KPI Utama)</label>' +
+          '<input type="number" id="swal-tambahan" class="w-full p-2 border border-slate-200 rounded-lg outline-none focus:border-emerald-500 font-bold" value="0" min="0">' +
+          '</div>' +
+          '</div>',
+          icon: 'info',
+          showCancelButton: true,
+          confirmButtonColor: '#f59e0b',
+          confirmButtonText: 'Klaim KPI',
+          cancelButtonText: 'Batal',
+          preConfirm: () => {
+            const revisi = document.getElementById('swal-revisi').value;
+            const tambahan = document.getElementById('swal-tambahan').value;
+            if (revisi === '' || tambahan === '' || Number(revisi) < 0 || Number(tambahan) < 0 || Number(revisi) === 0 && Number(tambahan) === 0) {
+              Swal.showValidationMessage('Minimal poin revisi atau kata tambahan harus lebih dari 0!');
+            }
+            return { revisi: Number(revisi), tambahan: Number(tambahan) };
+          }
+        }).then((r) => {
+          if (r.isConfirmed) {
+            naskah[field] = val;
+            naskah.revisiProofreading = (naskah.revisiProofreading || 0) + 1;
+
+            const dateNow = new Date().toISOString().split('T')[0];
+
+            const saveKpiTambahan = () => {
+              if (r.value.tambahan > 0) {
+                gas.withSuccessHandler(() => {
+                  gas.withSuccessHandler(() => {
+                    if (state.activeTab === 'tugas_naskah') loadTugasNaskah();
+                    Swal.fire('Berhasil!', 'Status diubah dan semua KPI berhasil dicatat.', 'success');
+                  }).saveNaskahData(naskah);
+                }).saveKPIData({ id: '', picName: state.user.nama, tanggal: dateNow, jenis: 'Proofreading', judul: naskah.judul + ' (Tambahan Rev-' + naskah.revisiProofreading + ')', jumlahKata: r.value.tambahan });
+              } else {
+                gas.withSuccessHandler(() => {
+                  if (state.activeTab === 'tugas_naskah') loadTugasNaskah();
+                  Swal.fire('Berhasil!', 'Status diubah dan KPI Revisi berhasil dicatat.', 'success');
+                }).saveNaskahData(naskah);
+              }
+            };
+
+            if (r.value.revisi > 0) {
+              gas.withSuccessHandler(() => {
+                saveKpiTambahan();
+              }).saveKPIData({ id: '', picName: state.user.nama, tanggal: dateNow, jenis: 'Revisi Naskah', judul: naskah.judul + ' (Revisi ke-' + naskah.revisiProofreading + ')', jumlahUmum: r.value.revisi });
+            } else {
+              saveKpiTambahan();
+            }
+          } else {
+            if (state.activeTab === 'tugas_naskah') loadTugasNaskah();
+          }
+        });
+      }
+      return;
+    }
+
+    // Logika penyelesaian/klaim KPI Layouter
+    if ((state.user.role === 'layouter' || state.user.role === 'pic_layouter') && field === 'statusLayouter' && (val === 'Done' || String(val).startsWith('Revisi'))) {
+      if (val === 'Done') {
+        Swal.fire({
+          title: 'Klaim KPI Layout',
+          html: 'Masukkan jumlah halaman aktual yang diselesaikan untuk diklaim ke KPI Anda.<br><small class="text-slate-500">Estimasi awal: ' + (naskah.estimasiHalaman || 0) + ' Hal</small>',
+          icon: 'info',
+          input: 'number',
+          inputValue: naskah.estimasiHalaman || 0,
+          showCancelButton: true,
+          confirmButtonColor: '#10b981',
+          confirmButtonText: 'Klaim KPI',
+          cancelButtonText: 'Batal',
+          inputValidator: (value) => {
+            if (!value || value <= 0) return 'Jumlah halaman tidak valid!';
+          }
+        }).then((r) => {
+          if (r.isConfirmed && r.value) {
+            naskah[field] = val;
+            const kpiPayload = {
+              id: '',
+              picName: state.user.nama,
+              tanggal: new Date().toISOString().split('T')[0],
+              jenis: 'Layout',
+              judul: naskah.judul,
+              jumlahHalaman: Number(r.value)
+            };
+            gas.withSuccessHandler(() => {
+              gas.withSuccessHandler(() => {
+                if (state.activeTab === 'tugas_naskah') loadTugasNaskah();
+                Swal.fire('Berhasil!', 'Status diubah dan KPI berhasil dicatat.', 'success');
+              }).saveNaskahData(naskah);
+            }).saveKPIData(kpiPayload);
+          } else {
+            if (state.activeTab === 'tugas_naskah') loadTugasNaskah();
+          }
+        });
+      } else if (String(val).startsWith('Revisi')) {
+        const currentRevision = Number(naskah.revisiLayout || 0);
+        if (currentRevision >= 3) {
+          Swal.fire('Batas Revisi', 'Revisi layout sudah mencapai Revisi 3. Silakan pilih Complete jika pekerjaan sudah selesai.', 'warning');
+          if (state.activeTab === 'tugas_naskah') loadTugasNaskah();
+          return;
+        }
+        const revisionStage = Math.min(currentRevision + 1, 3);
+        Swal.fire({
+          title: 'Klaim Revisi ' + revisionStage + ' Layout',
+          html:
+          '<p class="text-sm text-slate-600 mb-4 text-left">Masukkan poin revisi dan halaman tambahan (jika ada). Poin revisi hanya masuk KPI Revisi, halaman tambahan masuk capaian layout.</p>' +
+          '<div class="text-left space-y-4">' +
+          '<div>' +
+          '<label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Poin Revisi (KPI Revisi)</label>' +
+          '<input type="number" id="swal-revisi" class="w-full p-2 border border-slate-200 rounded-lg outline-none focus:border-amber-500 font-bold" value="0" min="0">' +
+          '</div>' +
+          '<div>' +
+          '<label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Halaman Tambahan (Masuk KPI Utama)</label>' +
+          '<input type="number" id="swal-tambahan" class="w-full p-2 border border-slate-200 rounded-lg outline-none focus:border-emerald-500 font-bold" value="0" min="0">' +
+          '</div>' +
+          '</div>',
+          icon: 'info',
+          showCancelButton: true,
+          confirmButtonColor: '#f59e0b',
+          confirmButtonText: 'Klaim KPI',
+          cancelButtonText: 'Batal',
+          preConfirm: () => {
+            const revisi = document.getElementById('swal-revisi').value;
+            const tambahan = document.getElementById('swal-tambahan').value;
+            if (revisi === '' || tambahan === '' || Number(revisi) < 0 || Number(tambahan) < 0 || Number(revisi) === 0 && Number(tambahan) === 0) {
+              Swal.showValidationMessage('Minimal poin revisi atau halaman tambahan harus lebih dari 0!');
+            }
+            return { revisi: Number(revisi), tambahan: Number(tambahan) };
+          }
+        }).then((r) => {
+          if (r.isConfirmed) {
+            naskah[field] = 'Revisi';
+            naskah.revisiLayout = revisionStage;
+
+            const dateNow = new Date().toISOString().split('T')[0];
+
+            const saveKpiTambahan = () => {
+              if (r.value.tambahan > 0) {
+                gas.withSuccessHandler(() => {
+                  gas.withSuccessHandler(() => {
+                    if (state.activeTab === 'tugas_naskah') loadTugasNaskah();
+                    Swal.fire('Berhasil!', 'Revisi ' + revisionStage + ' dicatat. Halaman tambahan masuk ke capaian KPI Layout.', 'success');
+                  }).saveNaskahData(naskah);
+                }).saveKPIData({ id: '', picName: state.user.nama, tanggal: dateNow, jenis: 'Layout', judul: naskah.judul + ' (Tambahan Revisi ' + revisionStage + ')', jumlahHalaman: r.value.tambahan });
+              } else {
+                gas.withSuccessHandler(() => {
+                  if (state.activeTab === 'tugas_naskah') loadTugasNaskah();
+                  Swal.fire('Berhasil!', 'Revisi ' + revisionStage + ' dicatat.', 'success');
+                }).saveNaskahData(naskah);
+              }
+            };
+
+            if (r.value.revisi > 0) {
+              gas.withSuccessHandler(() => {
+                saveKpiTambahan();
+              }).saveKPIData({ id: '', picName: state.user.nama, tanggal: dateNow, jenis: 'Revisi Layout', judul: naskah.judul + ' (Revisi ' + revisionStage + ')', jumlahUmum: r.value.revisi });
+            } else {
+              saveKpiTambahan();
+            }
+          } else {
+            if (state.activeTab === 'tugas_naskah') loadTugasNaskah();
+          }
+        });
+      }
+      return;
+    }
+
+    // Logika default untuk status lain
+    naskah[field] = val;
+    gas.withSuccessHandler(() => {
+      if (state.activeTab === 'tugas_naskah') loadTugasNaskah();
+      if (val === 'Complete') {
+        Swal.fire({
+          title: 'Berhasil',
+          text: 'Naskah telah diselesaikan.',
+          icon: 'success',
+          confirmButtonColor: '#10b981'
+        });
+      }
+    }).saveNaskahData(naskah);
+  }
+}
+
+function populateEvalLayouterDropdown() {
+  gas.withSuccessHandler((res) => {
+    const select = document.getElementById('kpi_eval_layouter');
+    if (!select) return;
+    select.innerHTML = '<option value="">Pilih Layouter...</option>';
+    const layouters = (res?.data || []).filter((u) => u.role === 'layouter');
+    layouters.forEach((u) => {
+      select.innerHTML += "<option value=\"".concat(u.nama, "\">").concat(u.nama, "</option>");
+    });
+    // Hide info panel
+    const info = document.getElementById('kpi_eval_info');
+    if (info) info.classList.add('hidden');
+  }).getUsersData();
+}
+
+
+function loadEvalCapaian() {
+  const layouterName = document.getElementById('kpi_eval_layouter')?.value;
+  const info = document.getElementById('kpi_eval_info');
+  if (!layouterName) {if (info) info.classList.add('hidden');return;}
+
+  // Fetch target and KPI data
+  gas.withSuccessHandler((resTarget) => {
+    gas.withSuccessHandler((resKPI) => {
+      gas.withSuccessHandler((resUsers) => {
+        const users = resUsers?.data || [];
+        const layouterUser = users.find((u) => u.nama === layouterName && u.role === 'layouter');
+        if (!layouterUser) return;
+
+        const targets = resTarget?.data || [];
+        const t = targets.find((x) => x.username === layouterUser.username) || {};
+        const targetHal = Number(t.targetHalaman || 0);
+
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        const kpiAll = (resKPI?.data || []).filter((k) => k.picName === layouterName && String(k.tanggal || '').startsWith(currentMonth));
+        let capaianHal = 0;
+        kpiAll.forEach((k) => {capaianHal += Number(k.jumlahHalaman || 0);});
+
+        const met = targetHal > 0 ? capaianHal >= targetHal : true;
+
+        document.getElementById('kpi_eval_target_val').textContent = targetHal.toLocaleString('id-ID') + ' Hal';
+        document.getElementById('kpi_eval_capaian_val').textContent = capaianHal.toLocaleString('id-ID') + ' Hal';
+        const statusEl = document.getElementById('kpi_eval_status_val');
+        if (met) {
+          statusEl.innerHTML = '<span class="px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px]"><i class="fa-solid fa-check-circle mr-1"></i>Memenuhi Target</span>';
+        } else {
+          statusEl.innerHTML = '<span class="px-2 py-1 bg-red-50 text-red-600 rounded-lg text-[10px]"><i class="fa-solid fa-times-circle mr-1"></i>Belum Memenuhi Target</span>';
+        }
+        document.getElementById('kpi_eval_target_hidden').value = targetHal;
+        document.getElementById('kpi_eval_capaian_hidden').value = capaianHal;
+        document.getElementById('kpi_eval_met_hidden').value = met ? '1' : '0';
+        document.getElementById('kpi_judul').value = 'Evaluasi: ' + layouterName;
+
+        if (info) info.classList.remove('hidden');
+      }).getUsersData();
+    }).getKPIData();
+  }).getTargetData();
+}
+
+
+[
+'loadProgres',
+'showNaskahSpesifikasiCetak',
+'getHiddenTugasNaskahKey',
+'getHiddenTugasNaskahIds',
+'setHiddenTugasNaskahIds',
+'hideCompletedTugasNaskah',
+'restoreHiddenTugasNaskah',
+'loadTugasNaskah',
+'loadDetailTimKreatif',
+'loadDetailTimNonTarget',
+'updateTugasNaskahStatus',
+'populateEvalLayouterDropdown',
+'loadEvalCapaian'].
+forEach((name) => {
+  try {
+    const fn = eval(name);
+    if (typeof fn === 'function') window[name] = fn;
+  } catch (error) {}
+});
+</script>
+
+

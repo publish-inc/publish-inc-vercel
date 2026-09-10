@@ -1,0 +1,2145 @@
+<script>
+// Global variables for active subtab in payroll slip
+window._activePayrollTab = 'process';
+
+function loadPayrollHRDConfig(subTab) {
+  if (subTab) window._activePayrollConfigTab = subTab;
+  if (!['gaji', 'tunjangan', 'potongan', 'reward'].includes(window._activePayrollConfigTab)) {
+    window._activePayrollConfigTab = 'gaji';
+  }
+
+  const content = document.getElementById('contentArea');
+  if (!content) return;
+  content.innerHTML = `
+    <div class="mb-6 flex flex-col lg:flex-row lg:justify-between lg:items-end gap-4">
+      <div>
+        <h2 class="text-2xl font-black text-slate-900 tracking-tight">Atur Slip Gaji</h2>
+        <p class="text-sm text-slate-500 mt-1">Kelola profil gaji pokok, tunjangan, potongan, dan pengaturan reward setiap karyawan.</p>
+      </div>
+    </div>
+    
+    <!-- Tab navigation pills -->
+    <div class="flex flex-wrap gap-2 mb-6 bg-slate-100 p-1.5 rounded-2xl max-w-max border border-slate-200/60 shadow-inner">
+      <button onclick="switchPayrollConfigSubTab('gaji')" class="px-5 py-2.5 rounded-xl text-sm font-black transition shadow-sm" style="${window._activePayrollConfigTab === 'gaji' ? 'background:#4f46e5;color:#ffffff;border:1px solid #4f46e5;' : 'background:#ffffff;color:#334155;border:1px solid #cbd5e1;'}">
+        <i class="fa-solid fa-money-bill-wave mr-2"></i>Atur Gaji Pokok
+      </button>
+      <button onclick="switchPayrollConfigSubTab('tunjangan')" class="px-5 py-2.5 rounded-xl text-sm font-black transition shadow-sm" style="${window._activePayrollConfigTab === 'tunjangan' ? 'background:#4f46e5;color:#ffffff;border:1px solid #4f46e5;' : 'background:#ffffff;color:#334155;border:1px solid #cbd5e1;'}">
+        <i class="fa-solid fa-hand-holding-dollar mr-2"></i>Atur Tunjangan
+      </button>
+      <button onclick="switchPayrollConfigSubTab('potongan')" class="px-5 py-2.5 rounded-xl text-sm font-black transition shadow-sm" style="${window._activePayrollConfigTab === 'potongan' ? 'background:#4f46e5;color:#ffffff;border:1px solid #4f46e5;' : 'background:#ffffff;color:#334155;border:1px solid #cbd5e1;'}">
+        <i class="fa-solid fa-money-bill-transfer mr-2"></i>Atur Potongan
+      </button>
+      <button onclick="switchPayrollConfigSubTab('reward')" class="px-5 py-2.5 rounded-xl text-sm font-black transition shadow-sm" style="${window._activePayrollConfigTab === 'reward' ? 'background:#4f46e5;color:#ffffff;border:1px solid #4f46e5;' : 'background:#ffffff;color:#334155;border:1px solid #cbd5e1;'}">
+        <i class="fa-solid fa-award mr-2"></i>Atur Reward
+      </button>
+    </div>
+    
+    <div id="payrollSubContent">
+      <div class="flex justify-center items-center py-12">
+        <div class="animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent"></div>
+      </div>
+    </div>
+  `;
+  renderPayrollConfigTab();
+}
+window.loadPayrollHRDConfig = loadPayrollHRDConfig;
+
+function switchPayrollConfigSubTab(tab) {
+  loadPayrollHRDConfig(tab);
+}
+
+function loadPayrollHRDSlip(subTab) {
+  if (subTab) window._activePayrollTab = subTab;
+  if (!['process', 'history'].includes(window._activePayrollTab)) {
+    window._activePayrollTab = 'process';
+  }
+  
+  const content = document.getElementById('contentArea');
+  if (!content) return;
+  content.innerHTML = `
+    <div class="mb-6 flex flex-col lg:flex-row lg:justify-between lg:items-end gap-4">
+      <div>
+        <h2 class="text-2xl font-black text-slate-900 tracking-tight">Slip Gaji Karyawan</h2>
+        <p class="text-sm text-slate-500 mt-1">Proses perhitungan slip gaji bulanan dan lihat riwayat slip gaji yang telah dicetak.</p>
+      </div>
+    </div>
+    
+    <!-- Tab navigation pills -->
+    <div class="flex flex-wrap gap-2 mb-6 bg-slate-100 p-1.5 rounded-2xl max-w-max border border-slate-200/60 shadow-inner">
+      <button onclick="switchPayrollSubTab('process')" class="px-5 py-2.5 rounded-xl text-sm font-black transition shadow-sm" style="${window._activePayrollTab === 'process' ? 'background:#4f46e5;color:#ffffff;border:1px solid #4f46e5;' : 'background:#ffffff;color:#334155;border:1px solid #cbd5e1;'}">
+        <i class="fa-solid fa-calculator mr-2"></i>Proses Slip Gaji
+      </button>
+      <button onclick="switchPayrollSubTab('history')" class="px-5 py-2.5 rounded-xl text-sm font-black transition shadow-sm" style="${window._activePayrollTab === 'history' ? 'background:#4f46e5;color:#ffffff;border:1px solid #4f46e5;' : 'background:#ffffff;color:#334155;border:1px solid #cbd5e1;'}">
+        <i class="fa-solid fa-history mr-2"></i>Riwayat Slip Gaji
+      </button>
+    </div>
+    
+    <div id="payrollSubContent">
+      <div class="flex justify-center items-center py-12">
+        <div class="animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent"></div>
+      </div>
+    </div>
+  `;
+  
+  if (window._activePayrollTab === 'process') {
+    renderPayrollProcessTab();
+  } else if (window._activePayrollTab === 'history') {
+    renderPayrollHistoryTab();
+  }
+}
+window.loadPayrollHRDSlip = loadPayrollHRDSlip;
+
+function loadPayrollHRDGlobal() {
+  const content = document.getElementById('contentArea');
+  if (!content) return;
+  content.innerHTML = `
+    <div class="mb-6 flex flex-col lg:flex-row lg:justify-between lg:items-end gap-4">
+      <div>
+        <h2 class="text-2xl font-black text-slate-900 tracking-tight">Konfigurasi Global & Rumus</h2>
+        <p class="text-sm text-slate-500 mt-1">Atur rumus kehadiran, tarif keterlambatan, dan parameter potongan secara global.</p>
+      </div>
+    </div>
+    <div id="payrollSubContent">
+      <div class="flex justify-center items-center py-12">
+        <div class="animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent"></div>
+      </div>
+    </div>
+  `;
+  renderPayrollGlobalConfigTab();
+}
+window.loadPayrollHRDGlobal = loadPayrollHRDGlobal;
+
+function loadPayrollHRDDashboard() {
+  const content = document.getElementById('contentArea');
+  if (!content) return;
+  content.innerHTML = `
+    <div class="mb-6 flex flex-col lg:flex-row lg:justify-between lg:items-end gap-4">
+      <div>
+        <h2 class="text-2xl font-black text-slate-900 tracking-tight">Dashboard SDM</h2>
+        <p class="text-sm text-slate-500 mt-1">Statistik dan komposisi karyawan secara keseluruhan.</p>
+      </div>
+    </div>
+    <div id="payrollSubContent">
+      <div class="flex justify-center items-center py-12">
+        <div class="animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent"></div>
+      </div>
+    </div>
+  `;
+
+  gas.withSuccessHandler((res) => {
+    const users = (res?.data || []).filter(u => u.role !== 'report');
+    renderHRDDashboardContent(users);
+  }).getUsersData();
+}
+window.loadPayrollHRDDashboard = loadPayrollHRDDashboard;
+
+function renderHRDDashboardContent(users) {
+  const container = document.getElementById('payrollSubContent');
+  if (!container) return;
+
+  const totalKaryawan = users.length;
+  
+  const divCounts = {};
+  const roleCounts = {};
+  const genderCounts = { 'L': 0, 'P': 0, 'Belum Diisi': 0 };
+  const ageCounts = { '< 20': 0, '20-29': 0, '30-39': 0, '40+': 0, 'Belum Diisi': 0 };
+
+  users.forEach(u => {
+    const div = String(u.departemen || 'Belum Diisi').trim();
+    divCounts[div] = (divCounts[div] || 0) + 1;
+    
+    const role = getRoleLabel(u.role);
+    roleCounts[role] = (roleCounts[role] || 0) + 1;
+    
+    const jk = u.jenisKelamin === 'L' ? 'L' : (u.jenisKelamin === 'P' ? 'P' : 'Belum Diisi');
+    genderCounts[jk]++;
+    
+    if (u.tanggalLahir) {
+      const bYear = new Date(u.tanggalLahir).getFullYear();
+      const currentYear = new Date().getFullYear();
+      const age = currentYear - bYear;
+      if (age < 20) ageCounts['< 20']++;
+      else if (age < 30) ageCounts['20-29']++;
+      else if (age < 40) ageCounts['30-39']++;
+      else ageCounts['40+']++;
+    } else {
+      ageCounts['Belum Diisi']++;
+    }
+  });
+
+  const numDivisi = Object.keys(divCounts).filter(k => k !== 'Belum Diisi').length;
+  const numRoles = Object.keys(roleCounts).length;
+
+  const renderBarChart = null; // No longer needed, using Chart.js
+
+  container.innerHTML = `
+    <!-- Top Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
+        <div class="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl font-black">
+          <i class="fa-solid fa-users"></i>
+        </div>
+        <div>
+          <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Karyawan</div>
+          <div class="text-2xl font-black text-slate-900">${totalKaryawan}</div>
+        </div>
+      </div>
+      <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
+        <div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl font-black">
+          <i class="fa-solid fa-building"></i>
+        </div>
+        <div>
+          <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Jumlah Divisi</div>
+          <div class="text-2xl font-black text-slate-900">${numDivisi}</div>
+        </div>
+      </div>
+      <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
+        <div class="w-14 h-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center text-2xl font-black">
+          <i class="fa-solid fa-user-tag"></i>
+        </div>
+        <div>
+          <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Jumlah Role</div>
+          <div class="text-2xl font-black text-slate-900">${numRoles}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <h3 class="text-sm font-black text-slate-900 mb-6 uppercase tracking-wider">Karyawan per Departemen</h3>
+        <div class="relative h-64">
+          <canvas id="chartDepartemen"></canvas>
+        </div>
+      </div>
+      
+      <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <h3 class="text-sm font-black text-slate-900 mb-6 uppercase tracking-wider">Karyawan per Role</h3>
+        <div class="relative h-64">
+          <canvas id="chartRole"></canvas>
+        </div>
+      </div>
+
+      <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <h3 class="text-sm font-black text-slate-900 mb-6 uppercase tracking-wider">Demografi: Kelompok Umur</h3>
+        <div class="relative h-64">
+          <canvas id="chartUmur"></canvas>
+        </div>
+      </div>
+
+      <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <h3 class="text-sm font-black text-slate-900 mb-6 uppercase tracking-wider text-center">Demografi: Jenis Kelamin</h3>
+        <div class="relative h-64 flex justify-center items-center">
+          <canvas id="chartGender"></canvas>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const chartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } };
+
+  new Chart(document.getElementById('chartDepartemen'), {
+    type: 'bar',
+    data: {
+      labels: Object.keys(divCounts),
+      datasets: [{ label: 'Jumlah Karyawan', data: Object.values(divCounts), backgroundColor: '#4f46e5', borderRadius: 6 }]
+    },
+    options: chartOptions
+  });
+
+  new Chart(document.getElementById('chartRole'), {
+    type: 'bar',
+    data: {
+      labels: Object.keys(roleCounts),
+      datasets: [{ label: 'Jumlah Karyawan', data: Object.values(roleCounts), backgroundColor: '#10b981', borderRadius: 6 }]
+    },
+    options: chartOptions
+  });
+
+  new Chart(document.getElementById('chartUmur'), {
+    type: 'bar',
+    data: {
+      labels: Object.keys(ageCounts),
+      datasets: [{ label: 'Jumlah Karyawan', data: Object.values(ageCounts), backgroundColor: '#f59e0b', borderRadius: 6 }]
+    },
+    options: chartOptions
+  });
+
+  new Chart(document.getElementById('chartGender'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Laki-Laki', 'Perempuan', 'Belum Diisi'],
+      datasets: [{ data: [genderCounts['L'], genderCounts['P'], genderCounts['Belum Diisi']], backgroundColor: ['#3b82f6', '#ec4899', '#cbd5e1'], borderWidth: 0, hoverOffset: 4 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, cutout: '70%' }
+  });
+}
+
+function switchPayrollSubTab(tab) {
+  loadPayrollHRDSlip(tab);
+}
+
+function parsePayrollJsonValue(value, fallback = {}) {
+  if (!value) return fallback;
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(String(value));
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function setActivePayrollFormulaInput(id) {
+  window._activePayrollFormulaInput = id;
+}
+
+const PAYROLL_FORMULA_VARIABLES = [
+  { key: 'GP', label: 'Gaji Pokok Karyawan' },
+  { key: 'TJ', label: 'Tunjangan Karyawan' },
+  { key: 'HK', label: 'Hari Kerja Sebulan' },
+  { key: 'A', label: 'Jumlah Alpa' },
+  { key: 'I', label: 'Jumlah Izin' },
+  { key: 'ISH', label: 'Jumlah Izin Setengah Hari' },
+  { key: 'S', label: 'Jumlah Sakit' },
+  { key: 'C', label: 'Jumlah Cuti' },
+  { key: 'T', label: 'Jumlah Terlambat' }
+];
+
+function insertPayrollFormulaMention(variable) {
+  const targetId = window._activePayrollFormulaInput || 'global_formula_alpa';
+  const input = document.getElementById(targetId);
+  if (!input) return;
+  const mention = '@' + variable;
+  const start = typeof input.selectionStart === 'number' ? input.selectionStart : input.value.length;
+  const end = typeof input.selectionEnd === 'number' ? input.selectionEnd : input.value.length;
+  const before = input.value.slice(0, start);
+  const after = input.value.slice(end);
+  const prefix = before && !/[\s(+\-*/]$/.test(before) ? ' ' : '';
+  const suffix = after && !/^[\s)+\-*/]/.test(after) ? ' ' : '';
+  input.value = before + prefix + mention + suffix + after;
+  const cursor = (before + prefix + mention).length;
+  input.focus();
+  input.setSelectionRange(cursor, cursor);
+  hidePayrollMentionMenu();
+}
+
+function hidePayrollMentionMenu() {
+  const menu = document.getElementById('payroll_formula_mention_menu');
+  if (menu) menu.remove();
+}
+
+function selectPayrollFormulaMention(variable) {
+  const input = document.getElementById(window._activePayrollFormulaInput || '');
+  if (!input) return insertPayrollFormulaMention(variable);
+  const cursor = typeof input.selectionStart === 'number' ? input.selectionStart : input.value.length;
+  const before = input.value.slice(0, cursor);
+  const atIndex = before.lastIndexOf('@');
+  if (atIndex === -1) return insertPayrollFormulaMention(variable);
+  const after = input.value.slice(cursor);
+  input.value = input.value.slice(0, atIndex) + '@' + variable + after;
+  const nextCursor = atIndex + variable.length + 1;
+  input.focus();
+  input.setSelectionRange(nextCursor, nextCursor);
+  hidePayrollMentionMenu();
+}
+
+function showPayrollMentionMenu(input) {
+  if (!input) return;
+  hidePayrollMentionMenu();
+  window._activePayrollFormulaInput = input.id;
+  const rect = input.getBoundingClientRect();
+  const menu = document.createElement('div');
+  menu.id = 'payroll_formula_mention_menu';
+  menu.style.cssText = [
+    'position:fixed',
+    `left:${Math.max(12, rect.left)}px`,
+    `top:${rect.bottom + 6}px`,
+    'z-index:99999',
+    'width:min(360px, calc(100vw - 24px))',
+    'max-height:260px',
+    'overflow:auto',
+    'background:#ffffff',
+    'border:1px solid #e2e8f0',
+    'border-radius:14px',
+    'box-shadow:0 18px 45px rgba(15, 23, 42, 0.18)',
+    'padding:6px'
+  ].join(';');
+  menu.innerHTML = PAYROLL_FORMULA_VARIABLES.map((item) => `
+    <button type="button" onclick="selectPayrollFormulaMention('${item.key}')" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:0;background:#fff;border-radius:10px;cursor:pointer;text-align:left;">
+      <span style="font-family:monospace;font-weight:800;color:#4f46e5;">@${item.key}</span>
+      <span style="font-size:12px;color:#475569;font-weight:700;">${item.label}</span>
+    </button>
+  `).join('');
+  document.body.appendChild(menu);
+}
+
+function handlePayrollFormulaMentionInput(input) {
+  window._activePayrollFormulaInput = input.id;
+  const cursor = typeof input.selectionStart === 'number' ? input.selectionStart : input.value.length;
+  const before = input.value.slice(0, cursor);
+  if (/@[A-Za-z]*$/.test(before)) showPayrollMentionMenu(input);else hidePayrollMentionMenu();
+}
+window.setActivePayrollFormulaInput = setActivePayrollFormulaInput;
+window.insertPayrollFormulaMention = insertPayrollFormulaMention;
+window.hidePayrollMentionMenu = hidePayrollMentionMenu;
+window.selectPayrollFormulaMention = selectPayrollFormulaMention;
+window.showPayrollMentionMenu = showPayrollMentionMenu;
+window.handlePayrollFormulaMentionInput = handlePayrollFormulaMentionInput;
+window.switchPayrollSubTab = switchPayrollSubTab;
+document.addEventListener('click', (event) => {
+  const menu = document.getElementById('payroll_formula_mention_menu');
+  if (!menu) return;
+  const target = event.target;
+  if (menu.contains(target) || target && target.id && String(target.id).startsWith('global_formula_')) return;
+  hidePayrollMentionMenu();
+});
+window.addEventListener('scroll', hidePayrollMentionMenu, true);
+
+// Subtab Process
+function renderPayrollProcessTab() {
+  const container = document.getElementById('payrollSubContent');
+  if (!container) return;
+  
+  gas.withSuccessHandler((res) => {
+    const users = (res?.data || []).filter(u => !['report', 'pimpinan', 'hrd'].includes(u.role));
+    const now = new Date();
+    const currentMonth = now.toISOString().slice(0, 7);
+    
+    container.innerHTML = `
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Input Panel -->
+        <div class="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm h-fit">
+          <h3 class="text-lg font-black text-slate-900 mb-4"><i class="fa-solid fa-sliders text-indigo-500 mr-2"></i>Pilih Karyawan & Periode</h3>
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Nama Karyawan</label>
+              <select id="payroll_emp_select" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:border-indigo-500 bg-white">
+                <option value="">-- Pilih Karyawan --</option>
+                ${users.map(u => `<option value="${u.username}">${u.nama || u.username} (${getRoleLabel(u.role).toUpperCase()})</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Bulan & Tahun</label>
+              <input type="month" id="payroll_month_select" value="${currentMonth}" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:border-indigo-500 bg-white" />
+            </div>
+            <button onclick="calculatePayrollUi()" class="w-full py-3 rounded-xl font-bold shadow-lg transition flex justify-center items-center gap-2" style="background:#4f46e5;color:#ffffff;border:1px solid #4338ca;">
+              <i class="fa-solid fa-calculator"></i> Hitung Gaji Bersih
+            </button>
+          </div>
+        </div>
+        
+        <!-- Results Panel -->
+        <div id="payrollResultArea" class="lg:col-span-2 bg-white rounded-3xl p-6 border border-slate-100 shadow-sm min-h-[300px] flex flex-col justify-center items-center text-slate-400 italic">
+          <i class="fa-solid fa-calculator text-4xl mb-3 text-slate-200"></i>
+          Silakan pilih karyawan dan bulan, kemudian klik "Hitung Gaji Bersih".
+        </div>
+      </div>
+    `;
+  }).getUsersData();
+}
+
+function calculatePayrollUi() {
+  const username = document.getElementById('payroll_emp_select').value;
+  const month = document.getElementById('payroll_month_select').value;
+  
+  if (!username) {
+    Swal.fire('Perhatian', 'Silakan pilih karyawan terlebih dahulu.', 'warning');
+    return;
+  }
+  if (!month) {
+    Swal.fire('Perhatian', 'Silakan pilih bulan & tahun terlebih dahulu.', 'warning');
+    return;
+  }
+  
+  const resultArea = document.getElementById('payrollResultArea');
+  resultArea.innerHTML = `
+    <div class="flex flex-col items-center justify-center py-12">
+      <div class="animate-spin rounded-full h-10 w-10 border-4 border-indigo-600 border-t-transparent mb-4"></div>
+      <p class="text-sm font-bold text-slate-500">Mengkalkulasi parameter kehadiran dan reward KPI...</p>
+    </div>
+  `;
+  
+  gas.withSuccessHandler((res) => {
+    if (!res.success) {
+      resultArea.innerHTML = `
+        <div class="text-red-500 flex flex-col items-center justify-center p-6">
+          <i class="fa-solid fa-triangle-exclamation text-3xl mb-2"></i>
+          <p class="font-bold">${res.message}</p>
+        </div>
+      `;
+      return;
+    }
+    
+    const d = res.data;
+    const pot = parsePayrollJsonValue(d.potonganDetail);
+    const rew = parsePayrollJsonValue(d.rewardDetail);
+    const allowanceItems = parsePayrollAllowanceDetails(d.tunjanganDetail);
+    window._lastCalculatedPayroll = d;
+    
+    resultArea.innerHTML = `
+      <div class="space-y-6">
+        <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+          <div>
+            <h4 class="text-lg font-black text-slate-900">${d.nama}</h4>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">${getRoleLabel(d.role)} &bull; Periode ${d.bulanTahun}</p>
+          </div>
+          <span class="px-3 py-1 bg-indigo-50 text-indigo-600 text-xs font-black rounded-full uppercase tracking-wider">${d.username}</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div class="bg-indigo-50 border border-indigo-100 rounded-2xl p-4">
+            <div class="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Bank</div>
+            <div class="text-sm font-black text-slate-900">${payrollSafeText(d.bankName || '-')}</div>
+          </div>
+          <div class="bg-indigo-50 border border-indigo-100 rounded-2xl p-4">
+            <div class="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">No Rekening</div>
+            <div class="text-sm font-black text-slate-900 font-mono break-all">${payrollSafeText(d.bankAccountNumber || '-')}</div>
+          </div>
+          <div class="bg-indigo-50 border border-indigo-100 rounded-2xl p-4">
+            <div class="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Atas Nama</div>
+            <div class="text-sm font-black text-slate-900">${payrollSafeText(d.bankAccountName || d.nama || '-')}</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="bg-slate-50 border border-slate-100 rounded-2xl p-4">
+            <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Departemen</div>
+            <div class="text-sm font-black text-slate-900">${payrollSafeText(payrollNormalizeDepartment(d.departemen, d.role))}</div>
+          </div>
+          <div class="bg-slate-50 border border-slate-100 rounded-2xl p-4">
+            <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Status Karyawan</div>
+            <div class="text-sm font-black text-slate-900">${payrollSafeText(d.statusKaryawan || 'Karyawan Kontrak')}</div>
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Gaji Pokok & Tunjangan -->
+          <div class="bg-slate-50 border border-slate-100 rounded-2xl p-4">
+            <h5 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Gaji Pokok & Tunjangan</h5>
+            <div class="space-y-2">
+              <div class="flex justify-between text-sm">
+                <span class="text-slate-500">Gaji Pokok</span>
+                <span class="font-bold text-slate-800">${formatRp(d.gajiPokok)}</span>
+              </div>
+              ${allowanceItems.length ? allowanceItems.map((item) => `
+                <div class="flex justify-between text-sm gap-3">
+                  <span class="text-slate-500">${payrollSafeText(item.nama || 'Tunjangan')}</span>
+                  <span class="font-bold text-slate-800">${formatRp(item.nominal)}</span>
+                </div>
+              `).join('') : `
+                <div class="flex justify-between text-sm">
+                  <span class="text-slate-500">Tunjangan</span>
+                  <span class="font-bold text-slate-800">${formatRp(d.tunjangan)}</span>
+                </div>
+              `}
+              <div class="border-t border-dashed border-slate-200 my-2"></div>
+              <div class="flex justify-between text-sm font-bold">
+                <span class="text-slate-700">Subtotal Gaji</span>
+                <span class="text-indigo-600">${formatRp(d.gajiPokok + d.tunjangan)}</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Potongan Kehadiran -->
+          <div class="bg-slate-50 border border-slate-100 rounded-2xl p-4">
+            <h5 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Potongan Kehadiran</h5>
+            <div class="space-y-2">
+              <div class="flex justify-between text-sm">
+                <span class="text-slate-500">Alpa (${pot.alpaCount || 0} hari)</span>
+                <span class="font-bold text-red-500">-${formatRp(pot.potonganAlpa || 0)}</span>
+              </div>
+              <div class="flex justify-between text-sm">
+                <span class="text-slate-500">Izin (${pot.izinCount || 0} hari)</span>
+                <span class="font-bold text-red-500">-${formatRp(pot.potonganIzin || 0)}</span>
+              </div>
+              <div class="flex justify-between text-sm">
+                <span class="text-slate-500">Izin Setengah Hari (${pot.izinSetengahHariCount || 0} hari)</span>
+                <span class="font-bold text-red-500">-${formatRp(pot.potonganIzinSetengahHari || 0)}</span>
+              </div>
+              <div class="flex justify-between text-sm">
+                <span class="text-slate-500">Sakit (${pot.sakitCount || 0} hari)</span>
+                <span class="font-bold text-red-500">-${formatRp(pot.potonganSakit || 0)}</span>
+              </div>
+              <div class="flex justify-between text-sm">
+                <span class="text-slate-500">Cuti (${pot.cutiCount || 0} hari)</span>
+                <span class="font-bold text-red-500">-${formatRp(pot.potonganCuti || 0)}</span>
+              </div>
+              <div class="flex justify-between text-sm">
+                <span class="text-slate-500">Terlambat (${pot.terlambatCount || 0} kali)</span>
+                <span class="font-bold text-red-500">-${formatRp(pot.potonganTerlambat || 0)}</span>
+              </div>
+              <div class="border-t border-dashed border-slate-200 my-2"></div>
+              <div class="flex justify-between text-sm font-bold">
+                <span class="text-slate-700">Total Potongan</span>
+                <span class="text-red-600">-${formatRp(d.potonganKehadiran)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Reward KPI / Manual -->
+        <div class="bg-slate-50 border border-slate-100 rounded-2xl p-4">
+          <h5 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">${rew.basis === 'manual' ? 'Reward Manual' : 'Reward Kinerja KPI'}</h5>
+          <div class="space-y-2">
+            <div class="flex justify-between text-sm ${rew.basis === 'manual' ? 'hidden' : ''}">
+              <span class="text-slate-500">Target KPI</span>
+              <span class="font-bold text-slate-800">${rew.target ? (rew.unit === 'Rupiah' ? formatRp(rew.target) : formatNumber(rew.target) + ' ' + rew.unit) : '-'}</span>
+            </div>
+            <div class="flex justify-between text-sm ${rew.basis === 'manual' ? 'hidden' : ''}">
+              <span class="text-slate-500">${rew.basis === 'manual' ? 'Nominal Reward' : 'Capaian Realisasi'}</span>
+              <span class="font-bold text-slate-800">${rew.capaian ? (rew.unit === 'Rupiah' ? formatRp(rew.capaian) : formatNumber(rew.capaian) + ' ' + rew.unit) : '0'}</span>
+            </div>
+            <div class="flex justify-between text-sm ${rew.basis === 'manual' ? 'hidden' : ''}">
+              <span class="text-slate-500">Kelebihan Capaian</span>
+              <span class="font-bold text-slate-800">${rew.excess ? (rew.unit === 'Rupiah' ? formatRp(rew.excess) : formatNumber(rew.excess) + ' ' + rew.unit) : '0'}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-slate-500">${rew.basis === 'manual' ? 'Nominal Reward' : 'Rate Reward'}</span>
+              <span class="font-bold text-indigo-600">${rew.basis === 'manual' ? formatRp(d.rewardKpi) : rew.basis === 'terbit' ? 'Per paket' : rew.rate ? (rew.unit === 'Rupiah' ? rew.rate + '%' : formatRp(rew.rate) + ' / ' + rew.unit) : '0'}</span>
+            </div>
+            <div class="border-t border-dashed border-slate-200 my-2"></div>
+            <div class="flex justify-between text-sm font-bold">
+              <span class="text-slate-700">${rew.basis === 'manual' ? 'Total Reward Manual' : 'Total Reward KPI'}</span>
+              <span class="text-emerald-600">+${formatRp(d.rewardKpi)}</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Summary Total Gaji Bersih -->
+        <div class="bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-2xl p-5 shadow-md flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+          <div>
+            <div class="text-xs font-bold text-emerald-100 uppercase tracking-widest">Total Gaji Bersih Terhitung</div>
+            <div class="text-3xl font-black mt-1">${formatRp(d.gajiBersih)}</div>
+          </div>
+          <button onclick="saveAndPrintPayrollUi()" class="px-6 py-3 rounded-xl font-black transition shadow-lg flex items-center justify-center gap-2" style="background:#0f172a;color:#ffffff;border:1px solid rgba(255,255,255,.45);">
+            <i class="fa-solid fa-print"></i> Simpan & Cetak Slip Gaji
+          </button>
+        </div>
+        
+        <!-- Log Kehadiran detail -->
+        ${d.listKehadiran && d.listKehadiran.length > 0 ? `
+          <div class="border-t border-slate-100 pt-4">
+            <h5 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Detail Ketidakhadiran Bulan Ini</h5>
+            <div class="max-h-48 overflow-y-auto divide-y divide-slate-50 text-xs">
+              ${d.listKehadiran.map(k => `
+                <div class="py-2 flex justify-between">
+                  <span class="font-mono text-slate-500">${k.tanggal}</span>
+                  <span class="px-2 py-0.5 rounded font-bold uppercase ${k.status === 'Alpa' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'}">${k.status}</span>
+                  <span class="text-slate-600 italic truncate max-w-xs">${k.keterangan || '-'}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }).withFailureHandler((err) => {
+    resultArea.innerHTML = `<div class="text-red-500 font-bold p-6">Gagal menghitung gaji: ${err}</div>`;
+  }).calculatePayroll(username, month);
+}
+
+function saveAndPrintPayrollUi() {
+  const d = window._lastCalculatedPayroll;
+  if (!d) return;
+  d.hrdName = state?.user?.nama || 'HRD';
+  d.createdBy = state?.user?.username || '';
+  d.pimpinanRedaksiName = d.pimpinanRedaksiName || 'Ayu Anggrita Ramadhani';
+  
+  Swal.fire({
+    title: 'Simpan Slip Gaji?',
+    text: 'Slip Gaji ini akan disimpan ke dalam riwayat penggajian.',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Ya, Simpan',
+    cancelButtonText: 'Batal'
+  }).then(res => {
+    if (res.isConfirmed) {
+      gas.withSuccessHandler((saved) => {
+        Swal.fire('Success!', 'Slip Gaji Karyawan has been made.', 'success');
+        printSlipGaji(saved.data);
+        loadPayrollHRDSlip('history');
+      }).savePayrollHistory(d);
+    }
+  });
+}
+
+// Subtab History
+function renderPayrollHistoryTab() {
+  const container = document.getElementById('payrollSubContent');
+  if (!container) return;
+  
+  gas.withSuccessHandler((res) => {
+    const rawList = res?.data || [];
+    const map = {};
+    const toDelete = [];
+    
+    rawList.forEach(item => {
+      const key = String(item.username || '').toLowerCase() + '-' + String(item.bulanTahun || '');
+      if (!map[key]) {
+        map[key] = item;
+      } else {
+        const existingTime = new Date(map[key].createdAt || 0).getTime();
+        const currentTime = new Date(item.createdAt || 0).getTime();
+        if (currentTime > existingTime) {
+          toDelete.push(map[key].id);
+          map[key] = item;
+        } else {
+          toDelete.push(item.id);
+        }
+      }
+    });
+    
+    if (toDelete.length > 0) {
+      toDelete.forEach(id => {
+        if (id) gas.deletePayrollHistory(id);
+      });
+    }
+
+    const list = Object.values(map).sort((a,b) => String(b.bulanTahun).localeCompare(String(a.bulanTahun)));
+    
+    container.innerHTML = `
+      <div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+        <div class="p-6 border-b border-slate-50 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <h3 class="text-lg font-black text-slate-900">Riwayat Slip Gaji</h3>
+          <div class="flex gap-2">
+            <input type="text" id="payroll_history_search" placeholder="Cari karyawan..." oninput="filterPayrollHistoryTable()" class="px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-indigo-500" />
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left" id="payroll_history_table">
+            <thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              <tr>
+                <th class="px-8 py-4">Bulan</th>
+                <th class="px-8 py-4">Karyawan</th>
+                <th class="px-8 py-4">Role</th>
+                <th class="px-8 py-4 text-right">Gaji Pokok</th>
+                <th class="px-8 py-4 text-right">Tunjangan</th>
+                <th class="px-8 py-4 text-right">Potongan</th>
+                <th class="px-8 py-4 text-right">Reward</th>
+                <th class="px-8 py-4 text-right">Gaji Bersih</th>
+                <th class="px-8 py-4 text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-50 text-[13px]">
+              ${list.map(item => `
+                <tr class="hover:bg-slate-50 transition-colors">
+                  <td class="px-8 py-4 font-mono font-bold text-slate-700">${item.bulanTahun}</td>
+                  <td class="px-8 py-4 font-bold text-slate-900">${item.nama || item.username}</td>
+                  <td class="px-8 py-4 text-slate-500 font-bold uppercase text-xs">${getRoleLabel(item.role)}</td>
+                  <td class="px-8 py-4 text-right font-mono text-slate-600">${formatRp(item.gajiPokok)}</td>
+                  <td class="px-8 py-4 text-right font-mono text-slate-600">${formatRp(item.tunjangan)}</td>
+                  <td class="px-8 py-4 text-right font-mono text-red-500">-${formatRp(item.potonganKehadiran)}</td>
+                  <td class="px-8 py-4 text-right font-mono text-emerald-600">+${formatRp(item.rewardKpi)}</td>
+                  <td class="px-8 py-4 text-right font-mono font-bold text-slate-900 bg-slate-50/50">${formatRp(item.gajiBersih)}</td>
+                  <td class="px-8 py-4 text-center space-x-2">
+                    <button onclick="viewPayrollSlipHistory('${item.id}')" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold rounded-lg text-xs transition"><i class="fa-solid fa-eye"></i> Slip</button>
+                    <button onclick="deletePayrollSlipHistory('${item.id}')" class="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-lg text-xs transition"><i class="fa-solid fa-trash"></i></button>
+                  </td>
+                </tr>
+              `).join('')}
+              ${list.length === 0 ? '<tr><td colspan="9" class="p-16 text-center text-slate-300 italic">Belum ada riwayat slip gaji yang disimpan.</td></tr>' : ''}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    window._cachedPayrollHistory = list;
+  }).getPayrollHistory();
+}
+
+function filterPayrollHistoryTable() {
+  const query = String(document.getElementById('payroll_history_search').value || '').toLowerCase().trim();
+  const rows = document.querySelectorAll('#payroll_history_table tbody tr');
+  rows.forEach(r => {
+    const text = String(r.textContent || '').toLowerCase();
+    if (text.includes('belum ada riwayat')) return;
+    r.style.display = text.includes(query) ? '' : 'none';
+  });
+}
+
+function viewPayrollSlipHistory(id) {
+  const item = (window._cachedPayrollHistory || []).find(h => h.id === id);
+  if (item) printSlipGaji(item);
+}
+
+function togglePayrollRewardFields() {
+  const enabled = document.getElementById('swal_reward_enabled')?.checked;
+  const fields = document.getElementById('swal_reward_fields');
+  if (!fields) return;
+  fields.classList.toggle('hidden', !enabled);
+  updatePayrollConfigSummary();
+}
+window.togglePayrollRewardFields = togglePayrollRewardFields;
+
+function deletePayrollSlipHistory(id) {
+  Swal.fire({
+    title: 'Hapus Slip Gaji?',
+    text: 'Slip ini akan dihapus dari database permanen!',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    confirmButtonText: 'Ya, Hapus',
+    cancelButtonText: 'Batal'
+  }).then(res => {
+    if (res.isConfirmed) {
+      gas.withSuccessHandler(() => {
+        Swal.fire('Terhapus!', 'Slip gaji berhasil dihapus.', 'success');
+        renderPayrollHistoryTab();
+      }).deletePayrollHistory(id);
+    }
+  });
+}
+
+// Subtab Employee Configurations
+function getPayrollTargetRow(username) {
+  const rows = window._payrollTargetRows || [];
+  return rows.find((row) => String(row.username || '').toLowerCase() === String(username || '').toLowerCase()) || {};
+}
+
+function parsePayrollRewardTargetRules(value) {
+  if (!value) return {};
+  if (typeof value === 'object') return value;
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function parsePayrollRewardPackageRates(value) {
+  if (!value) return {};
+  if (typeof value === 'object') return value;
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function parsePayrollAllowanceDetails(value) {
+  if (!value) return [];
+  let items = value;
+  if (typeof value === 'string') {
+    try {
+      items = JSON.parse(value);
+    } catch (e) {
+      items = [];
+    }
+  }
+  if (!Array.isArray(items)) return [];
+  return items.map((item) => ({
+    nama: String(item?.nama || item?.name || item?.label || '').trim(),
+    nominal: Math.max(0, Number(item?.nominal || item?.amount || item?.value || 0))
+  })).filter((item) => item.nama || item.nominal > 0);
+}
+
+function getPayrollAllowanceRows() {
+  return Array.from(document.querySelectorAll('[data-payroll-allowance-row]')).map((row) => ({
+    nama: row.querySelector('[data-payroll-allowance-name]')?.value.trim() || '',
+    nominal: Math.max(0, Number(row.querySelector('[data-payroll-allowance-amount]')?.value || 0))
+  })).filter((item) => item.nama || item.nominal > 0);
+}
+
+function updatePayrollAllowanceTotal() {
+  const enabled = !!document.getElementById('swal_allowance_enabled')?.checked;
+  const area = document.getElementById('swal_allowance_area');
+  if (area) area.classList.toggle('hidden', !enabled);
+  const total = enabled ? getPayrollAllowanceRows().reduce((sum, item) => sum + Number(item.nominal || 0), 0) : 0;
+  const totalField = document.getElementById('swal_tj');
+  const totalText = document.getElementById('swal_allowance_total_text');
+  if (totalField) totalField.value = total;
+  if (totalText) totalText.textContent = formatRp(total);
+  updatePayrollConfigSummary();
+}
+window.updatePayrollAllowanceTotal = updatePayrollAllowanceTotal;
+
+function renderPayrollAllowanceRow(item = {}) {
+  const id = 'allowance_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+  return `
+    <div data-payroll-allowance-row="${id}" class="grid grid-cols-[1fr_160px_40px] gap-2 items-center">
+      <input type="text" data-payroll-allowance-name value="${payrollSafeText(item.nama || '')}" oninput="updatePayrollAllowanceTotal()" placeholder="Nama tunjangan" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-indigo-500" />
+      <input type="number" data-payroll-allowance-amount value="${Number(item.nominal || 0)}" oninput="updatePayrollAllowanceTotal()" placeholder="Nominal" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-indigo-500" />
+      <button type="button" onclick="removePayrollAllowanceRow('${id}')" class="h-10 rounded-xl border border-red-100 bg-red-50 text-red-500 hover:bg-red-100"><i class="fa-solid fa-trash"></i></button>
+    </div>
+  `;
+}
+
+function addPayrollAllowanceRow(item = {}) {
+  const list = document.getElementById('swal_allowance_list');
+  if (!list) return;
+  list.insertAdjacentHTML('beforeend', renderPayrollAllowanceRow(item));
+  updatePayrollAllowanceTotal();
+}
+window.addPayrollAllowanceRow = addPayrollAllowanceRow;
+
+function removePayrollAllowanceRow(id) {
+  const row = document.querySelector(`[data-payroll-allowance-row="${id}"]`);
+  if (row) row.remove();
+  if (!document.querySelector('[data-payroll-allowance-row]')) addPayrollAllowanceRow();
+  updatePayrollAllowanceTotal();
+}
+window.removePayrollAllowanceRow = removePayrollAllowanceRow;
+
+function togglePayrollAllowanceFields() {
+  const enabled = !!document.getElementById('swal_allowance_enabled')?.checked;
+  if (enabled && !document.querySelector('[data-payroll-allowance-row]')) addPayrollAllowanceRow();
+  updatePayrollAllowanceTotal();
+}
+window.togglePayrollAllowanceFields = togglePayrollAllowanceFields;
+
+function getPayrollDeductionRows() {
+  return Array.from(document.querySelectorAll('[data-payroll-deduction-row]')).map((row) => ({
+    nama: row.querySelector('[data-payroll-deduction-name]')?.value.trim() || '',
+    nominal: Math.max(0, Number(row.querySelector('[data-payroll-deduction-amount]')?.value || 0))
+  })).filter((item) => item.nama || item.nominal > 0);
+}
+
+function updatePayrollDeductionTotal() {
+  const enabled = !!document.getElementById('swal_deduction_enabled')?.checked;
+  const area = document.getElementById('swal_deduction_area');
+  if (area) area.classList.toggle('hidden', !enabled);
+  const total = enabled ? getPayrollDeductionRows().reduce((sum, item) => sum + Number(item.nominal || 0), 0) : 0;
+  const totalField = document.getElementById('swal_potongan_tambahan');
+  const totalText = document.getElementById('swal_deduction_total_text');
+  if (totalField) totalField.value = total;
+  if (totalText) totalText.textContent = formatRp(total);
+  
+  const grandTotalText = document.getElementById('swal_grand_total_text');
+  if (grandTotalText) {
+    const absensiTotal = Number(document.getElementById('swal_potongan_absensi_total')?.value || 0);
+    grandTotalText.textContent = formatRp(total + absensiTotal);
+  }
+  updatePayrollConfigSummary();
+}
+window.updatePayrollDeductionTotal = updatePayrollDeductionTotal;
+
+function renderPayrollDeductionRow(item = {}) {
+  const id = 'deduction_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+  return `
+    <div data-payroll-deduction-row="${id}" class="grid grid-cols-[1fr_160px_40px] gap-2 items-center">
+      <input type="text" data-payroll-deduction-name value="${payrollSafeText(item.nama || '')}" oninput="updatePayrollDeductionTotal()" placeholder="Nama potongan" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-red-500" />
+      <input type="number" data-payroll-deduction-amount value="${Number(item.nominal || 0)}" oninput="updatePayrollDeductionTotal()" placeholder="Nominal" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-red-500" />
+      <button type="button" onclick="removePayrollDeductionRow('${id}')" class="h-10 rounded-xl border border-slate-100 bg-slate-50 text-slate-500 hover:bg-slate-100"><i class="fa-solid fa-trash"></i></button>
+    </div>
+  `;
+}
+
+function addPayrollDeductionRow(item = {}) {
+  const list = document.getElementById('swal_deduction_list');
+  if (!list) return;
+  list.insertAdjacentHTML('beforeend', renderPayrollDeductionRow(item));
+  updatePayrollDeductionTotal();
+}
+window.addPayrollDeductionRow = addPayrollDeductionRow;
+
+function removePayrollDeductionRow(id) {
+  const row = document.querySelector(`[data-payroll-deduction-row="${id}"]`);
+  if (row) row.remove();
+  if (!document.querySelector('[data-payroll-deduction-row]')) addPayrollDeductionRow();
+  updatePayrollDeductionTotal();
+}
+window.removePayrollDeductionRow = removePayrollDeductionRow;
+
+function togglePayrollDeductionFields() {
+  const enabled = !!document.getElementById('swal_deduction_enabled')?.checked;
+  if (enabled && !document.querySelector('[data-payroll-deduction-row]')) addPayrollDeductionRow();
+  updatePayrollDeductionTotal();
+}
+window.togglePayrollDeductionFields = togglePayrollDeductionFields;
+
+window.applyPayrollAttendanceCalc = function(type, count, rate) {
+  const c = parseInt(count) || 0;
+  const total = c * rate;
+  
+  const rows = Array.from(document.querySelectorAll('[data-payroll-deduction-row]'));
+  let found = false;
+  
+  rows.forEach(row => {
+    const nameInput = row.querySelector('[data-payroll-deduction-name]');
+    if (nameInput && nameInput.value.startsWith(type)) {
+      if (c > 0) {
+        nameInput.value = `${type} (${c}x)`;
+        row.querySelector('[data-payroll-deduction-amount]').value = total;
+        found = true;
+      } else {
+        row.remove();
+      }
+    }
+  });
+  
+  if (!found && c > 0) {
+    const cb = document.getElementById('swal_deduction_enabled');
+    if (cb) cb.checked = true;
+    togglePayrollDeductionFields();
+    addPayrollDeductionRow({ nama: `${type} (${c}x)`, nominal: total });
+    
+    Array.from(document.querySelectorAll('[data-payroll-deduction-row]')).forEach(r => {
+      const n = r.querySelector('[data-payroll-deduction-name]')?.value;
+      const amt = r.querySelector('[data-payroll-deduction-amount]')?.value;
+      if (!n && (!amt || amt === '0')) r.remove();
+    });
+  }
+  
+  updatePayrollDeductionTotal();
+};
+
+function updatePayrollConfigSummary() {
+  const gp = Number(document.getElementById('swal_gp')?.value || 0);
+  const tj = Number(document.getElementById('swal_tj')?.value || 0);
+  const potongan = Number(document.getElementById('swal_potongan_tambahan')?.value || 0);
+  const rewardOn = !!document.getElementById('swal_reward_enabled')?.checked;
+  const rewardBasis = document.getElementById('swal_reward_basis')?.value || '';
+  const rewardManual = rewardOn && rewardBasis === 'manual' ? Number(document.getElementById('swal_rate')?.value || 0) : 0;
+  
+  const total = gp + tj + rewardManual - potongan;
+  const el = document.getElementById('swal_payroll_summary');
+  if (el) el.textContent = formatRp(Math.max(0, total));
+}
+window.updatePayrollConfigSummary = updatePayrollConfigSummary;
+
+function getPayrollDefaultRewardBasis(role, conf = {}) {
+  const saved = String(conf.rewardBasis || '').trim().toLowerCase();
+  if (saved) return saved;
+  const normalizedRole = String(role || '').toLowerCase();
+  if (normalizedRole === 'cs') return 'omzet';
+  if (['editor', 'pic_editor'].includes(normalizedRole)) return 'kata';
+  if (['layouter', 'pic_layouter'].includes(normalizedRole)) return 'halaman';
+  if (normalizedRole === 'karyawan') return 'manual';
+  return '';
+}
+
+function getPayrollPackageNames() {
+  const settings = window._payrollSettingsData || {};
+  const publishers = settings.penerbit || [];
+  return [...new Set(publishers.flatMap((pub) => {
+    if (Array.isArray(pub.paket)) return pub.paket;
+    return String(pub.paket || '').split(',').map((item) => item.trim()).filter(Boolean);
+  }).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+
+function getPayrollConfigRow(username) {
+  const rows = window._payrollConfigRows || [];
+  return rows.find((row) => String(row.username || '').toLowerCase() === String(username || '').toLowerCase()) || {};
+}
+
+function getPayrollRewardTargets(role, targetRow) {
+  const normalizedRole = String(role || '').toLowerCase();
+  const items = [];
+  if (normalizedRole === 'cs') {
+    items.push({ key: 'targetOmzet', label: 'Target Omzet', value: Number(targetRow.targetOmzet || 0), unit: 'rupiah' });
+    items.push({ key: 'targetTerbit', label: 'Target Deal Closing', value: Number(targetRow.targetTerbit || 0), unit: 'deal' });
+    items.push({ key: 'targetCetak', label: 'Target Cetak', value: Number(targetRow.targetCetak || 0), unit: 'poin' });
+  } else if (['editor', 'pic_editor'].includes(normalizedRole)) {
+    items.push({ key: 'targetKata', label: 'Target Kata', value: Number(targetRow.targetKata || 0), unit: 'kata' });
+  } else if (['layouter', 'pic_layouter'].includes(normalizedRole)) {
+    items.push({ key: 'targetHalaman', label: 'Target Halaman', value: Number(targetRow.targetHalaman || 0), unit: 'halaman' });
+  }
+  return items.filter((item) => item.value > 0);
+}
+
+function getPayrollRewardMainTarget(role, targetRow) {
+  const normalizedRole = String(role || '').toLowerCase();
+  if (normalizedRole === 'cs') return Number(targetRow.targetOmzet || 0);
+  if (['editor', 'pic_editor'].includes(normalizedRole)) return Number(targetRow.targetKata || 0);
+  if (['layouter', 'pic_layouter'].includes(normalizedRole)) return Number(targetRow.targetHalaman || 0);
+  return 0;
+}
+
+function formatPayrollRewardTarget(item) {
+  if (item.unit === 'rupiah') return formatRp(item.value);
+  return formatNumber(item.value) + ' ' + item.unit;
+}
+
+function renderPayrollRewardTargetSummary(role, targetRow, rewardTargetRules) {
+  const items = getPayrollRewardTargets(role, targetRow);
+  if (!items.length) {
+    return `
+      <div class="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-xs font-bold text-amber-700">
+        Target reward belum disetting oleh Manajemen. Reward tidak akan dihitung sampai target aktif tersedia.
+      </div>
+    `;
+  }
+  return `
+    <div class="rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
+      <div class="text-[11px] font-black text-indigo-500 uppercase tracking-widest mb-3">Target dari Manajemen</div>
+      <div class="space-y-2">
+        ${items.map((item) => `
+          <div class="flex items-center justify-between gap-3 rounded-xl bg-white border border-indigo-100 px-3 py-2">
+            <span>
+              <span class="block text-xs font-bold text-slate-500">${item.label}</span>
+              <span class="block text-[11px] font-black text-slate-900">${formatPayrollRewardTarget(item)}</span>
+            </span>
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <span class="text-[10px] font-black ${rewardTargetRules[item.key] === false ? 'text-slate-400' : 'text-emerald-600'} uppercase">${rewardTargetRules[item.key] === false ? 'OFF' : 'ON'}</span>
+              <input type="checkbox" data-payroll-target-rule="${item.key}" ${rewardTargetRules[item.key] === false ? '' : 'checked'} onchange="refreshPayrollTargetRuleLabels()" class="w-4 h-4 accent-indigo-600">
+            </label>
+          </div>
+        `).join('')}
+      </div>
+      <p class="text-[11px] text-indigo-500 font-bold mt-3">Target ON wajib tercapai. Target OFF tetap tampil sebagai informasi, tapi tidak menjadi syarat reward.</p>
+    </div>
+  `;
+}
+
+function renderPayrollBasisTargetInfo(label, value, formattedValue) {
+  if (!value) {
+    return `
+      <div class="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-xs font-bold text-amber-700">
+        ${label} belum disetting oleh Manajemen. Reward tidak akan dihitung sampai target tersedia.
+      </div>
+    `;
+  }
+  return `
+    <div class="rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
+      <div class="text-[11px] font-black text-indigo-500 uppercase tracking-widest mb-2">Target dari Manajemen</div>
+      <div class="flex items-center justify-between gap-3 rounded-xl bg-white border border-indigo-100 px-3 py-2">
+        <span class="text-xs font-bold text-slate-500">${label}</span>
+        <span class="text-xs font-black text-slate-900">${formattedValue}</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderPayrollPackageRateInputs(packageRates) {
+  const packages = getPayrollPackageNames();
+  if (!packages.length) {
+    return `
+      <div class="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-xs font-bold text-amber-700">
+        Daftar paket belum tersedia di pengaturan Manajemen.
+      </div>
+    `;
+  }
+  return `
+    <div class="space-y-3">
+      <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest">Reward per Paket Terbit</label>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        ${packages.map((pkg) => `
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1 line-clamp-1" title="${pkg}">${pkg}</label>
+            <input type="number" step="any" data-payroll-package-rate="${pkg}" value="${Number(packageRates[pkg] || packageRates[String(pkg).toLowerCase()] || 0)}" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:border-indigo-500 bg-white" />
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function refreshPayrollTargetRuleLabels() {
+  document.querySelectorAll('[data-payroll-target-rule]').forEach((input) => {
+    const label = input.parentElement?.querySelector('span');
+    if (!label) return;
+    label.textContent = input.checked ? 'ON' : 'OFF';
+    label.className = `text-[10px] font-black ${input.checked ? 'text-emerald-600' : 'text-slate-400'} uppercase`;
+  });
+}
+window.refreshPayrollTargetRuleLabels = refreshPayrollTargetRuleLabels;
+
+function togglePayrollRewardBasisFields() {
+  const basis = document.getElementById('swal_reward_basis')?.value || '';
+  document.querySelectorAll('[data-payroll-basis-panel]').forEach((panel) => {
+    panel.classList.toggle('hidden', panel.getAttribute('data-payroll-basis-panel') !== basis);
+  });
+}
+window.togglePayrollRewardBasisFields = togglePayrollRewardBasisFields;
+
+function renderPayrollConfigTab() {
+  const container = document.getElementById('payrollSubContent');
+  if (!container) return;
+  
+  const activeTab = window._activePayrollConfigTab || 'gaji';
+  
+  gas.withSuccessHandler((resUsers) => {
+    const users = (resUsers?.data || []).filter(u => !['report', 'pimpinan', 'hrd'].includes(u.role));
+    
+    gas.withSuccessHandler((resConfigs) => {
+      const configs = resConfigs?.data || [];
+      window._payrollConfigRows = configs;
+      
+      gas.withSuccessHandler((resTargets) => {
+        window._payrollTargetRows = resTargets?.data || [];
+        gas.withSuccessHandler((resSettings) => {
+          window._payrollSettingsData = resSettings?.data || {};
+          gas.withSuccessHandler((resPenerbit) => {
+            window._payrollSettingsData.penerbit = resPenerbit?.data?.penerbit || [];
+            gas.withSuccessHandler((resKehadiran) => {
+              window._kehadiranData = resKehadiran?.data || [];
+            
+            let tableHeaders = '';
+            let tableBody = '';
+          
+          if (activeTab === 'gaji') {
+            tableHeaders = `
+              <tr>
+                <th class="px-8 py-4">Karyawan</th>
+                <th class="px-8 py-4">Role</th>
+                <th class="px-8 py-4 text-right">Gaji Pokok</th>
+                <th class="px-8 py-4 text-center">Aksi</th>
+              </tr>
+            `;
+            tableBody = users.map(u => {
+              const conf = configs.find(c => String(c.username).toLowerCase() === String(u.username).toLowerCase()) || { gajiPokok: 0 };
+              return `
+                <tr class="hover:bg-slate-50 transition-colors">
+                  <td class="px-8 py-4 font-bold text-slate-900">${u.nama || u.username} <span class="block text-[10px] font-bold text-slate-400 font-mono">${u.username}</span></td>
+                  <td class="px-8 py-4 text-slate-500 font-bold uppercase text-xs">${getRoleLabel(u.role)}</td>
+                  <td class="px-8 py-4 text-right font-mono text-slate-700">${formatRp(conf.gajiPokok)}</td>
+                  <td class="px-8 py-4 text-center">
+                    <button onclick="editEmployeePayrollGaji('${u.username}', '${u.nama || u.username}', ${conf.gajiPokok})" class="px-4 py-2 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 font-black rounded-xl text-xs border border-slate-100 transition shadow-sm"><i class="fa-solid fa-money-bill-wave mr-1"></i> Atur Gaji</button>
+                  </td>
+                </tr>
+              `;
+            }).join('');
+          } else if (activeTab === 'tunjangan') {
+            tableHeaders = `
+              <tr>
+                <th class="px-8 py-4">Karyawan</th>
+                <th class="px-8 py-4">Role</th>
+                <th class="px-8 py-4 text-right">Total Tunjangan</th>
+                <th class="px-8 py-4 text-center">Detail</th>
+                <th class="px-8 py-4 text-center">Aksi</th>
+              </tr>
+            `;
+            tableBody = users.map(u => {
+              const conf = configs.find(c => String(c.username).toLowerCase() === String(u.username).toLowerCase()) || { tunjangan: 0, tunjanganDetail: '[]' };
+              const allowanceItems = parsePayrollAllowanceDetails(conf.tunjanganDetail);
+              const allowanceTotal = allowanceItems.length ? allowanceItems.reduce((sum, item) => sum + Number(item.nominal || 0), 0) : Number(conf.tunjangan || 0);
+              return `
+                <tr class="hover:bg-slate-50 transition-colors">
+                  <td class="px-8 py-4 font-bold text-slate-900">${u.nama || u.username} <span class="block text-[10px] font-bold text-slate-400 font-mono">${u.username}</span></td>
+                  <td class="px-8 py-4 text-slate-500 font-bold uppercase text-xs">${getRoleLabel(u.role)}</td>
+                  <td class="px-8 py-4 text-right font-mono text-slate-700">${formatRp(allowanceTotal)}</td>
+                  <td class="px-8 py-4 text-center">${allowanceItems.length ? `<div class="flex flex-wrap gap-1 justify-center max-w-[12rem] mx-auto">${allowanceItems.map(item => `<span class="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-md text-[9px] font-black leading-tight border border-indigo-100/50">${item.nama}: ${formatRp(item.nominal)}</span>`).join('')}</div>` : '-'}</td>
+                  <td class="px-8 py-4 text-center">
+                    <button onclick="editEmployeePayrollTunjangan('${u.username}', '${u.nama || u.username}')" class="px-4 py-2 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 font-black rounded-xl text-xs border border-slate-100 transition shadow-sm"><i class="fa-solid fa-hand-holding-dollar mr-1"></i> Atur Tunjangan</button>
+                  </td>
+                </tr>
+              `;
+            }).join('');
+          } else if (activeTab === 'potongan') {
+            tableHeaders = `
+              <tr>
+                <th class="px-8 py-4">Karyawan</th>
+                <th class="px-8 py-4">Role</th>
+                <th class="px-8 py-4 text-right">Total Potongan</th>
+                <th class="px-8 py-4 text-center">Detail</th>
+                <th class="px-8 py-4 text-center">Aksi</th>
+              </tr>
+            `;
+            
+            const bulanTahun = new Date().toISOString().substring(0, 7);
+            const hk = Number(window._payrollSettingsData?.hariKerja || 26);
+            const evalSimRate = (formula, a, i, t, gp, tj) => {
+              try {
+                if (!formula) return 0;
+                let f = formula.toString().toUpperCase().replace(/@GP/g, gp).replace(/@TJ/g, tj).replace(/@HK/g, hk).replace(/@A/g, a).replace(/@I/g, i).replace(/@S/g, 0).replace(/@ISH/g, 0).replace(/@C/g, 0).replace(/@T/g, t);
+                return Math.round(eval(f)) || 0;
+              } catch(e) { return 0; }
+            };
+            
+            tableBody = users.map(u => {
+              const conf = configs.find(c => String(c.username).toLowerCase() === String(u.username).toLowerCase()) || { potonganDetail: '[]', gajiPokok: 0, tunjangan: 0 };
+              const deductionItems = parsePayrollAllowanceDetails(conf.potonganDetail);
+              const deductionTotal = deductionItems.length ? deductionItems.reduce((sum, item) => sum + Number(item.nominal || 0), 0) : 0;
+              
+              const gp = Number(conf.gajiPokok || 0);
+              const tj = Number(conf.tunjangan || 0);
+              const rateAlpa = evalSimRate(window._payrollSettingsData?.formulaAlpa, 1, 0, 0, gp, tj);
+              const rateIzin = evalSimRate(window._payrollSettingsData?.formulaIzin, 0, 1, 0, gp, tj);
+              const rateTerlambat = evalSimRate(window._payrollSettingsData?.formulaTerlambat, 0, 0, 1, gp, tj);
+              
+              let alpaCount = 0, izinCount = 0, terlambatCount = 0;
+              (window._kehadiranData || []).forEach(row => {
+                if (String(row.tanggal || '').substring(0, 7) === bulanTahun) {
+                  const rName = String(row.karyawan || '').toLowerCase();
+                  const rUname = String(row.username || '').toLowerCase();
+                  if (rName === String(u.nama || '').toLowerCase() || (u.username && rUname === String(u.username || '').toLowerCase())) {
+                    const status = String(row.status || '').toLowerCase();
+                    if (status === 'alpa') alpaCount++;
+                    else if (status.includes('izin')) izinCount++;
+                    else if (status === 'terlambat') terlambatCount++;
+                  }
+                }
+              });
+              
+              const totalAbsensi = (alpaCount * rateAlpa) + (izinCount * rateIzin) + (terlambatCount * rateTerlambat);
+              const grandTotal = deductionTotal + totalAbsensi;
+              
+              let detailHtml = '';
+              if (alpaCount > 0) detailHtml += `<span class="px-2 py-0.5 bg-orange-50 text-orange-600 rounded-md text-[9px] font-black leading-tight border border-orange-100/50">Alpa: ${formatRp(alpaCount * rateAlpa)}</span>`;
+              if (izinCount > 0) detailHtml += `<span class="px-2 py-0.5 bg-orange-50 text-orange-600 rounded-md text-[9px] font-black leading-tight border border-orange-100/50">Izin: ${formatRp(izinCount * rateIzin)}</span>`;
+              if (terlambatCount > 0) detailHtml += `<span class="px-2 py-0.5 bg-orange-50 text-orange-600 rounded-md text-[9px] font-black leading-tight border border-orange-100/50">Telat: ${formatRp(terlambatCount * rateTerlambat)}</span>`;
+              
+              return `
+                <tr class="hover:bg-slate-50 transition-colors">
+                  <td class="px-8 py-4 font-bold text-slate-900">${u.nama || u.username} <span class="block text-[10px] font-bold text-slate-400 font-mono">${u.username}</span></td>
+                  <td class="px-8 py-4 text-slate-500 font-bold uppercase text-xs">${getRoleLabel(u.role)}</td>
+                  <td class="px-8 py-4 text-right font-mono text-slate-700">${formatRp(grandTotal)}</td>
+                  <td class="px-8 py-4 text-center">
+                    <div class="flex flex-wrap gap-1 justify-center max-w-[14rem] mx-auto">
+                      ${detailHtml}
+                      ${deductionItems.map(item => `<span class="px-2 py-0.5 bg-red-50 text-red-600 rounded-md text-[9px] font-black leading-tight border border-red-100/50">${item.nama}: ${formatRp(item.nominal)}</span>`).join('')}
+                      ${!detailHtml && deductionItems.length === 0 ? '-' : ''}
+                    </div>
+                  </td>
+                  <td class="px-8 py-4 text-center">
+                    <button onclick="editEmployeePayrollPotongan('${u.username}', '${u.nama || u.username}')" class="px-4 py-2 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 font-black rounded-xl text-xs border border-slate-100 transition shadow-sm"><i class="fa-solid fa-money-bill-transfer mr-1"></i> Atur Potongan</button>
+                  </td>
+                </tr>
+              `;
+            }).join('');
+          } else if (activeTab === 'reward') {
+            tableHeaders = `
+              <tr>
+                <th class="px-8 py-4">Karyawan</th>
+                <th class="px-8 py-4">Role</th>
+                <th class="px-8 py-4 text-center">Reward Status</th>
+                <th class="px-8 py-4 text-right">Target KPI</th>
+                <th class="px-8 py-4 text-center">Reward Rate</th>
+                <th class="px-8 py-4 text-center">Aksi</th>
+              </tr>
+            `;
+            tableBody = users.map(u => {
+              const conf = configs.find(c => String(c.username).toLowerCase() === String(u.username).toLowerCase()) || { rewardEnabled: '0', rewardRate: 0 };
+              const rewardEnabled = String(conf.rewardEnabled || '') === '1';
+              const targetRow = getPayrollTargetRow(u.username);
+              const rewardBasis = getPayrollDefaultRewardBasis(u.role, conf);
+              
+              let rewardRateDisplay = '-';
+              let targetKpiDisplay = '-';
+              if (rewardEnabled && u.role === 'cs') {
+                if (rewardBasis === 'terbit') {
+                  rewardRateDisplay = 'Per paket';
+                  targetKpiDisplay = targetRow.targetTerbit ? formatNumber(targetRow.targetTerbit) + ' deal' : 'Belum disetting';
+                } else {
+                  rewardRateDisplay = conf.rewardRate + '% x total omzet';
+                  targetKpiDisplay = targetRow.targetOmzet ? formatRp(targetRow.targetOmzet) : 'Belum disetting';
+                }
+              } else if (rewardEnabled && ['editor', 'pic_editor'].includes(u.role)) {
+                rewardRateDisplay = formatRp(conf.rewardRate) + ' / kata';
+                targetKpiDisplay = targetRow.targetKata ? formatNumber(targetRow.targetKata) + ' kata' : 'Belum disetting';
+              } else if (rewardEnabled && ['layouter', 'pic_layouter'].includes(u.role)) {
+                rewardRateDisplay = formatRp(conf.rewardRate) + ' / halaman';
+                targetKpiDisplay = targetRow.targetHalaman ? formatNumber(targetRow.targetHalaman) + ' halaman' : 'Belum disetting';
+              } else if (rewardEnabled && u.role === 'karyawan') {
+                rewardRateDisplay = formatRp(conf.rewardRate);
+                targetKpiDisplay = 'Manual';
+              }
+              
+              return `
+                <tr class="hover:bg-slate-50 transition-colors">
+                  <td class="px-8 py-4 font-bold text-slate-900">${u.nama || u.username} <span class="block text-[10px] font-bold text-slate-400 font-mono">${u.username}</span></td>
+                  <td class="px-8 py-4 text-slate-500 font-bold uppercase text-xs">${getRoleLabel(u.role)}</td>
+                  <td class="px-8 py-4 text-center"><span class="px-3 py-1 rounded-full text-[10px] font-black ${rewardEnabled ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}">${rewardEnabled ? 'ON' : 'OFF'}</span></td>
+                  <td class="px-8 py-4 text-right font-mono text-slate-700">${targetKpiDisplay}</td>
+                  <td class="px-8 py-4 text-center font-bold text-slate-700">${rewardRateDisplay}</td>
+                  <td class="px-8 py-4 text-center">
+                    <button onclick="editEmployeePayrollReward('${u.username}', '${u.nama || u.username}', '${u.role}')" class="px-4 py-2 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 font-black rounded-xl text-xs border border-slate-100 transition shadow-sm"><i class="fa-solid fa-award mr-1"></i> Atur Reward</button>
+                  </td>
+                </tr>
+              `;
+            }).join('');
+          }
+          
+          container.innerHTML = `
+        <div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left">
+              <thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                ${tableHeaders}
+              </thead>
+              <tbody class="divide-y divide-slate-50 text-[13px]">
+                ${tableBody}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+          }).getKehadiranData();
+          }).getSettingsData();
+        }).getHrdGlobalConfig();
+      }).getTargetData();
+    }).getPayrollConfig();
+  }).getUsersData();
+}
+
+function getFullConfigForSave(username) {
+  const conf = getPayrollConfigRow(username);
+  return {
+    username: conf.username || username,
+    nama: conf.nama || '',
+    role: conf.role || '',
+    gajiPokok: Number(conf.gajiPokok || 0),
+    tunjangan: Number(conf.tunjangan || 0),
+    tunjanganDetail: conf.tunjanganDetail || '[]',
+    potonganDetail: conf.potonganDetail || '[]',
+    rewardEnabled: conf.rewardEnabled || '0',
+    targetKpi: Number(conf.targetKpi || 0),
+    rewardRate: Number(conf.rewardRate || 0),
+    rewardBasis: conf.rewardBasis || '',
+    rewardPackageRates: conf.rewardPackageRates || '{}'
+  };
+}
+
+function editEmployeePayrollGaji(username, nama, gajiPokok) {
+  Swal.fire({
+    title: `<div class="text-left font-black text-lg border-b border-slate-100 pb-3">Atur Gaji Pokok: ${nama}</div>`,
+    html: `
+      <div class="text-left space-y-4 pt-3 text-sm">
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Gaji Pokok (Rp)</label>
+          <input type="number" id="swal_gp" value="${gajiPokok}" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:border-indigo-500" />
+          <p class="text-[11px] text-slate-400 font-bold mt-1">Masukkan nominal gaji pokok dasar.</p>
+        </div>
+      </div>
+    `,
+    width: '32rem',
+    customClass: { popup: 'rounded-[2rem]' },
+    showCancelButton: true,
+    confirmButtonText: 'Simpan Gaji',
+    cancelButtonText: 'Batal',
+    preConfirm: () => {
+      const fullConfig = getFullConfigForSave(username);
+      fullConfig.gajiPokok = Number(document.getElementById('swal_gp').value || 0);
+      return fullConfig;
+    }
+  }).then(res => {
+    if (res.isConfirmed && res.value) {
+      gas.withSuccessHandler(() => {
+        Swal.fire('Berhasil!', 'Gaji pokok berhasil disimpan.', 'success');
+        renderPayrollConfigTab();
+      }).savePayrollConfig(res.value);
+    }
+  });
+}
+
+function editEmployeePayrollTunjangan(username, nama) {
+  const conf = getPayrollConfigRow(username);
+  const allowanceItems = parsePayrollAllowanceDetails(conf.tunjanganDetail);
+  const allowanceEnabled = allowanceItems.length > 0 || Number(conf.tunjangan || 0) > 0;
+  const initialAllowanceItems = allowanceItems.length ? allowanceItems : (Number(conf.tunjangan || 0) > 0 ? [{ nama: 'Tunjangan', nominal: Number(conf.tunjangan || 0) }] : [{ nama: '', nominal: 0 }]);
+  const initialAllowanceTotal = initialAllowanceItems.reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+
+  Swal.fire({
+    title: `<div class="text-left font-black text-lg border-b border-slate-100 pb-3">Atur Tunjangan: ${nama}</div>`,
+    html: `
+      <div class="text-left space-y-4 pt-3 text-sm min-h-[300px]">
+        <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+          <label class="flex items-center justify-between gap-4 cursor-pointer">
+            <span>
+              <span class="block text-xs font-bold text-slate-400 uppercase tracking-widest">Aktifkan Tunjangan</span>
+              <span class="block text-xs text-slate-500 font-bold mt-1">Aktifkan untuk menambah detail tunjangan (misal: Tunjangan Jabatan, Uang Makan).</span>
+            </span>
+            <input type="checkbox" id="swal_allowance_enabled" ${allowanceEnabled ? 'checked' : ''} onchange="togglePayrollAllowanceFields()" class="w-5 h-5 accent-indigo-600">
+          </label>
+          <input type="hidden" id="swal_tj" value="${allowanceEnabled ? initialAllowanceTotal : 0}" />
+          <div id="swal_allowance_area" class="${allowanceEnabled ? '' : 'hidden'} mt-4 space-y-3 pt-3 border-t border-slate-200/60">
+            <div id="swal_allowance_list" class="space-y-2">
+              ${initialAllowanceItems.map((item) => renderPayrollAllowanceRow(item)).join('')}
+            </div>
+            <button type="button" onclick="addPayrollAllowanceRow()" class="w-full px-4 py-2.5 rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-600 text-xs font-black hover:bg-indigo-100 transition"><i class="fa-solid fa-plus mr-1"></i> Tambah Tunjangan</button>
+            <div class="flex items-center justify-between rounded-xl bg-white border border-slate-100 px-3 py-3 shadow-sm mt-3">
+              <span class="text-xs font-black text-slate-400 uppercase tracking-widest">Total Tunjangan</span>
+              <span id="swal_allowance_total_text" class="text-sm font-black text-slate-900">${formatRp(allowanceEnabled ? initialAllowanceTotal : 0)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `,
+    width: 'min(94vw, 68rem)',
+    customClass: { popup: 'rounded-[2rem] payroll-config-landscape-popup' },
+    showCancelButton: true,
+    confirmButtonText: 'Simpan Tunjangan',
+    cancelButtonText: 'Batal',
+    preConfirm: () => {
+      const fullConfig = getFullConfigForSave(username);
+      const isEnabled = document.getElementById('swal_allowance_enabled').checked;
+      const rows = isEnabled ? getPayrollAllowanceRows() : [];
+      fullConfig.tunjanganDetail = JSON.stringify(rows);
+      fullConfig.tunjangan = rows.reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+      return fullConfig;
+    }
+  }).then(res => {
+    if (res.isConfirmed && res.value) {
+      gas.withSuccessHandler(() => {
+        Swal.fire('Berhasil!', 'Tunjangan berhasil disimpan.', 'success');
+        renderPayrollConfigTab();
+      }).savePayrollConfig(res.value);
+    }
+  });
+}
+
+function editEmployeePayrollPotongan(username, nama) {
+  const conf = getPayrollConfigRow(username);
+  const deductionItems = parsePayrollAllowanceDetails(conf.potonganDetail);
+  const deductionEnabled = deductionItems.length > 0;
+  const initialDeductionItems = deductionItems.length ? deductionItems : [{ nama: '', nominal: 0 }];
+  const initialDeductionTotal = initialDeductionItems.reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+  
+  const gp = Number(conf.gajiPokok || 0);
+  const tj = Number(conf.tunjangan || 0);
+  const hk = Number(window._payrollSettingsData?.hariKerja || 26);
+  const evalSimulatedRate = (formula, a, i, t) => {
+    try {
+      if (!formula) return 0;
+      let f = formula.toString().toUpperCase().replace(/@GP/g, gp).replace(/@TJ/g, tj).replace(/@HK/g, hk).replace(/@A/g, a).replace(/@I/g, i).replace(/@S/g, 0).replace(/@ISH/g, 0).replace(/@C/g, 0).replace(/@T/g, t);
+      return Math.round(eval(f)) || 0;
+    } catch(e) { return 0; }
+  };
+  
+  const rateAlpa = evalSimulatedRate(window._payrollSettingsData?.formulaAlpa, 1, 0, 0);
+  const rateIzin = evalSimulatedRate(window._payrollSettingsData?.formulaIzin, 0, 1, 0);
+  const rateTerlambat = evalSimulatedRate(window._payrollSettingsData?.formulaTerlambat, 0, 0, 1);
+
+  const bulanTahun = new Date().toISOString().substring(0, 7);
+  let alpaCount = 0;
+  let izinCount = 0;
+  let terlambatCount = 0;
+  
+  (window._kehadiranData || []).forEach(row => {
+    if (String(row.tanggal || '').substring(0, 7) === bulanTahun) {
+      const rName = String(row.karyawan || '').toLowerCase();
+      const rUname = String(row.username || '').toLowerCase();
+      if (rName === String(nama || '').toLowerCase() || (username && rUname === String(username || '').toLowerCase())) {
+        const status = String(row.status || '').toLowerCase();
+        if (status === 'alpa') alpaCount++;
+        else if (status.includes('izin')) izinCount++;
+        else if (status === 'terlambat') terlambatCount++;
+      }
+    }
+  });
+
+  const totalPotonganAlpa = alpaCount * rateAlpa;
+  const totalPotonganIzin = izinCount * rateIzin;
+  const totalPotonganTerlambat = terlambatCount * rateTerlambat;
+  const totalAbsensi = totalPotonganAlpa + totalPotonganIzin + totalPotonganTerlambat;
+
+  Swal.fire({
+    title: `<div class="text-left font-black text-lg border-b border-slate-100 pb-3">Atur Potongan Tambahan: ${nama}</div>`,
+    html: `
+      <div class="text-left space-y-4 pt-3 text-sm min-h-[300px]">
+        <div class="rounded-2xl border border-orange-100 bg-orange-50 p-4 mb-2 shadow-sm">
+          <h4 class="text-xs font-black text-orange-600 uppercase tracking-widest mb-1"><i class="fa-solid fa-calendar-check mr-1"></i>Potongan Kehadiran (${bulanTahun})</h4>
+          <p class="text-[11px] text-orange-600/80 font-bold leading-relaxed mb-3">Tarikan data otomatis dari absensi Manajemen untuk bulan ini.</p>
+          
+          <input type="hidden" id="swal_potongan_absensi_total" value="${totalAbsensi}" />
+          
+          <div class="grid grid-cols-1 gap-2 text-sm">
+            <div class="flex justify-between items-center bg-white px-3 py-2 rounded-lg border border-orange-100">
+              <span class="text-slate-600 font-bold">Alpa (${alpaCount}x)</span>
+              <span class="font-mono text-red-500 font-bold">-${formatRp(totalPotonganAlpa)}</span>
+            </div>
+            <div class="flex justify-between items-center bg-white px-3 py-2 rounded-lg border border-orange-100">
+              <span class="text-slate-600 font-bold">Izin (${izinCount}x)</span>
+              <span class="font-mono text-red-500 font-bold">-${formatRp(totalPotonganIzin)}</span>
+            </div>
+            <div class="flex justify-between items-center bg-white px-3 py-2 rounded-lg border border-orange-100">
+              <span class="text-slate-600 font-bold">Terlambat (${terlambatCount}x)</span>
+              <span class="font-mono text-red-500 font-bold">-${formatRp(totalPotonganTerlambat)}</span>
+            </div>
+            <div class="flex justify-between items-center bg-orange-100/50 px-3 py-2 rounded-lg border border-orange-200 mt-1">
+              <span class="text-orange-800 font-black text-xs uppercase tracking-wider">Total Absensi</span>
+              <span class="font-mono text-red-600 font-black">-${formatRp(totalAbsensi)}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+          <label class="flex items-center justify-between gap-4 cursor-pointer">
+            <span>
+              <span class="block text-xs font-bold text-slate-400 uppercase tracking-widest">Aktifkan Potongan Tambahan</span>
+              <span class="block text-xs text-slate-500 font-bold mt-1">Aktifkan untuk menambah potongan lain (contoh: Kasbon, Pinjaman).</span>
+            </span>
+            <input type="checkbox" id="swal_deduction_enabled" ${deductionEnabled ? 'checked' : ''} onchange="togglePayrollDeductionFields()" class="w-5 h-5 accent-red-600">
+          </label>
+          <input type="hidden" id="swal_potongan_tambahan" value="${deductionEnabled ? initialDeductionTotal : 0}" />
+          <div id="swal_deduction_area" class="${deductionEnabled ? '' : 'hidden'} mt-4 space-y-3 pt-3 border-t border-slate-200/60">
+            <div id="swal_deduction_list" class="space-y-2">
+              ${initialDeductionItems.map((item) => renderPayrollDeductionRow(item)).join('')}
+            </div>
+            <button type="button" onclick="addPayrollDeductionRow()" class="w-full px-4 py-2.5 rounded-xl border border-red-100 bg-red-50 text-red-600 text-xs font-black hover:bg-red-100 transition"><i class="fa-solid fa-plus mr-1"></i> Tambah Potongan</button>
+          </div>
+        </div>
+        
+        <div class="rounded-2xl border border-red-100 bg-red-50 p-4 mt-4 shadow-sm">
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-black text-red-600 uppercase tracking-widest">Total Potongan</span>
+            <span id="swal_grand_total_text" class="text-lg font-black text-red-700">${formatRp((deductionEnabled ? initialDeductionTotal : 0) + totalAbsensi)}</span>
+          </div>
+        </div>
+      </div>
+    `,
+    width: 'min(94vw, 68rem)',
+    customClass: { popup: 'rounded-[2rem] payroll-config-landscape-popup' },
+    showCancelButton: true,
+    confirmButtonText: 'Simpan Potongan',
+    cancelButtonText: 'Batal',
+    preConfirm: () => {
+      const fullConfig = getFullConfigForSave(username);
+      const isEnabled = document.getElementById('swal_deduction_enabled').checked;
+      const rows = isEnabled ? getPayrollDeductionRows() : [];
+      fullConfig.potonganDetail = JSON.stringify(rows);
+      return fullConfig;
+    }
+  }).then(res => {
+    if (res.isConfirmed && res.value) {
+      gas.withSuccessHandler(() => {
+        Swal.fire('Berhasil!', 'Potongan tambahan berhasil disimpan.', 'success');
+        renderPayrollConfigTab();
+      }).savePayrollConfig(res.value);
+    }
+  });
+}
+
+function editEmployeePayrollReward(username, nama, role) {
+  const conf = getPayrollConfigRow(username);
+  const rewardEnabled = String(conf.rewardEnabled || '') === '1';
+  const targetRow = getPayrollTargetRow(username);
+  const rewardBasis = getPayrollDefaultRewardBasis(role, conf);
+  const packageRates = parsePayrollRewardPackageRates(conf.rewardPackageRates);
+  const rewardRate = conf.rewardRate;
+
+  let rewardLabel = 'Rate Reward';
+  let rewardPlaceholder = 'Persen/Rupiah';
+  if (role === 'cs') {
+    rewardLabel = 'Rate Reward (%)';
+    rewardPlaceholder = 'Contoh: 2 (berarti 2% dari total capaian omzet)';
+  } else if (['editor', 'pic_editor'].includes(role)) {
+    rewardLabel = 'Rate Reward (Rupiah per Kata)';
+    rewardPlaceholder = 'Contoh: 10 (berarti Rp 10 per kata kelebihan)';
+  } else if (['layouter', 'pic_layouter'].includes(role)) {
+    rewardLabel = 'Rate Reward (Rupiah per Halaman)';
+    rewardPlaceholder = 'Contoh: 5000 (berarti Rp 5.000 per halaman kelebihan)';
+  } else if (role === 'karyawan') {
+    rewardLabel = 'Nominal Reward Manual (Rp)';
+    rewardPlaceholder = 'Contoh: 250000';
+  }
+
+
+  Swal.fire({
+    title: `<div class="text-left font-black text-lg border-b border-slate-100 pb-3">Atur Reward KPI: ${nama}</div>`,
+    html: `
+      <div class="text-left space-y-4 pt-3 text-sm min-h-[300px]">
+        <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+          <label class="flex items-center justify-between gap-4 cursor-pointer">
+            <span>
+              <span class="block text-xs font-bold text-slate-400 uppercase tracking-widest">${role === 'karyawan' ? 'Reward Manual' : 'Reward KPI'}</span>
+              <span class="block text-xs text-slate-500 font-bold mt-1">${role === 'karyawan' ? 'Aktifkan jika karyawan mendapat reward tambahan manual.' : 'Aktifkan untuk memakai target KPI dan rate reward.'}</span>
+            </span>
+            <input type="checkbox" id="swal_reward_enabled" ${rewardEnabled ? 'checked' : ''} onchange="togglePayrollRewardFields()" class="w-5 h-5 accent-indigo-600">
+          </label>
+        </div>
+        
+        <div id="swal_reward_fields" class="${rewardEnabled ? '' : 'hidden'} space-y-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+          ${role === 'karyawan' ? `
+            <input type="hidden" id="swal_reward_basis" value="manual" />
+            <input type="hidden" id="swal_target_manual" value="0" />
+            <div>
+              <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">${rewardLabel}</label>
+              <input type="number" step="any" id="swal_rate" value="${rewardRate}" placeholder="${rewardPlaceholder}" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:border-indigo-500 bg-white" />
+              <p class="text-[11px] text-slate-400 font-bold mt-1">Nominal ini langsung ditambahkan ke total reward pada slip gaji.</p>
+            </div>
+          ` : role === 'cs' ? `
+            <div>
+              <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Basis Reward</label>
+              <select id="swal_reward_basis" onchange="togglePayrollRewardBasisFields()" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:border-indigo-500 bg-white">
+                <option value="omzet" ${rewardBasis === 'omzet' ? 'selected' : ''}>Omzet - persen dari total capaian</option>
+                <option value="terbit" ${rewardBasis === 'terbit' ? 'selected' : ''}>Terbit - kelebihan deal per paket</option>
+              </select>
+            </div>
+            <div data-payroll-basis-panel="omzet" class="${rewardBasis === 'omzet' ? '' : 'hidden'} space-y-4">
+              <input type="hidden" id="swal_target_omzet" value="${Number(targetRow.targetOmzet || 0)}" />
+              ${renderPayrollBasisTargetInfo('Target Omzet', Number(targetRow.targetOmzet || 0), formatRp(targetRow.targetOmzet || 0))}
+              <div>
+                <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">${rewardLabel}</label>
+                <input type="number" step="any" id="swal_rate" value="${rewardRate}" placeholder="${rewardPlaceholder}" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:border-indigo-500 bg-white" />
+                <p class="text-[11px] text-slate-400 font-bold mt-1">Jika target omzet tercapai, reward = rate x total capaian omzet.</p>
+              </div>
+            </div>
+            <div data-payroll-basis-panel="terbit" class="${rewardBasis === 'terbit' ? '' : 'hidden'} space-y-4">
+              <input type="hidden" id="swal_target_terbit" value="${Number(targetRow.targetTerbit || 0)}" />
+              ${renderPayrollBasisTargetInfo('Target Terbit', Number(targetRow.targetTerbit || 0), formatNumber(targetRow.targetTerbit || 0) + ' deal')}
+              ${renderPayrollPackageRateInputs(packageRates)}
+              <p class="text-[11px] text-slate-400 font-bold">Reward dihitung dari kelebihan deal. Sistem memakai paket dari deal terakhir sejumlah kelebihannya.</p>
+            </div>
+          ` : `
+            <input type="hidden" id="swal_reward_basis" value="${rewardBasis}" />
+            <input type="hidden" id="swal_target_${rewardBasis}" value="${rewardBasis === 'kata' ? Number(targetRow.targetKata || 0) : Number(targetRow.targetHalaman || 0)}" />
+            ${rewardBasis === 'kata' ? renderPayrollBasisTargetInfo('Target Kata', Number(targetRow.targetKata || 0), formatNumber(targetRow.targetKata || 0) + ' kata') : renderPayrollBasisTargetInfo('Target Halaman', Number(targetRow.targetHalaman || 0), formatNumber(targetRow.targetHalaman || 0) + ' halaman')}
+            <div>
+              <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">${rewardLabel}</label>
+              <input type="number" step="any" id="swal_rate" value="${rewardRate}" placeholder="${rewardPlaceholder}" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:border-indigo-500 bg-white" />
+            </div>
+          `}
+        </div>
+      </div>
+    `,
+    width: 'min(94vw, 68rem)',
+    customClass: { popup: 'rounded-[2rem] payroll-config-landscape-popup' },
+    showCancelButton: true,
+    confirmButtonText: 'Simpan Reward',
+    cancelButtonText: 'Batal',
+    preConfirm: () => {
+      const fullConfig = getFullConfigForSave(username);
+      const isEnabled = document.getElementById('swal_reward_enabled').checked;
+      
+      fullConfig.rewardEnabled = isEnabled ? '1' : '0';
+      
+      const rBasis = document.getElementById('swal_reward_basis')?.value || rewardBasis;
+      fullConfig.rewardBasis = rBasis;
+      fullConfig.targetKpi = Number(document.getElementById('swal_target_' + rBasis)?.value || 0);
+      fullConfig.rewardRate = Number(document.getElementById('swal_rate')?.value || 0);
+      
+      const pRates = Array.from(document.querySelectorAll('[data-payroll-package-rate]')).reduce((rates, input) => {
+        rates[input.getAttribute('data-payroll-package-rate')] = Number(input.value || 0);
+        return rates;
+      }, {});
+      fullConfig.rewardPackageRates = JSON.stringify(pRates);
+      
+      const targetRules = {};
+      document.querySelectorAll('[data-payroll-target-rule]').forEach((input) => {
+        targetRules[input.getAttribute('data-payroll-target-rule')] = input.checked;
+      });
+      fullConfig.rewardTargetRules = JSON.stringify(targetRules);
+      
+      return fullConfig;
+    }
+  }).then(res => {
+    if (res.isConfirmed && res.value) {
+      gas.withSuccessHandler(() => {
+        Swal.fire('Berhasil!', 'Reward KPI berhasil disimpan.', 'success');
+        renderPayrollConfigTab();
+      }).savePayrollConfig(res.value);
+    }
+  });
+}
+
+// Subtab Global Configurations
+function renderPayrollGlobalConfigTab() {
+  const container = document.getElementById('payrollSubContent');
+  if (!container) return;
+  
+  gas.withSuccessHandler((res) => {
+    const d = res.data;
+    
+    container.innerHTML = `
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 bg-white rounded-3xl p-6 border border-slate-100 shadow-sm space-y-6">
+          <h3 class="text-lg font-black text-slate-900"><i class="fa-solid fa-sliders text-indigo-500 mr-2"></i>Parameter & Formula Potongan</h3>
+          
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Jumlah Hari Kerja Sebulan (HK)</label>
+              <input type="number" id="global_hk" value="${d.hariKerja}" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:border-indigo-500 bg-white" />
+              <p class="text-[11px] text-slate-400 mt-1 font-bold">HK tetap menjadi parameter manual untuk pembagi rumus potongan.</p>
+            </div>
+            
+            <div>
+              <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Formula Potongan Alpa (A)</label>
+              <input type="text" id="global_formula_alpa" onfocus="setActivePayrollFormulaInput(this.id)" oninput="handlePayrollFormulaMentionInput(this)" onkeyup="handlePayrollFormulaMentionInput(this)" onclick="handlePayrollFormulaMentionInput(this)" value="${d.formulaAlpa}" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:border-indigo-500 bg-white font-mono" />
+              <p class="text-[11px] text-slate-400 mt-1 font-bold">Default: 0</p>
+            </div>
+            
+            <div>
+              <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Formula Potongan Izin (I)</label>
+              <input type="text" id="global_formula_izin" onfocus="setActivePayrollFormulaInput(this.id)" oninput="handlePayrollFormulaMentionInput(this)" onkeyup="handlePayrollFormulaMentionInput(this)" onclick="handlePayrollFormulaMentionInput(this)" value="${d.formulaIzin}" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:border-indigo-500 bg-white font-mono" />
+              <p class="text-[11px] text-slate-400 mt-1 font-bold">Default: 0</p>
+            </div>
+
+            <div>
+              <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Formula Potongan Izin Setengah Hari (ISH)</label>
+              <input type="text" id="global_formula_izin_setengah_hari" onfocus="setActivePayrollFormulaInput(this.id)" oninput="handlePayrollFormulaMentionInput(this)" onkeyup="handlePayrollFormulaMentionInput(this)" onclick="handlePayrollFormulaMentionInput(this)" value="${d.formulaIzinSetengahHari}" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:border-indigo-500 bg-white font-mono" />
+              <p class="text-[11px] text-slate-400 mt-1 font-bold">Default: 0</p>
+            </div>
+
+            <div>
+              <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Formula Potongan Sakit (S)</label>
+              <input type="text" id="global_formula_sakit" onfocus="setActivePayrollFormulaInput(this.id)" oninput="handlePayrollFormulaMentionInput(this)" onkeyup="handlePayrollFormulaMentionInput(this)" onclick="handlePayrollFormulaMentionInput(this)" value="${d.formulaSakit}" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:border-indigo-500 bg-white font-mono" />
+              <p class="text-[11px] text-slate-400 mt-1 font-bold">Default: 0</p>
+            </div>
+
+            <div>
+              <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Formula Potongan Cuti (C)</label>
+              <input type="text" id="global_formula_cuti" onfocus="setActivePayrollFormulaInput(this.id)" oninput="handlePayrollFormulaMentionInput(this)" onkeyup="handlePayrollFormulaMentionInput(this)" onclick="handlePayrollFormulaMentionInput(this)" value="${d.formulaCuti}" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:border-indigo-500 bg-white font-mono" />
+              <p class="text-[11px] text-slate-400 mt-1 font-bold">Default: 0</p>
+            </div>
+
+            <div>
+              <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Formula Potongan Terlambat (T)</label>
+              <input type="text" id="global_formula_terlambat" onfocus="setActivePayrollFormulaInput(this.id)" oninput="handlePayrollFormulaMentionInput(this)" onkeyup="handlePayrollFormulaMentionInput(this)" onclick="handlePayrollFormulaMentionInput(this)" value="${d.formulaTerlambat}" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:border-indigo-500 bg-white font-mono" />
+              <p class="text-[11px] text-slate-400 mt-1 font-bold">Default: 0</p>
+            </div>
+            
+            <button onclick="saveGlobalHrdConfigUi()" style="background:#4f46e5;color:#ffffff;min-height:48px;" class="px-6 py-3 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-2 hover:opacity-90">
+              <i class="fa-solid fa-floppy-disk"></i> Simpan Formula
+            </button>
+          </div>
+        </div>
+        
+        <!-- Legend Panel -->
+        <div class="bg-slate-50 rounded-3xl p-6 border border-slate-100 shadow-sm space-y-4">
+          <h4 class="text-sm font-black text-slate-900 uppercase tracking-wider"><i class="fa-solid fa-circle-info text-indigo-500 mr-2"></i>Panduan Variabel</h4>
+          <p class="text-xs text-slate-500 font-bold leading-relaxed">Klik variabel untuk menyisipkan mention ke formula aktif, atau ketik manual seperti @GP / @HK.</p>
+          <div class="divide-y divide-slate-200/60 text-xs">
+            <div class="py-2 flex justify-between">
+              <button type="button" onclick="insertPayrollFormulaMention('GP')" class="font-mono font-bold text-indigo-600 hover:underline">@GP</button>
+              <span class="text-slate-600 text-right">Gaji Pokok Karyawan</span>
+            </div>
+            <div class="py-2 flex justify-between">
+              <button type="button" onclick="insertPayrollFormulaMention('TJ')" class="font-mono font-bold text-indigo-600 hover:underline">@TJ</button>
+              <span class="text-slate-600 text-right">Tunjangan Karyawan</span>
+            </div>
+            <div class="py-2 flex justify-between">
+              <button type="button" onclick="insertPayrollFormulaMention('HK')" class="font-mono font-bold text-indigo-600 hover:underline">@HK</button>
+              <span class="text-slate-600 text-right">Hari Kerja Sebulan (dari kolom kiri)</span>
+            </div>
+            <div class="py-2 flex justify-between">
+              <button type="button" onclick="insertPayrollFormulaMention('A')" class="font-mono font-bold text-indigo-600 hover:underline">@A</button>
+              <span class="text-slate-600 text-right">Jumlah Alpa pada bulan berjalan</span>
+            </div>
+            <div class="py-2 flex justify-between">
+              <button type="button" onclick="insertPayrollFormulaMention('I')" class="font-mono font-bold text-indigo-600 hover:underline">@I</button>
+              <span class="text-slate-600 text-right">Jumlah Izin pada bulan berjalan</span>
+            </div>
+            <div class="py-2 flex justify-between">
+              <button type="button" onclick="insertPayrollFormulaMention('S')" class="font-mono font-bold text-indigo-600 hover:underline">@S</button>
+              <span class="text-slate-600 text-right">Jumlah Sakit pada bulan berjalan</span>
+            </div>
+            <div class="py-2 flex justify-between">
+              <button type="button" onclick="insertPayrollFormulaMention('ISH')" class="font-mono font-bold text-indigo-600 hover:underline">@ISH</button>
+              <span class="text-slate-600 text-right">Jumlah Izin Setengah Hari pada bulan berjalan</span>
+            </div>
+            <div class="py-2 flex justify-between">
+              <button type="button" onclick="insertPayrollFormulaMention('C')" class="font-mono font-bold text-indigo-600 hover:underline">@C</button>
+              <span class="text-slate-600 text-right">Jumlah Cuti pada bulan berjalan</span>
+            </div>
+            <div class="py-2 flex justify-between">
+              <button type="button" onclick="insertPayrollFormulaMention('T')" class="font-mono font-bold text-indigo-600 hover:underline">@T</button>
+              <span class="text-slate-600 text-right">Jumlah Terlambat pada bulan berjalan</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).getHrdGlobalConfig();
+}
+
+function saveGlobalHrdConfigUi() {
+  const hk = Number(document.getElementById('global_hk').value || 22);
+  const alpa = document.getElementById('global_formula_alpa').value || '0';
+  const izin = document.getElementById('global_formula_izin').value || '0';
+  const izinSetengahHari = document.getElementById('global_formula_izin_setengah_hari').value || '0';
+  const sakit = document.getElementById('global_formula_sakit').value || '0';
+  const cuti = document.getElementById('global_formula_cuti').value || '0';
+  const terlambat = document.getElementById('global_formula_terlambat').value || '0';
+  
+  gas.withSuccessHandler(() => {
+    Swal.fire('Berhasil!', 'Konfigurasi global penggajian berhasil disimpan.', 'success');
+  }).saveHrdGlobalConfig(hk, alpa, izin, izinSetengahHari, sakit, cuti, terlambat);
+}
+
+// Print Slip Gaji Helper
+function payrollSafeText(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+}
+
+function payrollSafeScriptJson(value) {
+  return JSON.stringify(value).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
+}
+
+function payrollDepartmentByRole(role) {
+  const r = String(role || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  if (['pic_editor', 'editor', 'pic_layouter', 'layouter'].includes(r)) return 'Kreatif';
+  if (['css', 'admin'].includes(r)) return 'Operasional';
+  if (r === 'cs') return 'Konsultan';
+  if (['campaign', 'admin_marketplace'].includes(r)) return 'Campaign';
+  if (r === 'karyawan') return 'Umum';
+  return '-';
+}
+
+function payrollNormalizeDepartment(value, role) {
+  const label = String(value || '').trim();
+  if (!label || label === '-') return payrollDepartmentByRole(role);
+  return label.replace(/^Departemen\s+/i, '');
+}
+
+function payrollMonthTitle(value) {
+  const date = new Date(String(value || '').substring(0, 7) + '-01T00:00:00');
+  if (Number.isNaN(date.getTime())) return String(value || '-');
+  return date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+}
+
+function payrollSlipDate(value) {
+  const date = new Date(String(value || '').substring(0, 7) + '-01T00:00:00');
+  const d = Number.isNaN(date.getTime()) ? new Date() : date;
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+function terbilangIndonesia(number) {
+  const n = Math.floor(Math.abs(Number(number || 0)));
+  const words = ['', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima', 'Enam', 'Tujuh', 'Delapan', 'Sembilan', 'Sepuluh', 'Sebelas'];
+  const say = (num) => {
+    if (num < 12) return words[num];
+    if (num < 20) return say(num - 10) + ' Belas';
+    if (num < 100) return say(Math.floor(num / 10)) + ' Puluh ' + say(num % 10);
+    if (num < 200) return 'Seratus ' + say(num - 100);
+    if (num < 1000) return say(Math.floor(num / 100)) + ' Ratus ' + say(num % 100);
+    if (num < 2000) return 'Seribu ' + say(num - 1000);
+    if (num < 1000000) return say(Math.floor(num / 1000)) + ' Ribu ' + say(num % 1000);
+    if (num < 1000000000) return say(Math.floor(num / 1000000)) + ' Juta ' + say(num % 1000000);
+    return say(Math.floor(num / 1000000000)) + ' Miliar ' + say(num % 1000000000);
+  };
+  return (n === 0 ? 'Nol' : say(n).replace(/\s+/g, ' ').trim()) + ' Rupiah';
+}
+
+function payrollMoneyCell(value) {
+  const n = Number(value || 0);
+  return n ? n.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-';
+}
+
+function printSlipGaji(item) {
+  const pot = parsePayrollJsonValue(item.potonganDetail);
+  const rew = parsePayrollJsonValue(item.rewardDetail);
+  const allowanceItems = parsePayrollAllowanceDetails(item.tunjanganDetail);
+  const absenceRows = item.listKehadiran || [];
+  const totalPenerimaan = Number(item.gajiPokok || 0) + Number(item.tunjangan || 0);
+  const totalReward = Number(item.rewardKpi || 0);
+  const totalPotongan = Number(item.potonganKehadiran || 0);
+  const thp = totalPenerimaan + totalReward - totalPotongan;
+  const pimpinanName = item.pimpinanRedaksiName || 'Ayu Anggrita Ramadhani';
+  const recipientName = item.nama || item.username || '-';
+  const departmentName = payrollNormalizeDepartment(item.departemen, item.role);
+  const employeeStatus = item.statusKaryawan || 'Karyawan Kontrak';
+  const isManualReward = rew.basis === 'manual';
+  const pctPenerimaan = totalPenerimaan > 0 ? '100.00' : '0.00';
+  const filename = `SLIP GAJI ${recipientName} ${payrollMonthTitle(item.bulanTahun)}.pdf`;
+
+  // === PENERIMAAN: Gaji Pokok + Tunjangan only (no reward) ===
+  let penerimaanRows = `<div class="row highlight"><span>Gaji Pokok</span><span>:</span><span class="num">${payrollMoneyCell(item.gajiPokok)}</span></div>`;
+  if (allowanceItems.length) {
+    allowanceItems.forEach(a => {
+      penerimaanRows += `<div class="row"><span>${payrollSafeText(a.nama || 'Tunjangan')}</span><span>:</span><span class="num">${payrollMoneyCell(a.nominal)}</span></div>`;
+    });
+  } else {
+    penerimaanRows += `<div class="row"><span>Tunjangan</span><span>:</span><span class="num">${payrollMoneyCell(item.tunjangan)}</span></div>`;
+  }
+
+  // === REWARDS: Show target + reward detail ===
+  let rewardsRows = '';
+  if (isManualReward) {
+    rewardsRows = `<div class="row"><span>Reward Manual</span><span>:</span><span class="num">${payrollMoneyCell(totalReward)}</span></div>`;
+  } else if (rew.basis === 'terbit') {
+    // CS terbit: per-package rewards
+    if (rew.packageRates && typeof rew.packageRates === 'object' && Object.keys(rew.packageRates).length > 0) {
+      const pkgCounts = {};
+      const pkgRewards = {};
+      const packageItems = rew.packageRewardItems || [];
+      
+      for (const pName in rew.packageRates) {
+        pkgCounts[pName] = 0;
+        pkgRewards[pName] = 0;
+      }
+      
+      packageItems.forEach(item => {
+         const pName = item.paket || 'Lainnya';
+         if (pkgCounts[pName] === undefined) {
+           pkgCounts[pName] = 0;
+           pkgRewards[pName] = 0;
+         }
+         pkgCounts[pName]++;
+         pkgRewards[pName] += Number(item.rate || item.reward || 0);
+      });
+      
+      for (const pName in pkgCounts) {
+         rewardsRows += `<div class="row"><span>${payrollSafeText(pName)}</span><span>${pkgCounts[pName]}</span><span class="num">${payrollMoneyCell(pkgRewards[pName])}</span></div>`;
+      }
+    } else {
+      const capaianVal = rew.capaian || 0;
+      const targetVal = rew.target || 0;
+      rewardsRows = `
+        <div class="row"><span>Target Deal</span><span>:</span><span class="num">${targetVal}</span></div>
+        <div class="row"><span>Capaian Deal</span><span>:</span><span class="num">${capaianVal}</span></div>
+        <div class="row"><span>Capaian Reward</span><span>:</span><span class="num">${payrollMoneyCell(totalReward)}</span></div>`;
+    }
+  } else if (rew.basis === 'omzet') {
+    // CS Target Nominal
+    const targetVal = rew.target ? payrollMoneyCell(rew.target) : '-';
+    const capaianVal = rew.capaian ? payrollMoneyCell(rew.capaian) : '0';
+    rewardsRows = `
+      <div class="row"><span>Target Nominal</span><span>:</span><span class="num">${targetVal}</span></div>
+      <div class="row"><span>Capaian Nominal</span><span>:</span><span class="num">${capaianVal}</span></div>
+      <div class="row"><span>Capaian Reward</span><span>:</span><span class="num">${payrollMoneyCell(totalReward)}</span></div>`;
+  } else {
+    // Layouter / Editor (kata, halaman)
+    const label = rew.label || (rew.basis === 'halaman' ? 'Halaman' : 'Kata');
+    const excessVal = rew.excess ? Number(rew.excess).toLocaleString('id-ID') : '0';
+    rewardsRows = `
+      <div class="row"><span>Kelebihan ${payrollSafeText(label)}</span><span>:</span><span class="num">${excessVal}</span></div>
+      <div class="row"><span>Nominal Reward</span><span>:</span><span class="num">${payrollMoneyCell(totalReward)}</span></div>`;
+  }
+
+  // === POTONGAN: Show ALL even if 0 ===
+  const customDeductions = pot.customDeductions || [];
+  let potonganRows = `
+    <div class="row"><span>Alpa</span><span>${pot.alpaCount || 0}</span><span class="num">${payrollMoneyCell(pot.potonganAlpa || 0)}</span></div>
+    <div class="row"><span>Terlambat</span><span>${pot.terlambatCount || 0}</span><span class="num">${payrollMoneyCell(pot.potonganTerlambat || 0)}</span></div>
+    <div class="row"><span>Izin</span><span>${pot.izinCount || 0}</span><span class="num">${payrollMoneyCell(pot.potonganIzin || 0)}</span></div>
+    <div class="row"><span>Izin 1/2 Hari</span><span>${pot.izinSetengahHariCount || 0}</span><span class="num">${payrollMoneyCell(pot.potonganIzinSetengahHari || 0)}</span></div>
+    <div class="row"><span>Sakit</span><span>${pot.sakitCount || 0}</span><span class="num">${payrollMoneyCell(pot.potonganSakit || 0)}</span></div>
+    <div class="row"><span>Cuti</span><span>${pot.cutiCount || 0}</span><span class="num">${payrollMoneyCell(pot.potonganCuti || 0)}</span></div>`;
+
+  if (customDeductions.length) {
+    customDeductions.forEach(d => {
+      potonganRows += `<div class="row"><span>${payrollSafeText(d.nama)}</span><span>-</span><span class="num">${payrollMoneyCell(d.nominal)}</span></div>`;
+    });
+  }
+
+  const htmlContent = `
+    <html>
+    <head>
+      <title>${payrollSafeText(filename)}</title>
+      <style>
+        @page { size: A4 portrait; margin: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, Helvetica, sans-serif; color: #111827; background: #f1f5f9; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .toolbar { position: sticky; top: 0; z-index: 100; background: #fff; border-bottom: 1px solid #e5e7eb; padding: 10px 16px; display: flex; justify-content: flex-end; gap: 8px; }
+        .toolbar button { border: 0; border-radius: 8px; padding: 9px 18px; font-weight: 800; font-size: 13px; cursor: pointer; }
+        .btn-primary { background: #087eb9; color: #fff; }
+        .btn-secondary { background: #0f172a; color: #fff; }
+        .btn-muted { background: #eef2f7; color: #475569; }
+        .page { width: 210mm; min-height: 297mm; margin: 12px auto; background: #fff; padding: 14mm 16mm 10mm 16mm; box-shadow: 0 4px 24px rgba(0,0,0,.08); position: relative; }
+        .header { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
+        .secret-box { display: inline-block; border: 1.5px solid #6b6b6b; padding: 16px 42px; font-size: 13px; font-weight: 800; letter-spacing: .3px; margin: 16px 0 20px 16px; }
+        .brand { text-align: right; padding-right: 12px; padding-top: 8px; }
+        .logo { font-size: 34px; line-height: 1; font-weight: 900; letter-spacing: -1px; }
+        .logo .nas { color: #ffd400; } .logo .med { color: #1686cf; } .logo .ia { color: #1d74bb; }
+        .tagline { font-size: 9.5px; font-weight: 800; color: #64748b; margin-top: 2px; }
+        .success-badge { margin-top: 18px; display: inline-block; text-align: center; }
+        .success-check { width: 38px; height: 38px; border-radius: 50%; background: #c98f90; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 22px; line-height: 1; }
+        .success-text { color: #c99898; font-size: 26px; opacity: .85; margin-top: -2px; }
+        .success-sub { font-size: 8.5px; color: #b69a9a; font-weight: 800; margin-top: -4px; }
+        .slip-title { text-align: center; font-weight: 800; margin-top: -22px; margin-bottom: 14px; }
+        .slip-title .t1 { font-size: 14px; } .slip-title .t2 { font-size: 13px; }
+        .info-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 24px; margin-bottom: 12px; font-size: 11.5px; }
+        .info-grid table { width: 100%; border-collapse: collapse; }
+        .info-grid td { padding: 2px 3px; vertical-align: top; }
+        .info-grid .lbl { font-weight: 800; width: 130px; } .info-grid .col { width: 12px; text-align: center; }
+        .cols3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; align-items: stretch; }
+        .box { background: #f1f1f1; }
+        .bar { background: #087eb9; color: #fff; font-weight: 900; font-size: 10px; letter-spacing: .3px; padding: 4.5px 10px; text-transform: uppercase; }
+        .rows { padding: 5px 8px; font-size: 10.5px; }
+        .row { display: grid; grid-template-columns: 1fr 10px auto; gap: 4px; padding: 2.5px 0; align-items: center; }
+        .row .num { text-align: right; font-weight: 700; min-width: 90px; }
+        .highlight { background: #fff200; font-weight: 900; }
+        .totals { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+        .totals .bar { display: flex; justify-content: space-between; padding: 4.5px 10px; }
+        .pct-row { margin-top: 2px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+        .pct-row .pct-cell { background: #fff; font-size: 10px; font-weight: 900; padding: 4px 10px; display: flex; justify-content: space-between; }
+        .thp-row { margin-top: 4px; background: #fff200; display: grid; grid-template-columns: 150px 1fr; font-size: 11.5px; font-weight: 900; padding: 4.5px 18px; }
+        .terbilang-row { display: grid; grid-template-columns: 150px 1fr; font-size: 11.5px; padding: 4px 18px; }
+        .terbilang-row b { font-weight: 800; } .terbilang-row i { font-style: italic; font-weight: 700; }
+        .signatures { margin-top: 22px; display: grid; grid-template-columns: 1fr 1fr; text-align: center; font-size: 11.5px; }
+        .qr-placeholder { width: 50px; height: 50px; margin: 6px auto; background: repeating-conic-gradient(#111 0% 25%, #fff 0% 50%) 50% / 8px 8px; border: 4px solid #fff; outline: 1px solid #222; }
+        .sig-name { margin-top: 6px; font-weight: 900; text-transform: uppercase; font-size: 11px; }
+        .sig-space { height: 68px; }
+        .page-appendix { page-break-before: always; }
+        .page-appendix h2 { font-size: 15px; margin-bottom: 10px; }
+        .page-appendix table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+        .page-appendix th { background: #087eb9; color: #fff; text-align: left; padding: 7px 8px; }
+        .page-appendix td { border-bottom: 1px solid #e5e7eb; padding: 7px 8px; }
+        @media print { body { background: #fff; } .toolbar { display: none !important; } .page { margin: 0; box-shadow: none; } }
+      </style>
+    </head>
+    <body>
+      <div class="toolbar">
+        <button class="btn-primary" onclick="window.print()">Cetak</button>
+        <button class="btn-secondary" id="btnSavePdf" onclick="saveSlipGajiPdf()">Simpan PDF</button>
+        <button class="btn-muted" onclick="window.close()">Tutup</button>
+      </div>
+      <section class="page" id="slipPage1">
+        <div class="header">
+          <div><div class="secret-box">PRIBADI DAN RAHASIA</div></div>
+          <div class="brand">
+            <div class="logo"><span class="nas">nas</span><span class="med">med</span><span class="ia">ia</span></div>
+            <div class="tagline">#1 Self Publishing in Indonesia</div>
+            <div class="success-badge">
+              <div class="success-check">&#10003;</div>
+              <div class="success-text">Success</div>
+              <div class="success-sub">Your payment has been made</div>
+            </div>
+          </div>
+        </div>
+        <div class="slip-title"><div class="t1">Slip Gaji</div><div class="t2">${payrollSlipDate(item.bulanTahun)}</div></div>
+        <div class="info-grid">
+          <table>
+            <tr><td class="lbl">Nama</td><td class="col">:</td><td><b>${payrollSafeText(recipientName).toUpperCase()}</b></td></tr>
+            <tr><td class="lbl">Department</td><td class="col">:</td><td>${payrollSafeText(departmentName)}</td></tr>
+            <tr><td class="lbl">Jabatan</td><td class="col">:</td><td>${payrollSafeText(item.role || '-')}</td></tr>
+            <tr><td class="lbl">Status Karyawan</td><td class="col">:</td><td>${payrollSafeText(employeeStatus)}</td></tr>
+          </table>
+          <table>
+            <tr><td class="lbl">No. Rek</td><td class="col">:</td><td>${payrollSafeText(item.bankAccountNumber || '-')}</td></tr>
+            <tr><td class="lbl">Bank</td><td class="col">:</td><td>${payrollSafeText(item.bankName || '-')}</td></tr>
+            <tr><td class="lbl">Atas Nama</td><td class="col">:</td><td>${payrollSafeText(item.bankAccountName || recipientName).toUpperCase()}</td></tr>
+          </table>
+        </div>
+        <div class="cols3">
+          <div class="box"><div class="bar">PENERIMAAN</div><div class="rows">${penerimaanRows}</div></div>
+          <div class="box"><div class="bar">${isManualReward ? 'REWARD MANUAL' : 'REWARDS'}</div><div class="rows">${rewardsRows}</div></div>
+          <div class="box"><div class="bar">POTONGAN</div><div class="rows">${potonganRows}</div></div>
+        </div>
+        <div class="totals">
+          <div class="bar"><span>TOTAL PENERIMAAN</span><span>${payrollMoneyCell(totalPenerimaan)}</span></div>
+          <div class="bar"><span>TOTAL REWARDS</span><span>${payrollMoneyCell(totalReward)}</span></div>
+          <div class="bar"><span>TOTAL POTONGAN</span><span>${payrollMoneyCell(totalPotongan)}</span></div>
+        </div>
+        <div class="pct-row"><div class="pct-cell"><span>Persentase Penerimaan</span><span>${pctPenerimaan}%</span></div><div></div><div></div></div>
+        <div class="thp-row"><span>THP</span><span style="text-align:right">${payrollMoneyCell(thp)}</span></div>
+        <div class="terbilang-row"><b>Terbilang</b><i>${terbilangIndonesia(thp)}</i></div>
+        <div class="signatures">
+          <div><div>Pimpinan Redaksi</div><div class="qr-placeholder"></div><div class="sig-name">${payrollSafeText(pimpinanName)}</div></div>
+          <div><div>Diterima Oleh,</div><div class="sig-space"></div><div class="sig-name">${payrollSafeText(recipientName)}</div></div>
+        </div>
+      </section>
+      ${absenceRows.length ? `<section class="page page-appendix" id="slipPage2">
+        <h2>Lampiran Laporan Ketidakhadiran - ${payrollSafeText(recipientName)}</h2>
+        <table><thead><tr><th>Tanggal</th><th>Status</th><th>Keterangan</th></tr></thead>
+          <tbody>${absenceRows.map(row => `<tr><td>${payrollSafeText(row.tanggal || '-')}</td><td>${payrollSafeText(row.status || '-')}</td><td>${payrollSafeText(row.keterangan || '-')}</td></tr>`).join('')}</tbody>
+        </table></section>` : ''}
+      <script>
+        const SLIP_FILENAME = ${payrollSafeScriptJson(filename)};
+        async function saveSlipGajiPdf() {
+          const btn = document.getElementById('btnSavePdf');
+          const origText = btn ? btn.textContent : '';
+          try {
+            if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan...'; }
+            const html2canvasLib = window.html2canvas || (window.opener && window.opener.html2canvas);
+            const jsPDFLib = (window.jspdf && window.jspdf.jsPDF) || (window.opener && window.opener.jspdf && window.opener.jspdf.jsPDF);
+            if (!html2canvasLib || !jsPDFLib) { alert('Library PDF belum siap. Refresh portal lalu buka slip lagi.'); return; }
+            const pdf = new jsPDFLib({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+            const pages = document.querySelectorAll('.page');
+            for (let i = 0; i < pages.length; i++) {
+              if (i > 0) pdf.addPage('a4', 'portrait');
+              const canvas = await html2canvasLib(pages[i], { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
+              const imgData = canvas.toDataURL('image/jpeg', 0.95);
+              pdf.addImage(imgData, 'JPEG', 0, 0, pdf.internal.pageSize.getWidth(), pdf.internal.pageSize.getHeight());
+            }
+            pdf.save(SLIP_FILENAME);
+          } catch (err) { alert('Gagal menyimpan PDF: ' + (err && err.message ? err.message : err));
+          } finally { if (btn) { btn.disabled = false; btn.textContent = origText || 'Simpan PDF'; } }
+        }
+      <\/script>
+    </body>
+    </html>
+  `;
+  const win = window.open("", "_blank", "width=820,height=650");
+  win.document.write(htmlContent);
+  win.document.close();
+}
+window.printSlipGaji = printSlipGaji;
+
+
+
+
+</script>

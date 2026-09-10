@@ -1,0 +1,1747 @@
+<script>
+
+
+
+function loadManajemenCampaign() {
+  if (!state.user) return;
+  const content = document.getElementById('contentArea');
+  if (!content) return;
+
+  content.innerHTML = '<div class="p-8 text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin text-2xl mb-3"></i><div class="text-sm">Memuat Data Campaign...</div></div>';
+
+  gas.withSuccessHandler((resEvent) => {
+    gas.withSuccessHandler((resKonten) => {
+      gas.withSuccessHandler((resBroadcast) => {
+        const eventData = resEvent?.data || [];
+        const kontenData = resKonten?.data || [];
+        const broadcastData = resBroadcast?.data || [];
+
+        const statusPill = (status, type) => {
+          let cls = 'bg-slate-100 text-slate-600';
+          if (['Done', 'Published', 'Sent'].includes(status)) cls = 'bg-emerald-50 text-emerald-600';else
+          if (['Ongoing', 'Scheduled'].includes(status)) cls = 'bg-blue-50 text-blue-600';else
+          if (['Upcoming', 'Draft'].includes(status)) cls = type === 'content' ? 'bg-slate-100 text-slate-600' : 'bg-amber-50 text-amber-600';
+          return "<span class=\"px-3 py-1 rounded-full text-[10px] font-black uppercase ".concat(cls, "\">").concat(status || '-', "</span>");
+        };
+        const tableShell = (id, rows, emptyText) => "\n                            <div id=\"".concat(
+          id, "\" class=\"campaign-tab-panel ").concat(id === 'campaignTab' ? '' : 'hidden', "\">\n                                <div class=\"overflow-x-auto\">\n                                    <table class=\"w-full text-left\">\n                                        ").concat(
+
+
+          rows, "\n                                    </table>\n                                </div>\n                                ").concat(
+
+
+          emptyText, "\n                            </div>\n                        ");
+
+
+
+        content.innerHTML = "\n                            <div class=\"bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden\">\n                                <div class=\"px-6 py-5 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4\">\n                                    <div>\n                                        <h3 class=\"text-xl font-black text-slate-900\">Campaign Workspace</h3>\n                                        <p class=\"text-sm text-slate-500 mt-1\">Kelola campaign, content, dan broadcast dalam satu tampilan.</p>\n                                    </div>\n                                    <div class=\"flex items-center gap-3 w-full lg:w-96\">\n                                        <span class=\"w-11 h-11 rounded-2xl bg-slate-50 border border-slate-100 text-slate-400 flex items-center justify-center shrink-0\"><i class=\"fa-solid fa-magnifying-glass\"></i></span>\n                                        <input type=\"text\" id=\"campaignSearch\" oninput=\"filterCampaignRows(this.value)\" class=\"w-full px-4 py-3 rounded-2xl border border-slate-100 bg-slate-50 outline-none focus:border-accent-600 text-sm\" placeholder=\"Cari data campaign...\">\n                                    </div>\n                                </div>\n\n                                <div class=\"px-6 pt-5 bg-slate-50/60\">\n                                    <div class=\"flex flex-wrap items-center gap-3\">\n                                        <button onclick=\"showCampaignTab('campaignTab', this)\" class=\"campaign-tab-btn bg-white text-accent-600 shadow-sm border border-slate-100 px-5 py-3 rounded-2xl text-xs font-black flex items-center gap-2\">\n                                            <i class=\"fa-solid fa-calendar-check\"></i> Campaign <span class=\"px-2 py-0.5 rounded-full bg-accent-50 text-accent-600\">".concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          eventData.length, "</span>\n                                        </button>\n                                        <button onclick=\"showCampaignTab('contentTab', this)\" class=\"campaign-tab-btn bg-slate-100 text-slate-500 border border-transparent px-5 py-3 rounded-2xl text-xs font-black flex items-center gap-2\">\n                                            <i class=\"fa-solid fa-layer-group\"></i> Content <span class=\"px-2 py-0.5 rounded-full bg-white text-slate-500\">").concat(
+
+
+          kontenData.length, "</span>\n                                        </button>\n                                        <button onclick=\"showCampaignTab('broadcastTab', this)\" class=\"campaign-tab-btn bg-slate-100 text-slate-500 border border-transparent px-5 py-3 rounded-2xl text-xs font-black flex items-center gap-2\">\n                                            <i class=\"fa-solid fa-bullhorn\"></i> Broadcast <span class=\"px-2 py-0.5 rounded-full bg-white text-slate-500\">").concat(
+
+
+          broadcastData.length, "</span>\n                                        </button>\n                                    </div>\n                                </div>\n\n                                <div class=\"p-6\">\n                                    <div class=\"mb-5 flex justify-end gap-2\">\n                                        <button data-tab-action=\"campaignTab\" onclick=\"openFormEvent()\" class=\"campaign-action-btn px-4 py-2.5 bg-accent-600 text-white rounded-xl text-xs font-black shadow-sm hover:bg-accent-700 transition\"><i class=\"fa-solid fa-plus mr-1.5\"></i>New Campaign</button>\n                                        <button data-tab-action=\"contentTab\" onclick=\"openFormKonten()\" class=\"campaign-action-btn hidden px-4 py-2.5 bg-accent-600 text-white rounded-xl text-xs font-black shadow-sm hover:bg-accent-700 transition\"><i class=\"fa-solid fa-plus mr-1.5\"></i>New Content</button>\n                                        <button data-tab-action=\"broadcastTab\" onclick=\"openFormBroadcast()\" class=\"campaign-action-btn hidden px-4 py-2.5 bg-accent-600 text-white rounded-xl text-xs font-black shadow-sm hover:bg-accent-700 transition\"><i class=\"fa-solid fa-plus mr-1.5\"></i>New Broadcast</button>\n                                    </div>\n\n                                    ").concat(
+
+
+
+
+
+
+
+
+
+
+
+          tableShell('campaignTab', "\n                                        <thead class=\"bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest\">\n                                            <tr><th class=\"px-5 py-4\">Nama Campaign</th><th class=\"px-5 py-4\">Tanggal</th><th class=\"px-5 py-4\">Lokasi</th><th class=\"px-5 py-4 text-center\">Status</th><th class=\"px-5 py-4 text-right\">Aksi</th></tr>\n                                        </thead>\n                                        <tbody class=\"divide-y divide-slate-50\">\n                                            ".concat(
+
+
+
+
+            eventData.map((e) => "\n                                                <tr class=\"campaign-row text-[13px] hover:bg-slate-50 transition-colors\">\n                                                    <td class=\"px-5 py-4 font-black text-slate-800\">".concat(
+
+              e.nama, "</td>\n                                                    <td class=\"px-5 py-4 text-slate-600 font-mono\">").concat(
+              e.tanggal, "</td>\n                                                    <td class=\"px-5 py-4 text-slate-600\">").concat(
+              e.lokasi, "</td>\n                                                    <td class=\"px-5 py-4 text-center\">").concat(
+              statusPill(e.status, 'campaign'), "</td>\n                                                    <td class=\"px-5 py-4 text-right\"><button onclick=\"editEvent('").concat(
+              e.id, "')\" class=\"p-2 text-blue-500 hover:bg-blue-50 rounded-lg\"><i class=\"fa-solid fa-edit\"></i></button><button onclick=\"deleteEventItem('").concat(e.id, "')\" class=\"p-2 text-red-500 hover:bg-red-50 rounded-lg ml-1\"><i class=\"fa-solid fa-trash\"></i></button></td>\n                                                </tr>\n                                            ")
+
+            ).join(''), "\n                                        </tbody>\n                                    "),
+
+          eventData.length === 0 ? '<div class="p-12 text-center text-slate-300 italic">Belum ada campaign.</div>' : ''), "\n\n                                    ").concat(
+
+          tableShell('contentTab', "\n                                        <thead class=\"bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest\">\n                                            <tr><th class=\"px-5 py-4\">Judul Content</th><th class=\"px-5 py-4\">Platform</th><th class=\"px-5 py-4\">Tgl Publish</th><th class=\"px-5 py-4 text-center\">Status</th><th class=\"px-5 py-4 text-right\">Aksi</th></tr>\n                                        </thead>\n                                        <tbody class=\"divide-y divide-slate-50\">\n                                            ".concat(
+
+
+
+
+            kontenData.map((e) => "\n                                                <tr class=\"campaign-row text-[13px] hover:bg-slate-50 transition-colors\">\n                                                    <td class=\"px-5 py-4 font-black text-slate-800\">".concat(
+
+              e.judul, "</td>\n                                                    <td class=\"px-5 py-4 text-slate-600\">").concat(
+              e.platform, "</td>\n                                                    <td class=\"px-5 py-4 text-slate-600 font-mono\">").concat(
+              e.tanggal, "</td>\n                                                    <td class=\"px-5 py-4 text-center\">").concat(
+              statusPill(e.status, 'content'), "</td>\n                                                    <td class=\"px-5 py-4 text-right\"><button onclick=\"editKonten('").concat(
+              e.id, "')\" class=\"p-2 text-blue-500 hover:bg-blue-50 rounded-lg\"><i class=\"fa-solid fa-edit\"></i></button><button onclick=\"deleteKontenItem('").concat(e.id, "')\" class=\"p-2 text-red-500 hover:bg-red-50 rounded-lg ml-1\"><i class=\"fa-solid fa-trash\"></i></button></td>\n                                                </tr>\n                                            ")
+
+            ).join(''), "\n                                        </tbody>\n                                    "),
+
+          kontenData.length === 0 ? '<div class="p-12 text-center text-slate-300 italic">Belum ada content.</div>' : ''), "\n\n                                    ").concat(
+
+          tableShell('broadcastTab', "\n                                        <thead class=\"bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest\">\n                                            <tr><th class=\"px-5 py-4\">Nama Broadcast</th><th class=\"px-5 py-4\">Tanggal Jadwal</th><th class=\"px-5 py-4\">Platform</th><th class=\"px-5 py-4 text-center\">Status</th><th class=\"px-5 py-4 text-right\">Aksi</th></tr>\n                                        </thead>\n                                        <tbody class=\"divide-y divide-slate-50\">\n                                            ".concat(
+
+
+
+
+            broadcastData.map((e) => "\n                                                <tr class=\"campaign-row text-[13px] hover:bg-slate-50 transition-colors\">\n                                                    <td class=\"px-5 py-4 font-black text-slate-800\">".concat(
+
+              e.nama, "</td>\n                                                    <td class=\"px-5 py-4 text-slate-600 font-mono\">").concat(
+              e.tanggal, "</td>\n                                                    <td class=\"px-5 py-4 text-slate-600\">").concat(
+              e.platform, "</td>\n                                                    <td class=\"px-5 py-4 text-center\">").concat(
+              statusPill(e.status, 'broadcast'), "</td>\n                                                    <td class=\"px-5 py-4 text-right\"><button onclick=\"editBroadcast('").concat(
+              e.id, "')\" class=\"p-2 text-blue-500 hover:bg-blue-50 rounded-lg\"><i class=\"fa-solid fa-edit\"></i></button><button onclick=\"deleteBroadcastItem('").concat(e.id, "')\" class=\"p-2 text-red-500 hover:bg-red-50 rounded-lg ml-1\"><i class=\"fa-solid fa-trash\"></i></button></td>\n                                                </tr>\n                                            ")
+
+            ).join(''), "\n                                        </tbody>\n                                    "),
+
+          broadcastData.length === 0 ? '<div class="p-12 text-center text-slate-300 italic">Belum ada broadcast.</div>' : ''), "\n                                </div>\n                            </div>\n                        ");
+
+
+
+      }).getBroadcastData();
+    }).getKontenData();
+  }).getEventData();
+}
+
+function showCampaignTab(tabId, buttonEl) {
+  document.querySelectorAll('.campaign-tab-panel').forEach((panel) => panel.classList.add('hidden'));
+  const activePanel = document.getElementById(tabId);
+  if (activePanel) activePanel.classList.remove('hidden');
+
+  document.querySelectorAll('.campaign-tab-btn').forEach((btn) => {
+    btn.classList.remove('bg-white', 'text-accent-600', 'shadow-sm', 'border-slate-100');
+    btn.classList.add('bg-slate-100', 'text-slate-500', 'border-transparent');
+  });
+  if (buttonEl) {
+    buttonEl.classList.add('bg-white', 'text-accent-600', 'shadow-sm', 'border-slate-100');
+    buttonEl.classList.remove('bg-slate-100', 'text-slate-500', 'border-transparent');
+  }
+
+  document.querySelectorAll('.campaign-action-btn').forEach((btn) => {
+    btn.classList.toggle('hidden', btn.getAttribute('data-tab-action') !== tabId);
+  });
+
+  const search = document.getElementById('campaignSearch');
+  if (search) filterCampaignRows(search.value);
+}
+
+function filterCampaignRows(keyword) {
+  const term = String(keyword || '').toLowerCase();
+  document.querySelectorAll('.campaign-tab-panel:not(.hidden) .campaign-row').forEach((row) => {
+    row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none';
+  });
+}
+
+function openFormEvent() {
+  document.getElementById('eventModalTitle').innerText = 'Buat Event Baru';
+  document.getElementById('evt_id').value = '';
+  document.getElementById('evt_nama').value = '';
+  document.getElementById('evt_tanggal').value = new Date().toISOString().split('T')[0];
+  document.getElementById('evt_lokasi').value = '';
+  document.getElementById('evt_status').value = 'Upcoming';
+  openModal('modalEvent');
+}
+
+function editEvent(id) {
+  gas.withSuccessHandler((res) => {
+    const p = (res?.data || []).find((x) => x.id === id);
+    if (p) {
+      document.getElementById('eventModalTitle').innerText = 'Edit Event';
+      document.getElementById('evt_id').value = p.id;
+      document.getElementById('evt_nama').value = p.nama;
+      document.getElementById('evt_tanggal').value = p.tanggal;
+      document.getElementById('evt_lokasi').value = p.lokasi;
+      document.getElementById('evt_status').value = p.status;
+      openModal('modalEvent');
+    }
+  }).getEventData();
+}
+function deleteEventItem(id) {Swal.fire({ title: 'Hapus Event?', text: 'Data event akan dihapus!', icon: 'warning', showCancelButton: true }).then((r) => {if (r.isConfirmed) gas.withSuccessHandler(() => loadManajemenCampaign()).deleteEvent(id);});}
+function handleSaveEvent(e) {
+  e.preventDefault();
+  const payload = { id: document.getElementById('evt_id').value, nama: document.getElementById('evt_nama').value, tanggal: document.getElementById('evt_tanggal').value, lokasi: document.getElementById('evt_lokasi').value, status: document.getElementById('evt_status').value };
+  Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => {Swal.showLoading();} });
+  gas.withSuccessHandler(() => {closeModal('modalEvent');loadManajemenCampaign();Swal.fire('Tersimpan!', 'Event berhasil disimpan.', 'success');}).saveEventData(payload);
+}
+
+function openFormKonten() {
+  document.getElementById('kontenModalTitle').innerText = 'Tambah Konten Baru';
+  document.getElementById('knt_id').value = '';
+  document.getElementById('knt_judul').value = '';
+  document.getElementById('knt_platform').value = 'Instagram';
+  document.getElementById('knt_tanggal').value = new Date().toISOString().split('T')[0];
+  document.getElementById('knt_status').value = 'Draft';
+  openModal('modalKonten');
+}
+function editKonten(id) {
+  gas.withSuccessHandler((res) => {
+    const p = (res?.data || []).find((x) => x.id === id);
+    if (p) {
+      document.getElementById('kontenModalTitle').innerText = 'Edit Konten';
+      document.getElementById('knt_id').value = p.id;
+      document.getElementById('knt_judul').value = p.judul;
+      document.getElementById('knt_platform').value = p.platform;
+      document.getElementById('knt_tanggal').value = p.tanggal;
+      document.getElementById('knt_status').value = p.status;
+      openModal('modalKonten');
+    }
+  }).getKontenData();
+}
+function deleteKontenItem(id) {Swal.fire({ title: 'Hapus Konten?', text: 'Data konten akan dihapus!', icon: 'warning', showCancelButton: true }).then((r) => {if (r.isConfirmed) gas.withSuccessHandler(() => loadManajemenCampaign()).deleteKonten(id);});}
+function handleSaveKonten(e) {
+  e.preventDefault();
+  const payload = { id: document.getElementById('knt_id').value, judul: document.getElementById('knt_judul').value, platform: document.getElementById('knt_platform').value, tanggal: document.getElementById('knt_tanggal').value, status: document.getElementById('knt_status').value };
+  Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => {Swal.showLoading();} });
+  gas.withSuccessHandler(() => {closeModal('modalKonten');loadManajemenCampaign();Swal.fire('Tersimpan!', 'Konten berhasil disimpan.', 'success');}).saveKontenData(payload);
+}
+
+function openFormBroadcast() {
+  document.getElementById('broadcastModalTitle').innerText = 'Buat Broadcast Baru';
+  document.getElementById('brc_id').value = '';
+  document.getElementById('brc_nama').value = '';
+  document.getElementById('brc_tanggal').value = new Date().toISOString().split('T')[0];
+  document.getElementById('brc_platform').value = 'WhatsApp';
+  document.getElementById('brc_status').value = 'Draft';
+  openModal('modalBroadcast');
+}
+function editBroadcast(id) {
+  gas.withSuccessHandler((res) => {
+    const p = (res?.data || []).find((x) => x.id === id);
+    if (p) {
+      document.getElementById('broadcastModalTitle').innerText = 'Edit Broadcast';
+      document.getElementById('brc_id').value = p.id;
+      document.getElementById('brc_nama').value = p.nama;
+      document.getElementById('brc_tanggal').value = p.tanggal;
+      document.getElementById('brc_platform').value = p.platform || 'WhatsApp';
+      document.getElementById('brc_status').value = p.status;
+      openModal('modalBroadcast');
+    }
+  }).getBroadcastData();
+}
+function deleteBroadcastItem(id) {Swal.fire({ title: 'Hapus Broadcast?', text: 'Data broadcast akan dihapus!', icon: 'warning', showCancelButton: true }).then((r) => {if (r.isConfirmed) gas.withSuccessHandler(() => loadManajemenCampaign()).deleteBroadcast(id);});}
+function handleSaveBroadcast(e) {
+  e.preventDefault();
+  const payload = { id: document.getElementById('brc_id').value, nama: document.getElementById('brc_nama').value, tanggal: document.getElementById('brc_tanggal').value, platform: document.getElementById('brc_platform').value, status: document.getElementById('brc_status').value };
+  Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => {Swal.showLoading();} });
+  gas.withSuccessHandler(() => {closeModal('modalBroadcast');loadManajemenCampaign();Swal.fire('Tersimpan!', 'Broadcast berhasil disimpan.', 'success');}).saveBroadcastData(payload);
+}
+
+
+function loadKehadiranKaryawan(selectedMonth) {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+
+    let allAbsensi = (res?.data || []).sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
+    
+    // Kehadiran di UI dibatasi ke pilihan 3 bulan terakhir.
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
+    const months = [];
+    for (let i = 0; i < 3; i++) {
+      const date = new Date();
+      date.setMonth(date.getMonth() - i);
+      months.push({
+        value: date.toISOString().slice(0, 7),
+        label: monthNames[date.getMonth()] + ' ' + date.getFullYear()
+      });
+    }
+    const currentMonth = months[0].value;
+    const validMonthValues = months.map((m) => m.value);
+    selectedMonth = validMonthValues.includes(selectedMonth) ? selectedMonth : window._kehadiranSelectedMonth;
+    selectedMonth = validMonthValues.includes(selectedMonth) ? selectedMonth : currentMonth;
+    window._kehadiranSelectedMonth = selectedMonth;
+    const activeMonthObj = months.find((m) => m.value === selectedMonth) || months[0];
+    let absensi = allAbsensi.filter((a) => a.tanggal && a.tanggal.startsWith(selectedMonth));
+
+    window.downloadExcelKehadiran = function () {
+      if (typeof XLSX === 'undefined') {
+        Swal.fire('Excel Belum Siap', 'Library Excel belum termuat. Coba muat ulang halaman.', 'warning');
+        return;
+      }
+      const statusColumns = ['Alpa', 'Izin', 'Izin Setengah Hari', 'Sakit', 'Terlambat', 'Cuti'];
+      const statusLabels = {
+        'Alpa': 'ALPA',
+        'Izin': 'IZIN',
+        'Izin Setengah Hari': 'IZIN SETENGAH HARI',
+        'Sakit': 'SAKIT',
+        'Terlambat': 'TERLAMBAT',
+        'Cuti': 'CUTI'
+      };
+      const normalizeStatus = (value) => {
+        const text = String(value || '').trim().toLowerCase();
+        return statusColumns.find((status) => status.toLowerCase() === text) || '';
+      };
+      const formatAttendanceDate = (value) => {
+        if (!value) return '';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return String(value);
+        return date.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      };
+      // Filter data untuk 3 bulan terakhir + bulan ini
+      const now = new Date();
+      const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+      const absensiForExcel = allAbsensi.filter((a) => {
+        if (!a.tanggal) return false;
+        const d = new Date(a.tanggal);
+        return d >= threeMonthsAgo;
+      });
+
+      // Group by month
+      const groupedData = {};
+      
+      absensiForExcel.forEach(a => {
+        if (!a.tanggal) return;
+        const d = new Date(a.tanggal);
+        const key = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+        const sortKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        if (!groupedData[sortKey]) groupedData[sortKey] = { name: key, data: [] };
+        groupedData[sortKey].data.push(a);
+      });
+
+      const wb = XLSX.utils.book_new();
+
+      // Buat sheet untuk setiap bulan (dari terbaru ke terlama)
+      Object.keys(groupedData).sort((a, b) => b.localeCompare(a)).forEach(key => {
+        const group = groupedData[key];
+        const sheetName = group.name;
+        
+        const rows = [
+        [`REKAPAN KEHADIRAN TIM NASMEDIA (${sheetName})`, '', '', '', '', '', '', '', ''],
+        ['NAMA KARYAWAN', 'TANGGAL', ...statusColumns.map((status) => statusLabels[status]), 'CATATAN'],
+        ...group.data.
+        slice().
+        sort((a, b) => String(a.karyawan || '').localeCompare(String(b.karyawan || '')) || String(a.tanggal || '').localeCompare(String(b.tanggal || ''))).
+        map((a) => {
+          const status = normalizeStatus(a.status);
+          return [
+          a.karyawan || '',
+          formatAttendanceDate(a.tanggal),
+          ...statusColumns.map((col) => col === status ? 'V' : ''),
+          a.keterangan || ''];
+        })];
+
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }];
+        ws['!cols'] = [
+        { wch: 24 },
+        { wch: 28 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 20 },
+        { wch: 12 },
+        { wch: 15 },
+        { wch: 12 },
+        { wch: 42 }];
+
+        ws['!rows'] = [{ hpt: 22 }, { hpt: 20 }];
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+          for (let C = range.s.c; C <= range.e.c; ++C) {
+            const addr = XLSX.utils.encode_cell({ r: R, c: C });
+            if (!ws[addr]) continue;
+            ws[addr].s = ws[addr].s || {};
+            ws[addr].s.alignment = { horizontal: C === 8 ? 'left' : 'center', vertical: 'center' };
+            ws[addr].s.border = {
+              top: { style: 'thin', color: { rgb: '000000' } },
+              bottom: { style: 'thin', color: { rgb: '000000' } },
+              left: { style: 'thin', color: { rgb: '000000' } },
+              right: { style: 'thin', color: { rgb: '000000' } }
+            };
+            if (R === 0) {
+              ws[addr].s.font = { bold: true };
+              ws[addr].s.fill = { fgColor: { rgb: 'FFFF00' } };
+            }
+            if (R === 1) {
+              ws[addr].s.font = { bold: true };
+            }
+          }
+        }
+        const headerColors = ['FFFFFF', 'FF0000', '92D050', '00B0F0', '00B0F0', '00B050', '0070C0', '7030A0', 'FFFFFF'];
+        headerColors.forEach((color, idx) => {
+          const addr = XLSX.utils.encode_cell({ r: 1, c: idx });
+          if (ws[addr]) {
+            ws[addr].s = ws[addr].s || {};
+            ws[addr].s.fill = { fgColor: { rgb: color } };
+            ws[addr].s.font = { bold: true, color: { rgb: ['FF0000', '00B050', '0070C0', '7030A0'].includes(color) ? 'FFFFFF' : '000000' } };
+          }
+        });
+        
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      });
+      XLSX.writeFile(wb, "Rekapan_Kehadiran_Tim_Nasmedia_" + new Date().toISOString().split('T')[0] + ".xlsx");
+    };
+
+    window.clearKehadiranData = function () {
+      Swal.fire({
+        title: 'Clear Semua Data Kehadiran?',
+        text: 'Tindakan ini akan menghapus seluruh histori log kehadiran permanen!',
+        icon: 'warning',
+        input: 'text',
+        inputPlaceholder: 'Ketik CLEAR...',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        confirmButtonText: 'Ya, Bersihkan',
+        cancelButtonText: 'Batal',
+        inputValidator: (value) => {if (value !== 'CLEAR') return 'Ketik CLEAR untuk melanjutkan!';}
+      }).then((r) => {
+        if (r.isConfirmed) gas.withSuccessHandler(() => {loadKehadiranKaryawan();Swal.fire('Berhasil!', 'Seluruh data kehadiran dibersihkan.', 'success');}).clearKehadiran();
+      });
+    };
+
+    content.innerHTML = "\n                    <div class=\"mb-6 flex flex-col lg:flex-row lg:justify-between lg:items-end gap-4\">\n                        <div>\n                            <p class=\"text-sm text-slate-500\">Log kehadiran karyawan khusus yang melanggar (Alpa/Terlambat) atau tidak masuk kerja (Izin/Izin Setengah Hari/Sakit/Cuti).</p>\n                            <p class=\"text-xs text-slate-400 mt-1\">Menampilkan data bulan ".concat(activeMonthObj.label, " dari pilihan 3 bulan terakhir.</p>\n                        </div>\n                        <div class=\"flex flex-col sm:flex-row gap-2 sm:items-center\">\n                            <select onchange=\"loadKehadiranKaryawan(this.value)\" class=\"px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 transition\">\n                                ").concat(
+      months.map((m) => "<option value=\"".concat(m.value, "\" ").concat(m.value === selectedMonth ? 'selected' : '', ">").concat(m.label, "</option>")).join(''), "\n                            </select>\n                            <button onclick=\"downloadExcelKehadiran()\" class=\"px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow hover:bg-emerald-500 transition\"><i class=\"fa-solid fa-file-excel mr-2\"></i>Unduh Excel</button>\n\n                        </div>\n                    </div>\n                    <div class=\"bg-white rounded-3xl shadow-sm border border-slate-100 overflow-x-auto\">\n                        <table class=\"w-full text-left\">\n                            <thead class=\"bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest\">\n                                <tr>\n                                    <th class=\"px-8 py-4\">Tanggal</th>\n                                    <th class=\"px-8 py-4\">Karyawan</th>\n                                    <th class=\"px-8 py-4\">Status</th>\n                                    <th class=\"px-8 py-4\">Keterangan</th>\n                                    <th class=\"px-8 py-4 text-center\">Aksi</th>\n                                </tr>\n                            </thead>\n                            <tbody class=\"divide-y divide-slate-50\">\n                                ").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      absensi.map((a) => {
+        let colorCls = 'bg-slate-50 text-slate-600';
+        if (a.status === 'Terlambat') colorCls = 'bg-amber-50 text-amber-600';
+        if (a.status === 'Alpa') colorCls = 'bg-red-50 text-red-600';
+        if (a.status === 'Sakit' || a.status === 'Izin') colorCls = 'bg-blue-50 text-blue-600';
+        if (a.status === 'Izin Setengah Hari') colorCls = 'bg-sky-50 text-sky-600';
+        if (a.status === 'Cuti') colorCls = 'bg-purple-50 text-purple-600';
+        return "\n                                    <tr class=\"hover:bg-slate-50/50 transition-colors\">\n                                        <td class=\"px-8 py-4 font-mono text-slate-600\"><i class=\"fa-solid fa-calendar-day mr-2 text-slate-400\"></i>".concat(
+
+          a.tanggal, "</td>\n                                        <td class=\"px-8 py-4 font-bold text-slate-800\">").concat(
+          a.karyawan, "</td>\n                                        <td class=\"px-8 py-4\"><span class=\"px-3 py-1 ").concat(
+          colorCls, " rounded-full text-[10px] font-bold uppercase tracking-wider\">").concat(a.status, "</span></td>\n                                        <td class=\"px-8 py-4 text-xs text-slate-500\">").concat(
+          a.keterangan || '-', "</td>\n                                        <td class=\"px-8 py-4 text-center\">\n                                            <button onclick=\"deleteKehadiranItem('").concat(
+
+          a.id, "')\" class=\"w-8 h-8 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition shadow-sm\"><i class=\"fa-solid fa-trash\"></i></button>\n                                        </td>\n                                    </tr>");
+
+
+      }).join(''), "\n                                ").concat(
+      absensi.length === 0 ? '<tr><td colspan="5" class="p-16 text-center text-slate-300 italic">Belum ada record kehadiran khusus yang tercatat.</td></tr>' : '', "\n                            </tbody>\n                        </table>\n                    </div>\n                ");
+
+
+
+
+  }).getKehadiranData();
+}
+
+function openFormKehadiran() {
+  document.getElementById('kehadiranModalTitle').innerText = 'Catat Kehadiran / Ketidakhadiran';
+  document.getElementById('att_id').value = '';
+  
+  const today = new Date();
+  const offset = today.getTimezoneOffset();
+  const localDate = new Date(today.getTime() - (offset*60*1000)).toISOString().split('T')[0];
+  document.getElementById('att_tanggal').value = localDate;
+  document.getElementById('att_tanggal').min = localDate.slice(0, 7) + '-01';
+  document.getElementById('att_status').value = 'Terlambat';
+  document.getElementById('att_keterangan').value = '';
+  openModal('modalKehadiran');
+  gas.withSuccessHandler((res) => {
+    const users = res?.data || [];
+    const select = document.getElementById('att_karyawan');
+    if (select) {
+      select.innerHTML = '<option value="">Pilih Karyawan</option>';
+      users.filter((u) => !['pimpinan', 'report'].includes(normalizeRole(u.role))).forEach((u) => {
+        const opt = document.createElement('option');
+        opt.value = u.nama;
+        opt.textContent = u.nama + ' (' + (u.employeeId || '-') + ' - ' + getRoleLabel(u.role) + ')';
+        select.appendChild(opt);
+      });
+    }
+  }).getUsersData();
+}
+
+function handleSaveKehadiran(e) {
+  e.preventDefault();
+  const payload = {
+    id: document.getElementById('att_id').value,
+    tanggal: document.getElementById('att_tanggal').value,
+    karyawan: document.getElementById('att_karyawan').value,
+    status: document.getElementById('att_status').value,
+    keterangan: document.getElementById('att_keterangan').value
+  };
+  Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => {Swal.showLoading();} });
+  gas.withSuccessHandler(() => {
+    closeModal('modalKehadiran');
+    loadKehadiranKaryawan();
+    Swal.fire('Tersimpan!', 'Record kehadiran berhasil disimpan.', 'success');
+  }).saveKehadiranData(payload);
+}
+
+function deleteKehadiranItem(id) {
+  Swal.fire({ title: 'Hapus Record?', text: 'Data kehadiran ini akan dihapus permanen!', icon: 'warning', showCancelButton: true }).then((r) => {
+    if (r.isConfirmed) gas.withSuccessHandler(() => loadKehadiranKaryawan()).deleteKehadiran(id);
+  });
+}
+
+window.addEventListener('load', function () {
+  if (typeof render === 'function') render();
+});
+function loadDashboardCampaign() {
+  gas.withSuccessHandler((resEvent) => {
+    gas.withSuccessHandler((resKonten) => {
+      gas.withSuccessHandler((resBroadcast) => {
+        if (!state.user) return;
+        const content = document.getElementById('contentArea');
+        if (!content) return;
+
+        const events = resEvent?.data || [];
+        const kontens = resKonten?.data || [];
+        const broadcasts = resBroadcast?.data || [];
+
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth();
+        const todayStr = "".concat(year, "-").concat(String(month + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'));
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const prevMonthDays = new Date(year, month, 0).getDate();
+
+        const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        const shortDays = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+
+        const safeText = (value) => String(value || '-').replace(/[&<>"']/g, (ch) => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        })[ch]);
+
+        const isDoneStatus = (status) => ['Done', 'Published', 'Sent'].includes(status);
+        const formatDay = (dateStr) => {
+          const parts = String(dateStr || '').split('-');
+          if (parts.length !== 3) return '-';
+          return "".concat(Number(parts[2]), " ").concat(monthNames[Number(parts[1]) - 1] || '');
+        };
+
+        const allItems = [
+        ...events.map((e) => ({
+          type: 'Event',
+          title: e.nama,
+          date: e.tanggal,
+          status: e.status,
+          iconPrefix: 'fa-solid',
+          icon: 'fa-star',
+          dot: 'bg-blue-500'
+        })),
+        ...kontens.map((k) => {
+          const platform = String(k.platform || '').toLowerCase();
+          return {
+            type: 'Konten',
+            title: k.judul,
+            date: k.tanggal,
+            status: k.status,
+            iconPrefix: platform.includes('ig') || platform.includes('instagram') || platform.includes('tiktok') || platform.includes('linkedin') || platform.includes('threads') ? 'fa-brands' : 'fa-solid',
+            icon: platform.includes('ig') || platform.includes('instagram') ? 'fa-instagram' : platform.includes('tiktok') ? 'fa-tiktok' : platform.includes('linkedin') ? 'fa-linkedin' : platform.includes('threads') ? 'fa-threads' : 'fa-share-nodes',
+            dot: 'bg-indigo-500'
+          };
+        }),
+        ...broadcasts.map((b) => ({
+          type: 'Broadcast',
+          title: b.nama,
+          date: b.tanggal,
+          status: b.status,
+          iconPrefix: 'fa-solid',
+          icon: String(b.platform || '').toLowerCase().includes('email') ? 'fa-envelope' : String(b.platform || '').toLowerCase().includes('telegram') ? 'fa-paper-plane' : 'fa-bullhorn',
+          dot: 'bg-emerald-500'
+        }))].
+        filter((item) => item.date);
+
+        const upcomingItems = allItems.
+        filter((item) => item.date >= todayStr).
+        sort((a, b) => String(a.date).localeCompare(String(b.date))).
+        slice(0, 6);
+
+        const renderListButton = (key, title, icon, count, accentClass) => "\n                            <button onclick=\"showCampaignList('".concat(
+          key, "')\" class=\"w-full bg-white/85 rounded-xl px-3 py-3 shadow-sm border border-white/70 hover:bg-white hover:border-blue-100 transition flex items-center justify-between gap-3 text-left\">\n                                <span class=\"min-w-0\">\n                                    <span class=\"block text-[10px] font-black text-slate-500 uppercase tracking-widest truncate\"><i class=\"fa-solid ").concat(
+
+          icon, " mr-1.5 ").concat(accentClass, "\"></i>").concat(title, "</span>\n                                    <span class=\"block text-[9px] font-bold text-slate-400 mt-0.5\">Klik untuk melihat isi</span>\n                                </span>\n                                <span class=\"inline-flex items-center gap-2 shrink-0\">\n                                    <span class=\"w-7 h-7 rounded-lg bg-slate-50 text-slate-600 flex items-center justify-center text-xs font-black\">").concat(
+
+
+
+          count, "</span>\n                                    <i class=\"fa-solid fa-chevron-right text-slate-300 text-xs\"></i>\n                                </span>\n                            </button>\n                        ");
+
+
+
+
+
+        const renderChip = (item) => {
+          const status = item.status || '';
+          let color = 'bg-slate-100 text-slate-600 border-slate-200';
+          if (item.type === 'Event') color = status === 'Done' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : status === 'Ongoing' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-amber-100 text-amber-700 border-amber-200';
+          if (item.type === 'Konten') color = status === 'Published' ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : status === 'Scheduled' ? 'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200' : 'bg-slate-100 text-slate-600 border-slate-200';
+          if (item.type === 'Broadcast') color = status === 'Sent' ? 'bg-teal-100 text-teal-700 border-teal-200' : 'bg-rose-100 text-rose-700 border-rose-200';
+          return "\n                                <div title=\"".concat(
+            safeText(item.title), "\" class=\"").concat(color, " border px-1.5 py-0.5 rounded mb-1 shadow-sm leading-tight cursor-default truncate\">\n                                    <i class=\"").concat(
+            item.iconPrefix, " ").concat(item.icon, " mr-1 opacity-70\"></i>").concat(safeText(item.title), "\n                                </div>\n                            ");
+
+
+        };
+
+        let calendarCells = '';
+        for (let i = 0; i < firstDay; i++) {
+          const mutedDay = prevMonthDays - firstDay + i + 1;
+          calendarCells += "\n                                <div class=\"bg-slate-50/60 border border-slate-100 min-h-[58px] lg:min-h-[64px] p-1.5 text-right text-slate-300\">\n                                    <span class=\"text-xs font-bold\">".concat(
+
+            mutedDay, "</span>\n                                </div>\n                            ");
+
+
+        }
+
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dateStr = "".concat(year, "-").concat(String(month + 1).padStart(2, '0'), "-").concat(String(d).padStart(2, '0'));
+          const dayItems = [
+          ...events.filter((e) => e.tanggal === dateStr).map((e) => ({
+            type: 'Event',
+            title: e.nama,
+            status: e.status,
+            iconPrefix: 'fa-solid',
+            icon: 'fa-star'
+          })),
+          ...kontens.filter((k) => k.tanggal === dateStr).map((k) => {
+            const platform = String(k.platform || '').toLowerCase();
+            return {
+              type: 'Konten',
+              title: k.judul,
+              status: k.status,
+              iconPrefix: platform.includes('ig') || platform.includes('instagram') || platform.includes('tiktok') || platform.includes('linkedin') || platform.includes('threads') ? 'fa-brands' : 'fa-solid',
+              icon: platform.includes('ig') || platform.includes('instagram') ? 'fa-instagram' : platform.includes('tiktok') ? 'fa-tiktok' : platform.includes('linkedin') ? 'fa-linkedin' : platform.includes('threads') ? 'fa-threads' : 'fa-share-nodes'
+            };
+          }),
+          ...broadcasts.filter((b) => b.tanggal === dateStr).map((b) => ({
+            type: 'Broadcast',
+            title: b.nama,
+            status: b.status,
+            iconPrefix: 'fa-solid',
+            icon: String(b.platform || '').toLowerCase().includes('email') ? 'fa-envelope' : String(b.platform || '').toLowerCase().includes('telegram') ? 'fa-paper-plane' : 'fa-bullhorn'
+          }))];
+
+
+          const isToday = now.getDate() === d;
+          calendarCells += "\n                                <div class=\"".concat(
+            isToday ? 'bg-blue-50 border-blue-300 shadow-inner' : 'bg-white border-slate-100', " border min-h-[58px] lg:min-h-[64px] p-1.5 flex flex-col transition hover:shadow-md hover:border-blue-200\">\n                                    <div class=\"flex items-center justify-between mb-1\">\n                                        <span class=\"text-[8px] font-black uppercase ").concat(
+
+            isToday ? 'text-blue-500' : 'text-transparent', "\">Today</span>\n                                        <span class=\"").concat(
+            isToday ? 'bg-blue-600 text-white' : 'text-slate-500', " w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black\">").concat(d, "</span>\n                                    </div>\n                                    <div class=\"flex-grow overflow-y-auto custom-scroll pr-1 text-[8px] font-bold\">").concat(
+
+            dayItems.map(renderChip).join(''), "</div>\n                                </div>\n                            ");
+
+
+        }
+
+        const trailingCells = (7 - (firstDay + daysInMonth) % 7) % 7;
+        for (let i = 1; i <= trailingCells; i++) {
+          calendarCells += "\n                                <div class=\"bg-slate-50/60 border border-slate-100 min-h-[58px] lg:min-h-[64px] p-1.5 text-right text-slate-300\">\n                                    <span class=\"text-xs font-bold\">".concat(
+
+            i, "</span>\n                                </div>\n                            ");
+
+
+        }
+
+        const eventItems = events.map((e) => ({ title: e.nama, status: e.status, type: 'Event' }));
+        const kontenItems = kontens.map((k) => ({ title: k.judul, status: k.status, type: 'Konten' }));
+        const broadcastItems = broadcasts.map((b) => ({ title: b.nama, status: b.status, type: 'Broadcast' }));
+
+        window._campaignDashboardLists = {
+          event: { title: 'Event Campaign', icon: 'fa-calendar-check', items: eventItems },
+          konten: { title: 'Konten Terjadwal', icon: 'fa-layer-group', items: kontenItems },
+          broadcast: { title: 'Broadcast', icon: 'fa-bullhorn', items: broadcastItems }
+        };
+        window.showCampaignList = function (key) {
+          const list = window._campaignDashboardLists?.[key];
+          if (!list) return;
+          Swal.fire({
+            title: "<i class=\"fa-solid ".concat(list.icon, " text-blue-600 mr-2\"></i>").concat(list.title),
+            html: "\n                                    <div class=\"text-left max-h-[420px] overflow-y-auto custom-scroll pr-1 space-y-2\">\n                                        ".concat(
+
+              list.items.map((item) => {
+                const done = isDoneStatus(item.status);
+                return "\n                                                <div class=\"flex items-center gap-3 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100\">\n                                                    <span class=\"w-5 h-5 rounded border ".concat(
+
+                  done ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-slate-200 text-transparent', " flex items-center justify-center shrink-0\"><i class=\"fa-solid fa-check text-[9px]\"></i></span>\n                                                    <div class=\"min-w-0\">\n                                                        <p class=\"text-sm font-bold text-slate-700 truncate\">").concat(
+
+                  safeText(item.title), "</p>\n                                                        <p class=\"text-[10px] font-bold text-slate-400 uppercase\">").concat(
+                  safeText(item.status || item.type), "</p>\n                                                    </div>\n                                                </div>");
+
+
+              }).join(''), "\n                                        ").concat(
+              list.items.length === 0 ? '<div class="text-sm text-slate-400 italic py-4 text-center">Belum ada jadwal.</div>' : '', "\n                                    </div>\n                                "),
+
+
+            confirmButtonText: 'Tutup',
+            confirmButtonColor: '#2563eb',
+            width: '34em'
+          });
+        };
+
+        content.innerHTML = "\n                            <div class=\"rounded-3xl bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-700 p-3 shadow-xl\">\n                                <div class=\"grid grid-cols-1 xl:grid-cols-[210px_1fr] bg-white/10 rounded-2xl overflow-hidden border border-white/20 min-h-0\">\n                                    <div class=\"bg-blue-950/20 border-r border-white/15\">\n                                        <div class=\"flex xl:block\">\n                                            <div class=\"w-16 xl:w-auto bg-blue-900/45 flex xl:hidden items-center justify-center py-4\">\n                                                <div class=\"w-9 h-9 rounded-full bg-orange-400 text-white flex items-center justify-center font-black\">C</div>\n                                            </div>\n                                            <div class=\"flex-1 p-3 bg-slate-100/95\">\n                                                <div class=\"flex items-start justify-between gap-3 mb-3\">\n                                                    <div class=\"min-w-0\">\n                                                        <p class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">Nasmedia</p>\n                                                        <h3 class=\"text-sm font-black text-slate-800 truncate\">Tim Campaign</h3>\n                                                    </div>\n                                                    <button onclick=\"loadDashboardCampaign()\" class=\"px-3 py-1.5 rounded-lg bg-white text-[10px] font-black text-blue-600 shadow-sm border border-slate-100 hover:bg-blue-50 transition\">TODAY</button>\n                                                </div>\n\n                                                <div class=\"grid grid-cols-3 gap-2 mb-3\">\n                                                    <div class=\"bg-white rounded-xl px-2 py-2 text-center shadow-sm border border-slate-100\">\n                                                        <p class=\"text-base font-black text-blue-700\">".concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          events.length, "</p>\n                                                        <p class=\"text-[9px] font-bold text-slate-400 uppercase\">Event</p>\n                                                    </div>\n                                                    <div class=\"bg-white rounded-xl px-2 py-2 text-center shadow-sm border border-slate-100\">\n                                                        <p class=\"text-base font-black text-indigo-700\">").concat(
+
+
+
+          kontens.length, "</p>\n                                                        <p class=\"text-[9px] font-bold text-slate-400 uppercase\">Konten</p>\n                                                    </div>\n                                                    <div class=\"bg-white rounded-xl px-2 py-2 text-center shadow-sm border border-slate-100\">\n                                                        <p class=\"text-base font-black text-emerald-700\">").concat(
+
+
+
+          broadcasts.length, "</p>\n                                                        <p class=\"text-[9px] font-bold text-slate-400 uppercase\">Broadcast</p>\n                                                    </div>\n                                                </div>\n\n                                                <div class=\"space-y-2\">\n                                                    ").concat(
+
+
+
+
+
+          renderListButton('event', 'Event Campaign', 'fa-calendar-check', events.length, 'text-blue-500'), "\n                                                    ").concat(
+          renderListButton('konten', 'Konten Terjadwal', 'fa-layer-group', kontens.length, 'text-indigo-500'), "\n                                                    ").concat(
+          renderListButton('broadcast', 'Broadcast', 'fa-bullhorn', broadcasts.length, 'text-emerald-500'), "\n                                                </div>\n                                            </div>\n                                        </div>\n                                    </div>\n\n                                    <section class=\"bg-white\">\n                                        <div class=\"bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600 px-4 pt-3\">\n                                            <div class=\"flex flex-wrap items-end gap-2\">\n                                                <button class=\"px-4 py-2.5 rounded-t-2xl bg-white text-blue-700 text-xs font-black shadow-sm\"><i class=\"fa-regular fa-calendar-days mr-2\"></i>Calendar</button>\n                                            </div>\n                                        </div>\n\n                                        <div class=\"relative p-4 pb-14\">\n                                            <div class=\"flex flex-col lg:flex-row lg:items-start justify-between gap-3 mb-3\">\n                                                <div>\n                                                    <h2 class=\"text-xl lg:text-2xl font-light text-slate-700\">").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          dayNames[now.getDay()], ", ").concat(now.getDate(), " ").concat(monthNames[month], "</h2>\n                                                    <p class=\"text-xs font-bold text-slate-400 mt-1\">").concat(
+          monthNames[month], " ").concat(year, " campaign calendar</p>\n                                                </div>\n                                                <div class=\"flex items-center gap-5 text-[10px] font-black uppercase tracking-widest text-slate-400\">\n                                                    <span class=\"text-blue-600 border-b-2 border-blue-600 pb-2\">Day</span>\n                                                    <span>Week</span>\n                                                    <span>Month</span>\n                                                </div>\n                                            </div>\n\n                                            <div class=\"overflow-x-auto custom-scroll\">\n                                                <div class=\"min-w-[660px] grid grid-cols-7 border-t border-l border-slate-100\">\n                                                    ").concat(
+
+
+
+
+
+
+
+
+
+
+          shortDays.map((day) => "<div class=\"h-8 border-r border-b border-slate-100 bg-slate-50/60 px-2 flex items-center text-[9px] font-black text-slate-500 uppercase tracking-widest\">".concat(day, "</div>")).join(''), "\n                                                    ").concat(
+          calendarCells, "\n                                                </div>\n                                            </div>\n\n                                            <div class=\"mt-3 flex flex-wrap items-center gap-3 text-[9px] font-black text-slate-500 uppercase\">\n                                                <span class=\"inline-flex items-center gap-1.5\"><i class=\"w-2.5 h-2.5 rounded-full bg-amber-300\"></i>Event Upcoming</span>\n                                                <span class=\"inline-flex items-center gap-1.5\"><i class=\"w-2.5 h-2.5 rounded-full bg-indigo-300\"></i>Konten</span>\n                                                <span class=\"inline-flex items-center gap-1.5\"><i class=\"w-2.5 h-2.5 rounded-full bg-teal-300\"></i>Broadcast Sent</span>\n                                                <span class=\"inline-flex items-center gap-1.5\"><i class=\"w-2.5 h-2.5 rounded-full bg-rose-300\"></i>Draft</span>\n                                            </div>\n\n                                            <div class=\"mt-3 bg-slate-50 rounded-2xl border border-slate-100 p-3\">\n                                                <div class=\"flex items-center justify-between mb-2\">\n                                                    <h4 class=\"text-xs font-black text-slate-700 uppercase tracking-widest\">Jadwal Terdekat</h4>\n                                                    <span class=\"text-[10px] font-black text-blue-600\">").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+          upcomingItems.length, " item</span>\n                                                </div>\n                                                <div class=\"grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-1.5\">\n                                                    ").concat(
+
+
+          upcomingItems.map((item) => "\n                                                        <div class=\"bg-white rounded-xl border border-slate-100 px-3 py-1.5 flex items-center gap-3 min-w-0\">\n                                                            <span class=\"w-2.5 h-2.5 rounded-full ".concat(
+
+            item.dot, " shrink-0\"></span>\n                                                            <div class=\"min-w-0\">\n                                                                <p class=\"text-xs font-black text-slate-700 truncate\">").concat(
+
+            safeText(item.title), "</p>\n                                                                <p class=\"text-[10px] font-bold text-slate-400\">").concat(
+            safeText(item.type), " - ").concat(formatDay(item.date), "</p>\n                                                            </div>\n                                                        </div>\n                                                    ")
+
+
+          ).join(''), "\n                                                    ").concat(
+          upcomingItems.length === 0 ? '<div class="text-xs text-slate-400 italic">Belum ada jadwal terdekat.</div>' : '', "\n                                                </div>\n                                            </div>\n\n                                            <button onclick=\"loadManajemenCampaign()\" class=\"absolute right-6 bottom-6 w-12 h-12 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition flex items-center justify-center\" title=\"Kelola Campaign\">\n                                                <i class=\"fa-solid fa-plus text-lg\"></i>\n                                            </button>\n                                        </div>\n                                    </section>\n                                </div>\n                            </div>\n                        ");
+
+
+
+
+
+
+
+
+
+
+
+
+      }).getBroadcastData();
+    }).getKontenData();
+  }).getEventData();
+}
+
+window.downloadExcelStok = function () {
+  gas.withSuccessHandler((res) => {
+    const data = res?.data || [];
+    const excelData = data.map((s) => ({ 'ID Stok': s.id, 'Judul Buku': s.judul, 'Gudang': s.gudang, 'Jumlah Stok': s.stok, 'Update Terakhir': s.lastUpdate }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(excelData), "Stok Buku");
+    XLSX.writeFile(wb, "Data_Stok_" + new Date().toISOString().split('T')[0] + ".xlsx");
+  }).getStokData();
+};
+
+window.handleImportStok = function (event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  Swal.fire({ title: 'Memproses File...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+      const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+      if (json.length === 0) {Swal.fire('Error', 'File kosong!', 'error');return;}
+      const payload = json.map((r) => ({
+        id: r['ID Stok'] || '', judul: r['Judul Buku'] || '', gudang: r['Gudang'] || '',
+        stok: Number(r['Jumlah Stok'] || r['Stok'] || 0), lastUpdate: new Date().toISOString().split('T')[0]
+      })).filter((r) => r.judul);
+      gas.withSuccessHandler(() => {loadStokBuku();Swal.fire('Berhasil', " data stok diimpor.", 'success');}).withFailureHandler((error) => {
+        showServerError('Gagal Impor Stok', error);
+      }).importStokData(payload);
+    } catch (error) {Swal.fire('Error', 'Gagal membaca Excel.', 'error');}
+  };
+  reader.readAsArrayBuffer(file);
+  event.target.value = '';
+};
+
+window.downloadExcelPenjualan = function () {
+  gas.withSuccessHandler((res) => {
+    const data = res?.data || [];
+    const excelData = data.map((p) => ({ 'ID Penjualan': p.id, 'Judul Buku': p.judul, 'Marketplace': p.marketplace, 'Gudang': p.gudang, 'Qty': p.qty, 'Harga Jual': p.hargaJual, 'Tanggal': p.tanggal }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(excelData), "Penjualan");
+    XLSX.writeFile(wb, "Data_Penjualan_" + new Date().toISOString().split('T')[0] + ".xlsx");
+  }).getPenjualanData();
+};
+
+window.handleImportPenjualan = function (event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  Swal.fire({ title: 'Memproses File...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+      const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+      if (json.length === 0) {Swal.fire('Error', 'File kosong!', 'error');return;}
+      const payload = json.map((r) => ({
+        id: r['ID Penjualan'] || '', judul: r['Judul Buku'] || '', marketplace: r['Marketplace'] || '',
+        gudang: r['Gudang'] || '', qty: Number(r['Qty'] || 0), hargaJual: Number(r['Harga Jual'] || 0),
+        tanggal: r['Tanggal'] || new Date().toISOString().split('T')[0]
+      })).filter((r) => r.judul);
+      gas.withSuccessHandler(() => {loadPenjualanMarketplace();Swal.fire('Berhasil', " data penjualan diimpor. Stok otomatis berkurang.", 'success');}).withFailureHandler((error) => {
+        showServerError('Gagal Impor Penjualan', error);
+      }).importPenjualanData(payload);
+    } catch (error) {Swal.fire('Error', 'Gagal membaca Excel.', 'error');}
+  };
+  reader.readAsArrayBuffer(file);
+  event.target.value = '';
+};
+// --- MITRA CAMPAIGN ---
+function loadDataMitra() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const data = res?.data || [];
+    const searchQuery = String(window._mitraSearch || '').trim().toLowerCase();
+    const programFilter = window._mitraProgramFilter || 'semua';
+    const programOptions = [...new Set(data.map((m) => m.program || 'Tanpa Program'))].sort((a, b) => a.localeCompare(b));
+    const filteredData = data.filter((m) => {
+      const haystack = [m.nama, m.nik, m.email, m.wa, m.instansi, m.jabatan, m.program].join(' ').toLowerCase();
+      return (!searchQuery || haystack.includes(searchQuery)) && (
+      programFilter === 'semua' || (m.program || 'Tanpa Program') === programFilter);
+    });
+    const pageSize = 10;
+    const currentPage = Math.max(1, Number(window._mitraPage || 1));
+    const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
+    const safePage = Math.min(currentPage, totalPages);
+    window._mitraPage = safePage;
+    const pagedData = filteredData.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+    content.innerHTML = "\n                    <div class=\"flex justify-between items-center mb-6\">\n                        <div class=\"flex gap-4\">\n                            <div class=\"bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 flex items-center gap-3\">\n                                <div class=\"w-8 h-8 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center\"><i class=\"fa-solid fa-users\"></i></div>\n                                <div><p class=\"text-[10px] font-bold text-slate-400 uppercase\">Total Mitra</p><p class=\"font-black text-lg text-slate-800\">".concat(
+
+
+
+
+      data.length, "</p></div>\n                            </div>\n                        </div>\n                        <div class=\"flex gap-2\">\n                            <input type=\"file\" id=\"importMitraInput\" accept=\".xlsx, .xls, .csv\" class=\"hidden\" onchange=\"handleImportMitra(event)\">\n                            <button onclick=\"document.getElementById('importMitraInput').click()\" class=\"bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md transition-colors\"><i class=\"fa-solid fa-file-import mr-2\"></i>Import Excel</button>\n                            <button onclick=\"openFormMitra()\" class=\"btn-gradient text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md\"><i class=\"fa-solid fa-plus mr-2\"></i>Tambah Mitra</button>\n                            <button onclick=\"exportMitraCSV()\" class=\"bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md transition-colors\"><i class=\"fa-solid fa-file-csv mr-2\"></i>Export CSV</button>\n                        </div>\n                    </div>\n                    \n                    <div class=\"bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden\">\n                        <div class=\"p-4 border-b border-slate-100 grid grid-cols-1 md:grid-cols-[1fr_14rem] gap-3\">\n                            <input value=\"").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+      window._mitraSearch || '', "\" oninput=\"window._mitraSearch=this.value; window._mitraPage=1; loadDataMitra()\" placeholder=\"Cari nama, kontak, instansi...\" class=\"px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-accent-400\">\n                            <select onchange=\"window._mitraProgramFilter=this.value; window._mitraPage=1; loadDataMitra()\" class=\"px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none bg-white focus:border-accent-400\">\n                                <option value=\"semua\" ").concat(
+
+      programFilter === 'semua' ? 'selected' : '', ">Semua Program</option>\n                                ").concat(
+      programOptions.map((p) => "<option value=\"".concat(p, "\" ").concat(programFilter === p ? 'selected' : '', ">").concat(p, "</option>")).join(''), "\n                            </select>\n                        </div>\n                        <div class=\"overflow-x-auto\">\n                            <table class=\"w-full text-sm text-left\">\n                                <thead class=\"bg-slate-50 text-xs text-slate-500 uppercase\">\n                                    <tr>\n                                        <th class=\"px-6 py-4\">No</th>\n                                        <th class=\"px-6 py-4\">Nama Lengkap</th>\n                                        <th class=\"px-6 py-4\">Program</th>\n                                        <th class=\"px-6 py-4\">Kontak (WA/Email)</th>\n                                        <th class=\"px-6 py-4\">Instansi</th>\n                                        <th class=\"px-6 py-4\">Aksi</th>\n                                    </tr>\n                                </thead>\n                                <tbody class=\"divide-y divide-slate-100\">\n                                    ").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      filteredData.length === 0 ? "<tr><td colspan=\"6\" class=\"px-6 py-8 text-center text-slate-400\">Belum ada data mitra sesuai pencarian/filter</td></tr>" :
+      pagedData.map((m, i) => "\n                                        <tr class=\"hover:bg-slate-50 transition-colors\">\n                                            <td class=\"px-6 py-4 font-medium\">".concat(
+
+        (safePage - 1) * pageSize + i + 1, "</td>\n                                            <td class=\"px-6 py-4 font-bold text-slate-800\">").concat(
+        m.nama, "</td>\n                                            <td class=\"px-6 py-4\"><span class=\"px-2 py-1 rounded-md text-[10px] font-bold ").concat(
+        m.program === 'Teman Nasmedia' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700', "\">").concat(m.program || '-', "</span></td>\n                                            <td class=\"px-6 py-4 text-xs\">").concat(
+        m.wa || '-', "<br><span class=\"text-slate-400\">").concat(m.email || '-', "</span></td>\n                                            <td class=\"px-6 py-4 text-xs\">").concat(
+        m.instansi || '-', "</td>\n                                            <td class=\"px-6 py-4 flex items-center gap-1\">\n                                                <button onclick=\"viewMitra('").concat(
+
+        m.id, "')\" class=\"w-8 h-8 rounded-lg bg-emerald-50 text-emerald-500 hover:bg-emerald-100 transition-colors\" title=\"Lihat Detail\"><i class=\"fa-solid fa-eye\"></i></button>\n                                                <button onclick=\"editMitra('").concat(
+        m.id, "')\" class=\"w-8 h-8 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 transition-colors\" title=\"Edit\"><i class=\"fa-solid fa-pen\"></i></button>\n                                                <button onclick=\"deleteMitra('").concat(
+        m.id, "')\" class=\"w-8 h-8 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors\" title=\"Hapus\"><i class=\"fa-solid fa-trash\"></i></button>\n                                            </td>\n                                        </tr>\n                                    ")
+
+
+      ).join(''), "\n                                </tbody>\n                            </table>\n                        </div>\n                        <div class=\"flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-5 py-4 border-t border-slate-100\">\n                            <div class=\"text-[10px] font-bold text-slate-400\">Menampilkan ").concat(
+
+
+
+
+      pagedData.length, " dari ").concat(filteredData.length, " mitra &bull; Halaman ").concat(safePage, " / ").concat(totalPages, "</div>\n                            <div class=\"flex items-center gap-2\">\n                                <button onclick=\"window._mitraPage=Math.max(1,(window._mitraPage||1)-1); loadDataMitra()\" class=\"px-3 py-2 rounded-lg border border-slate-200 text-xs font-black text-slate-500 hover:border-accent-200 hover:text-accent-600\">Prev</button>\n                                <span class=\"px-3 py-2 rounded-lg bg-accent-50 text-accent-600 text-xs font-black\">").concat(
+
+
+      safePage, "</span>\n                                <button onclick=\"window._mitraPage=Math.min(").concat(
+      totalPages, ",(window._mitraPage||1)+1); loadDataMitra()\" class=\"px-3 py-2 rounded-lg border border-slate-200 text-xs font-black text-slate-500 hover:border-accent-200 hover:text-accent-600\">Next</button>\n                            </div>\n                        </div>\n                    </div>\n                ");
+
+
+
+
+    window.mitraData = data;
+  }).getMitraData();
+}
+
+function viewMitra(id) {
+  if (!window.mitraData) return;
+  const m = window.mitraData.find((x) => x.id === id);
+  if (m) {
+    document.getElementById('det_mtr_program').innerText = m.program || '-';
+    document.getElementById('det_mtr_level').innerText = m.level_mitra || 'Scholar';
+    document.getElementById('det_mtr_nama').innerText = m.nama || '-';
+    document.getElementById('det_mtr_nik').innerText = m.nik || '-';
+    document.getElementById('det_mtr_instansi').innerText = m.instansi || '-';
+    document.getElementById('det_mtr_alamat').innerText = m.alamat || '-';
+    document.getElementById('det_mtr_wa').innerText = m.wa || '-';
+    document.getElementById('det_mtr_email').innerText = m.email || '-';
+    document.getElementById('det_mtr_bank').innerText = m.bank || '-';
+    document.getElementById('det_mtr_rekening').innerText = m.rekening || '-';
+    document.getElementById('det_mtr_an_rekening').innerText = m.an_rekening ? "A.N ".concat(m.an_rekening) : '-';
+    openModal('modalDetailMitra');
+  }
+}
+
+function openFormMitra(id = null) {
+  document.getElementById('mtr_id').value = id || '';
+  document.getElementById('mitraModalTitle').innerText = id ? 'Edit Mitra' : 'Tambah Mitra Baru';
+
+  if (id && window.mitraData) {
+    const m = window.mitraData.find((x) => x.id === id);
+    if (m) {
+      document.getElementById('mtr_program').value = m.program || 'Teman Nasmedia';
+      document.getElementById('mtr_nama').value = m.nama || '';
+      document.getElementById('mtr_nik').value = m.nik || '';
+      document.getElementById('mtr_wa').value = m.wa || '';
+      document.getElementById('mtr_email').value = m.email || '';
+      document.getElementById('mtr_instansi').value = m.instansi || '';
+      document.getElementById('mtr_alamat').value = m.alamat || '';
+      document.getElementById('mtr_bank').value = m.bank || '';
+      document.getElementById('mtr_rekening').value = m.rekening || '';
+      document.getElementById('mtr_an_rekening').value = m.an_rekening || '';
+    }
+  } else {
+    document.getElementById('mtr_program').value = 'Teman Nasmedia';
+    document.getElementById('mtr_nama').value = '';
+    document.getElementById('mtr_nik').value = '';
+    document.getElementById('mtr_wa').value = '';
+    document.getElementById('mtr_email').value = '';
+    document.getElementById('mtr_instansi').value = '';
+    document.getElementById('mtr_alamat').value = '';
+    document.getElementById('mtr_bank').value = '';
+    document.getElementById('mtr_rekening').value = '';
+    document.getElementById('mtr_an_rekening').value = '';
+  }
+  openModal('modalMitra');
+}
+
+function handleSaveMitra(e) {
+  e.preventDefault();
+  const payload = {
+    id: document.getElementById('mtr_id').value,
+    program: document.getElementById('mtr_program').value,
+    nama: document.getElementById('mtr_nama').value,
+    nik: document.getElementById('mtr_nik').value,
+    wa: document.getElementById('mtr_wa').value,
+    email: document.getElementById('mtr_email').value,
+    instansi: document.getElementById('mtr_instansi').value,
+    alamat: document.getElementById('mtr_alamat').value,
+    bank: document.getElementById('mtr_bank').value,
+    rekening: document.getElementById('mtr_rekening').value,
+    an_rekening: document.getElementById('mtr_an_rekening').value,
+    level_mitra: document.getElementById('mtr_id').value ? undefined : 'Scholar' // Default saat tambah baru
+  };
+
+  Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => {Swal.showLoading();} });
+  gas.withSuccessHandler((res) => {
+    closeModal('modalMitra');
+    loadDataMitra();
+    Swal.fire({ icon: 'success', title: 'Tersimpan!', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
+  }).saveMitraData(payload);
+}
+
+function editMitra(id) {openFormMitra(id);}
+function deleteMitra(id) {
+  Swal.fire({ title: 'Hapus Mitra?', text: 'Data tidak dapat dikembalikan!', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: 'Ya, Hapus!' }).
+  then((result) => {
+    if (result.isConfirmed) {
+      gas.withSuccessHandler(() => {loadDataMitra();Swal.fire('Terhapus!', 'Data berhasil dihapus.', 'success');}).deleteMitraData(id);
+    }
+  });
+}
+
+function exportMitraCSV() {
+  if (!window.mitraData || window.mitraData.length === 0) return Swal.fire('Ops', 'Tidak ada data', 'warning');
+  const headers = ["Nama Lengkap", "NIK", "Email", "WhatsApp", "Tanggal Lahir", "Instansi", "Jenis Instansi", "Jabatan", "Alamat", "Bank", "No Rekening", "Atas Nama Rekening", "Skala", "Program", "Waktu Daftar", "Level Mitra"];
+  const csvRows = [headers.join(",")];
+  window.mitraData.forEach((m) => {
+    const row = [
+    '"' + (m.nama || '') + '"', '"' + (m.nik || '') + '\\t"', m.email || '', '"' + (m.wa || '') + '\\t"', m.tgl_lahir || '',
+    '"' + (m.instansi || '') + '"', '"' + (m.jenis_instansi || '') + '"', '"' + (m.jabatan || '') + '"', '"' + (m.alamat || '') + '"',
+    m.bank || '', '"' + (m.rekening || '') + '\\t"', '"' + (m.an_rekening || '') + '"', '"' + (m.skala || '') + '"', m.program || '', m.waktuDaftar || '', m.level_mitra || 'Scholar'];
+
+    csvRows.push(row.join(","));
+  });
+  const csvContent = "data:text/csv;charset=utf-8," + csvRows.join("\\n");
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", "Data_Mitra_" + new Date().toISOString().split('T')[0] + ".csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+window.handleImportMitra = function (event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  Swal.fire({ title: 'Memproses File...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+      const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { raw: false });
+      if (json.length === 0) {Swal.fire('Error', 'File kosong!', 'error');return;}
+
+      const payload = json.map((r) => {
+        const getVal = (keyNames) => {
+          for (let k of Object.keys(r)) {
+            if (keyNames.some((kn) => k.toLowerCase().includes(kn.toLowerCase()))) return r[k];
+          }
+          return '';
+        };
+
+        return {
+          nama: getVal(['Nama Lengkap', 'Nama']),
+          nik: getVal(['NIK']),
+          email: getVal(['Email']),
+          wa: getVal(['WhatsApp', 'WA', 'No HP']),
+          tgl_lahir: getVal(['Tanggal Lahir', 'Tgl Lahir', 'Lahir']),
+          instansi: getVal(['Instansi']),
+          jenis_instansi: getVal(['Jenis Instansi', 'Jenis']),
+          jabatan: getVal(['Jabatan']),
+          alamat: getVal(['Alamat Instansi', 'Alamat']),
+          bank: getVal(['Bank']),
+          rekening: getVal(['No Rekening', 'Rekening']),
+          an_rekening: getVal(['Atas Nama', 'A.N']),
+          skala: getVal(['Skala']),
+          program: getVal(['Program']) || 'Teman Nasmedia',
+          waktuDaftar: getVal(['Waktu Daftar', 'Tanggal Daftar', 'Waktu']) || new Date().toISOString().split('T')[0],
+          level_mitra: 'Scholar'
+        };
+      }).filter((r) => r.nama);
+
+      if (payload.length === 0) {
+        Swal.fire('Error', 'Tidak ada data valid yang bisa diimpor. Pastikan format kolom sesuai.', 'error');
+        return;
+      }
+
+      gas.withSuccessHandler(() => {
+        loadDataMitra();
+        Swal.fire('Berhasil', payload.length + ' data mitra berhasil diimpor.', 'success');
+      }).importMitraData(payload);
+    } catch (error) {
+      console.error(error);
+      Swal.fire('Error', 'Gagal membaca file Excel.', 'error');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  event.target.value = '';
+};
+
+// --- LEVEL MITRA ---
+function loadLevelMitra() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const data = res?.data || [];
+    const searchQuery = String(window._levelMitraSearch || '').trim().toLowerCase();
+    const levelFilter = window._levelMitraFilter || 'semua';
+    const levelOptions = [...new Set(data.map((m) => m.level_mitra || 'Scholar'))].sort((a, b) => a.localeCompare(b));
+    const filteredData = data.filter((m) => {
+      const currentLevel = m.level_mitra || 'Scholar';
+      const haystack = [m.nama, m.program, m.instansi, currentLevel].join(' ').toLowerCase();
+      return (!searchQuery || haystack.includes(searchQuery)) && (
+      levelFilter === 'semua' || currentLevel === levelFilter);
+    });
+    const pageSize = 10;
+    const currentPage = Math.max(1, Number(window._levelMitraPage || 1));
+    const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
+    const safePage = Math.min(currentPage, totalPages);
+    window._levelMitraPage = safePage;
+    const pagedData = filteredData.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+    content.innerHTML = "\n                    <div class=\"flex justify-between items-center mb-6\">\n                        <div class=\"flex gap-4\">\n                            <div class=\"bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 flex items-center gap-3\">\n                                <div class=\"w-8 h-8 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center\"><i class=\"fa-solid fa-ranking-star\"></i></div>\n                                <div><p class=\"text-[10px] font-bold text-slate-400 uppercase\">Distribusi Level</p>\n                                <p class=\"text-[11px] font-bold text-slate-700\">\n                                Scholar: ".concat(
+
+
+
+
+
+
+      data.filter((d) => !d.level_mitra || d.level_mitra === 'Scholar').length, " | \n                                Fellow: ").concat(
+      data.filter((d) => d.level_mitra === 'Fellow').length, " | \n                                Expert: ").concat(
+      data.filter((d) => d.level_mitra === 'Expert').length, " | \n                                Prof: ").concat(
+      data.filter((d) => d.level_mitra === 'Professor').length, "\n                                </p></div>\n                            </div>\n                        </div>\n                    </div>\n                    \n                    <div class=\"bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden\">\n                        <div class=\"p-4 border-b border-slate-100 grid grid-cols-1 md:grid-cols-[1fr_14rem] gap-3\">\n                            <input value=\"").concat(
+
+
+
+
+
+
+
+      window._levelMitraSearch || '', "\" oninput=\"window._levelMitraSearch=this.value; window._levelMitraPage=1; loadLevelMitra()\" placeholder=\"Cari nama, program, instansi...\" class=\"px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-accent-400\">\n                            <select onchange=\"window._levelMitraFilter=this.value; window._levelMitraPage=1; loadLevelMitra()\" class=\"px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none bg-white focus:border-accent-400\">\n                                <option value=\"semua\" ").concat(
+
+      levelFilter === 'semua' ? 'selected' : '', ">Semua Level</option>\n                                ").concat(
+      levelOptions.map((l) => "<option value=\"".concat(l, "\" ").concat(levelFilter === l ? 'selected' : '', ">").concat(l, "</option>")).join(''), "\n                            </select>\n                        </div>\n                        <div class=\"overflow-x-auto\">\n                            <table class=\"w-full text-sm text-left\">\n                                <thead class=\"bg-slate-50 text-xs text-slate-500 uppercase\">\n                                    <tr>\n                                        <th class=\"px-6 py-4\">No</th>\n                                        <th class=\"px-6 py-4\">Nama Mitra</th>\n                                        <th class=\"px-6 py-4\">Program</th>\n                                        <th class=\"px-6 py-4\">Current Level</th>\n                                        <th class=\"px-6 py-4\">Aksi Leveling</th>\n                                    </tr>\n                                </thead>\n                                <tbody class=\"divide-y divide-slate-100\">\n                                    ").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      filteredData.length === 0 ? "<tr><td colspan=\"5\" class=\"px-6 py-8 text-center text-slate-400\">Belum ada data mitra sesuai pencarian/filter</td></tr>" :
+      pagedData.map((m, i) => "\n                                        <tr class=\"hover:bg-slate-50 transition-colors\">\n                                            <td class=\"px-6 py-4 font-medium\">".concat(
+
+        (safePage - 1) * pageSize + i + 1, "</td>\n                                            <td class=\"px-6 py-4 font-bold text-slate-800\">").concat(
+        m.nama, "</td>\n                                            <td class=\"px-6 py-4 text-xs\">").concat(
+        m.program || '-', "</td>\n                                            <td class=\"px-6 py-4\">\n                                                <span class=\"px-3 py-1 rounded-full text-xs font-bold \n                                                    ").concat(
+
+
+        !m.level_mitra || m.level_mitra === 'Scholar' ? 'bg-slate-100 text-slate-600' :
+        m.level_mitra === 'Fellow' ? 'bg-blue-100 text-blue-700' :
+        m.level_mitra === 'Expert' ? 'bg-emerald-100 text-emerald-700' :
+        'bg-purple-100 text-purple-700', "\">\n                                                    <i class=\"fa-solid ").concat(
+        m.level_mitra === 'Professor' ? 'fa-crown' : m.level_mitra === 'Expert' ? 'fa-star' : m.level_mitra === 'Fellow' ? 'fa-medal' : 'fa-user', " mr-1\"></i>\n                                                    ").concat(
+        m.level_mitra || 'Scholar', "\n                                                </span>\n                                            </td>\n                                            <td class=\"px-6 py-4\">\n                                                <button onclick=\"editLevelMitra('").concat(
+
+
+
+        m.id, "', '").concat(m.nama, "', '").concat(m.level_mitra || 'Scholar', "')\" class=\"text-xs bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg shadow transition-colors\">Update Level</button>\n                                            </td>\n                                        </tr>\n                                    ")
+
+
+      ).join(''), "\n                                </tbody>\n                            </table>\n                        </div>\n                        <div class=\"flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-5 py-4 border-t border-slate-100\">\n                            <div class=\"text-[10px] font-bold text-slate-400\">Menampilkan ").concat(
+
+
+
+
+      pagedData.length, " dari ").concat(filteredData.length, " mitra &bull; Halaman ").concat(safePage, " / ").concat(totalPages, "</div>\n                            <div class=\"flex items-center gap-2\">\n                                <button onclick=\"window._levelMitraPage=Math.max(1,(window._levelMitraPage||1)-1); loadLevelMitra()\" class=\"px-3 py-2 rounded-lg border border-slate-200 text-xs font-black text-slate-500 hover:border-accent-200 hover:text-accent-600\">Prev</button>\n                                <span class=\"px-3 py-2 rounded-lg bg-accent-50 text-accent-600 text-xs font-black\">").concat(
+
+
+      safePage, "</span>\n                                <button onclick=\"window._levelMitraPage=Math.min(").concat(
+      totalPages, ",(window._levelMitraPage||1)+1); loadLevelMitra()\" class=\"px-3 py-2 rounded-lg border border-slate-200 text-xs font-black text-slate-500 hover:border-accent-200 hover:text-accent-600\">Next</button>\n                            </div>\n                        </div>\n                    </div>\n                ");
+
+
+
+
+  }).getMitraData();
+}
+
+function editLevelMitra(id, nama, level) {
+  document.getElementById('lvl_mitra_id').value = id;
+  document.getElementById('lvl_mitra_nama').value = nama;
+  document.getElementById('lvl_mitra_level').value = level;
+  openModal('modalLevelMitra');
+}
+
+function handleUpdateLevelMitra(e) {
+  e.preventDefault();
+
+  const payload = {
+    id: document.getElementById('lvl_mitra_id').value,
+    level_mitra: document.getElementById('lvl_mitra_level').value
+  };
+
+  Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => {Swal.showLoading();} });
+  gas.withSuccessHandler((res) => {
+    closeModal('modalLevelMitra');
+    loadLevelMitra();
+    Swal.fire({ icon: 'success', title: 'Level Diupdate!', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
+  }).saveMitraData(payload); // saveMitraData will update existing record since it finds by ID
+}
+
+// --- KOMISI MITRA ---
+function loadKomisiMitra() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const data = res?.data || [];
+    const searchQuery = String(window._komisiMitraSearch || '').trim().toLowerCase();
+    const statusFilter = window._komisiMitraStatus || 'semua';
+    const statusOptions = [...new Set(data.map((k) => k.status_bayar || 'Belum Dibayar'))].sort((a, b) => a.localeCompare(b));
+    const filteredData = data.filter((k) => {
+      const currentStatus = k.status_bayar || 'Belum Dibayar';
+      const haystack = [k.mitra_nama, k.mitra_program, k.calon_penulis, k.kontak_penulis, k.instansi_penulis, k.jenis_layanan, currentStatus].join(' ').toLowerCase();
+      return (!searchQuery || haystack.includes(searchQuery)) && (
+      statusFilter === 'semua' || currentStatus === statusFilter);
+    });
+    const pageSize = 10;
+    const currentPage = Math.max(1, Number(window._komisiMitraPage || 1));
+    const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
+    const safePage = Math.min(currentPage, totalPages);
+    window._komisiMitraPage = safePage;
+    const pagedData = filteredData.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+    content.innerHTML = "\n                    <div class=\"flex justify-between items-center mb-6\">\n                        <div class=\"flex gap-4\">\n                            <div class=\"bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 flex items-center gap-3\">\n                                <div class=\"w-8 h-8 rounded-lg bg-green-50 text-green-500 flex items-center justify-center\"><i class=\"fa-solid fa-money-bill-wave\"></i></div>\n                                <div><p class=\"text-[10px] font-bold text-slate-400 uppercase\">Total Klaim Komisi</p><p class=\"font-black text-lg text-slate-800\">".concat(
+
+
+
+
+      data.length, "</p></div>\n                            </div>\n                        </div>\n                        <div class=\"flex gap-2\">\n                            <button onclick=\"openFormKomisi()\" class=\"btn-gradient text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md\"><i class=\"fa-solid fa-plus mr-2\"></i>Input Klaim</button>\n                        </div>\n                    </div>\n                    \n                    <div class=\"bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden\">\n                        <div class=\"p-4 border-b border-slate-100 grid grid-cols-1 md:grid-cols-[1fr_14rem] gap-3\">\n                            <input value=\"").concat(
+
+
+
+
+
+
+
+
+
+      window._komisiMitraSearch || '', "\" oninput=\"window._komisiMitraSearch=this.value; window._komisiMitraPage=1; loadKomisiMitra()\" placeholder=\"Cari mitra, calon penulis, layanan...\" class=\"px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-accent-400\">\n                            <select onchange=\"window._komisiMitraStatus=this.value; window._komisiMitraPage=1; loadKomisiMitra()\" class=\"px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none bg-white focus:border-accent-400\">\n                                <option value=\"semua\" ").concat(
+
+      statusFilter === 'semua' ? 'selected' : '', ">Semua Status Bayar</option>\n                                ").concat(
+      statusOptions.map((s) => "<option value=\"".concat(s, "\" ").concat(statusFilter === s ? 'selected' : '', ">").concat(s, "</option>")).join(''), "\n                            </select>\n                        </div>\n                        <div class=\"overflow-x-auto\">\n                            <table class=\"w-full text-sm text-left\">\n                                <thead class=\"bg-slate-50 text-xs text-slate-500 uppercase\">\n                                    <tr>\n                                        <th class=\"px-6 py-4\">Tgl Referensi</th>\n                                        <th class=\"px-6 py-4\">Nama Mitra</th>\n                                        <th class=\"px-6 py-4\">Calon Penulis</th>\n                                        <th class=\"px-6 py-4\">Nominal (Rp)</th>\n                                        <th class=\"px-6 py-4\">Status Bayar</th>\n                                        <th class=\"px-6 py-4\">Aksi</th>\n                                    </tr>\n                                </thead>\n                                <tbody class=\"divide-y divide-slate-100\">\n                                    ").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      filteredData.length === 0 ? "<tr><td colspan=\"6\" class=\"px-6 py-8 text-center text-slate-400\">Belum ada data klaim komisi sesuai pencarian/filter</td></tr>" :
+      pagedData.map((m, i) => "\n                                        <tr class=\"hover:bg-slate-50 transition-colors\">\n                                            <td class=\"px-6 py-4 font-medium text-xs\">".concat(
+
+        m.tgl_referensi || '-', "</td>\n                                            <td class=\"px-6 py-4 font-bold text-slate-800\">").concat(
+        m.mitra_nama || '-', " <br><span class=\"text-[10px] text-slate-400 font-normal\">").concat(m.mitra_program || '-', "</span></td>\n                                            <td class=\"px-6 py-4\">").concat(
+        m.calon_penulis || '-', "</td>\n                                            <td class=\"px-6 py-4 font-bold text-emerald-600\">Rp ").concat(
+        (Number(m.nominal_komisi) || 0).toLocaleString('id-ID'), "</td>\n                                            <td class=\"px-6 py-4\">\n                                                <span class=\"px-2 py-1 rounded-md text-[10px] font-bold ").concat(
+
+        m.status_bayar === 'Sudah Dibayar' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700', "\">").concat(m.status_bayar || 'Belum Dibayar', "</span>\n                                            </td>\n                                            <td class=\"px-6 py-4\">\n                                                <button onclick=\"editKomisi('").concat(
+
+
+        m.id, "')\" class=\"w-8 h-8 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 transition-colors mr-1\"><i class=\"fa-solid fa-pen\"></i></button>\n                                                <button onclick=\"deleteKomisi('").concat(
+        m.id, "')\" class=\"w-8 h-8 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors\"><i class=\"fa-solid fa-trash\"></i></button>\n                                            </td>\n                                        </tr>\n                                    ")
+
+
+      ).join(''), "\n                                </tbody>\n                            </table>\n                        </div>\n                        <div class=\"flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-5 py-4 border-t border-slate-100\">\n                            <div class=\"text-[10px] font-bold text-slate-400\">Menampilkan ").concat(
+
+
+
+
+      pagedData.length, " dari ").concat(filteredData.length, " klaim &bull; Halaman ").concat(safePage, " / ").concat(totalPages, "</div>\n                            <div class=\"flex items-center gap-2\">\n                                <button onclick=\"window._komisiMitraPage=Math.max(1,(window._komisiMitraPage||1)-1); loadKomisiMitra()\" class=\"px-3 py-2 rounded-lg border border-slate-200 text-xs font-black text-slate-500 hover:border-accent-200 hover:text-accent-600\">Prev</button>\n                                <span class=\"px-3 py-2 rounded-lg bg-accent-50 text-accent-600 text-xs font-black\">").concat(
+
+
+      safePage, "</span>\n                                <button onclick=\"window._komisiMitraPage=Math.min(").concat(
+      totalPages, ",(window._komisiMitraPage||1)+1); loadKomisiMitra()\" class=\"px-3 py-2 rounded-lg border border-slate-200 text-xs font-black text-slate-500 hover:border-accent-200 hover:text-accent-600\">Next</button>\n                            </div>\n                        </div>\n                    </div>\n                ");
+
+
+
+
+    window.komisiData = data;
+  }).getKomisiData();
+}
+
+function calculateKomisi() {
+  const omset = Number(document.getElementById('kms_omset').value) || 0;
+  const persen = Number(document.getElementById('kms_persen').value) || 0;
+  document.getElementById('kms_nominal_komisi').value = (omset * persen / 100).toFixed(0);
+}
+
+function populateMitraDropdownForKomisi(selectedId = '') {
+  const sel = document.getElementById('kms_mitra_id');
+  sel.innerHTML = '<option value="">Loading...</option>';
+  gas.withSuccessHandler((res) => {
+    const data = res?.data || [];
+    window.cachedMitraForKomisi = data;
+    sel.innerHTML = '<option value="">Pilih Mitra...</option>' + data.map((m) => "<option value=\"".concat(m.id, "\" ").concat(m.id === selectedId ? 'selected' : '', ">").concat(m.nama, " (").concat(m.program || 'Mitra', ")</option>")).join('');
+  }).getMitraData();
+}
+
+function openFormKomisi(id = null) {
+  document.getElementById('kms_id').value = id || '';
+  document.getElementById('komisiModalTitle').innerText = id ? 'Edit Klaim Komisi' : 'Input Klaim Komisi Baru';
+
+  if (id && window.komisiData) {
+    const k = window.komisiData.find((x) => x.id === id);
+    if (k) {
+      populateMitraDropdownForKomisi(k.mitra_id);
+      document.getElementById('kms_calon_penulis').value = k.calon_penulis || '';
+      document.getElementById('kms_tgl_referensi').value = k.tgl_referensi || '';
+      document.getElementById('kms_omset').value = k.omset || '';
+      document.getElementById('kms_persen').value = k.persen || '';
+      document.getElementById('kms_nominal_komisi').value = k.nominal_komisi || '';
+      document.getElementById('kms_status_bayar').value = k.status_bayar || 'Belum Dibayar';
+    }
+  } else {
+    populateMitraDropdownForKomisi();
+    document.getElementById('kms_calon_penulis').value = '';
+    document.getElementById('kms_tgl_referensi').value = new Date().toISOString().split('T')[0];
+    document.getElementById('kms_omset').value = '';
+    document.getElementById('kms_persen').value = '10'; // Default 10%
+    document.getElementById('kms_nominal_komisi').value = '';
+    document.getElementById('kms_status_bayar').value = 'Belum Dibayar';
+  }
+  openModal('modalKomisi');
+}
+
+function handleSaveKomisi(e) {
+  e.preventDefault();
+
+  const mitraId = document.getElementById('kms_mitra_id').value;
+  const selectedMitra = (window.cachedMitraForKomisi || []).find((m) => m.id === mitraId) || {};
+
+  const payload = {
+    id: document.getElementById('kms_id').value,
+    mitra_id: mitraId,
+    mitra_nama: selectedMitra.nama || '',
+    mitra_program: selectedMitra.program || '',
+    calon_penulis: document.getElementById('kms_calon_penulis').value,
+    tgl_referensi: document.getElementById('kms_tgl_referensi').value,
+    omset: document.getElementById('kms_omset').value,
+    persen: document.getElementById('kms_persen').value,
+    nominal_komisi: document.getElementById('kms_nominal_komisi').value,
+    status_bayar: document.getElementById('kms_status_bayar').value
+  };
+
+  Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => {Swal.showLoading();} });
+  gas.withSuccessHandler((res) => {
+    closeModal('modalKomisi');
+    loadKomisiMitra();
+    Swal.fire({ icon: 'success', title: 'Tersimpan!', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
+  }).saveKomisiData(payload);
+}
+
+function editKomisi(id) {openFormKomisi(id);}
+function deleteKomisi(id) {
+  Swal.fire({ title: 'Hapus Komisi?', text: 'Data tidak dapat dikembalikan!', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: 'Ya, Hapus!' }).
+  then((result) => {
+    if (result.isConfirmed) {
+      gas.withSuccessHandler(() => {loadKomisiMitra();Swal.fire('Terhapus!', 'Data berhasil dihapus.', 'success');}).deleteKomisiData(id);
+    }
+  });
+}
+// --- INPUT CETAK CS ---
+function loadInputCetak() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const allKpi = res?.data || [];
+    let data = allKpi.filter((k) => k.picName === state.user.nama && k.jenis === 'Cetak');
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const dataThisMonth = data.filter((k) => k.tanggal && k.tanggal.startsWith(currentMonth));
+    data = dataThisMonth;
+    const paymentAmount = (k) => k.statusPayment === 'DP' ? Number(k.nominalDP || 0) : Number(k.nominal || 0);
+    const totalNominal = dataThisMonth.reduce((a, k) => a + paymentAmount(k), 0);
+    const totalKPI = dataThisMonth.reduce((a, k) => a + Number(k.jumlahKinerja || 0), 0);
+    const formatRp = (v) => 'Rp ' + Number(v).toLocaleString('id-ID');
+
+    content.innerHTML = "\n                    ".concat(
+      renderCSMobileInputTabs('cetak'), "\n                    <div class=\"flex flex-wrap gap-4 mb-6\">\n                        <div class=\"bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 flex items-center gap-3\">\n                            <div class=\"w-8 h-8 rounded-lg bg-purple-50 text-purple-500 flex items-center justify-center\"><i class=\"fa-solid fa-print\"></i></div>\n                            <div><p class=\"text-[10px] font-bold text-slate-400 uppercase\">Total Cetak (Bulan Ini)</p><p class=\"font-black text-lg text-slate-800\">").concat(
+
+
+
+      totalKPI, " Poin</p></div>\n                        </div>\n                        <div class=\"bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 flex items-center gap-3\">\n                            <div class=\"w-8 h-8 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center\"><i class=\"fa-solid fa-rupiah-sign\"></i></div>\n                            <div><p class=\"text-[10px] font-bold text-slate-400 uppercase\">Total Nominal (Bulan Ini)</p><p class=\"font-black text-lg text-emerald-600\">").concat(
+
+
+
+      formatRp(totalNominal), "</p></div>\n                        </div>\n                    </div>\n\n                    <div class=\"flex justify-between items-center mb-4\">\n                        <h3 class=\"font-bold text-slate-800\"><i class=\"fa-solid fa-print text-purple-500 mr-2\"></i>Riwayat Input Cetak</h3>\n                        <button onclick=\"openFormCetak()\" class=\"btn-gradient text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md\"><i class=\"fa-solid fa-plus mr-2\"></i>Input Cetak</button>\n                    </div>\n\n                    <div class=\"bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden\">\n                        <div class=\"overflow-x-auto\">\n                            <table class=\"w-full text-sm text-left\">\n                                <thead class=\"bg-slate-50 text-xs text-slate-500 uppercase\">\n                                    <tr>\n                                        <th class=\"px-6 py-4\">Tanggal</th>\n                                        <th class=\"px-6 py-4\">Judul</th>\n                                        <th class=\"px-6 py-4\">Spesifikasi</th>\n                                        <th class=\"px-6 py-4\">Nominal</th>\n                                        <th class=\"px-6 py-4\">Pembayaran</th>\n                                        <th class=\"px-6 py-4\">Nilai KPI</th>\n                                        <th class=\"px-6 py-4\">Aksi</th>\n                                    </tr>\n                                </thead>\n                                <tbody class=\"divide-y divide-slate-100\">\n                                    ").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      data.length === 0 ? '<tr><td colspan="7" class="px-6 py-8 text-center text-slate-400">Belum ada data input cetak</td></tr>' :
+      data.sort((a, b) => (b.tanggal || '').localeCompare(a.tanggal || '')).map((k) => "\n                                        <tr class=\"hover:bg-slate-50 transition-colors\">\n                                            <td class=\"px-6 py-4 text-xs font-medium\">".concat(
+
+        k.tanggal || '-', "</td>\n                                            <td class=\"px-6 py-4\">\n                                                <div class=\"font-bold text-slate-800\">").concat(
+
+        k.judul || '-', "</div>\n                                                ").concat(
+        k.kotaAsal ? "<div class=\"text-[10px] text-slate-400 mt-0.5\"><i class=\"fa-solid fa-location-dot mr-1\"></i>".concat(k.kotaAsal, "</div>") : '', "\n                                            </td>\n                                            <td class=\"px-6 py-4 text-xs\">").concat(
+
+        k.spesifikasi || '-', "</td>\n                                            <td class=\"px-6 py-4 font-bold text-emerald-600\">").concat(
+        formatRp(k.nominal || 0), "</td>\n                                            <td class=\"px-6 py-4\">\n                                                <span class=\"px-2 py-1 rounded-md text-[10px] font-bold ").concat(
+
+        (k.statusPayment || 'Full Payment') === 'DP' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700', "\">").concat(k.statusPayment || 'Full Payment', "</span>\n                                                ").concat(
+        (k.statusPayment || 'Full Payment') === 'DP' ? "<div class=\"mt-1 text-[10px] font-bold text-amber-600\">DP: ".concat(formatRp(k.nominalDP || 0), "</div>") : '', "\n                                            </td>\n                                            <td class=\"px-6 py-4\"><span class=\"px-2 py-1 rounded-md text-xs font-bold bg-purple-100 text-purple-700\">").concat(
+
+        k.jumlahKinerja || 0, " Poin</span></td>\n                                            <td class=\"px-6 py-4\">\n                                                <button onclick=\"openFormCetak('").concat(
+
+        k.id, "')\" class=\"w-8 h-8 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 transition-colors mr-1\"><i class=\"fa-solid fa-pen\"></i></button>\n                                                <button onclick=\"deleteCetakEntry('").concat(
+        k.id, "')\" class=\"w-8 h-8 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors\"><i class=\"fa-solid fa-trash\"></i></button>\n                                            </td>\n                                        </tr>\n                                    ")
+
+
+      ).join(''), "\n                                </tbody>\n                            </table>\n                        </div>\n                    </div>\n                ");
+
+
+
+
+
+    window.cetakData = data;
+  }).getKPIData();
+}
+
+function openFormCetak(id = null) {
+  const k = id && window.cetakData ? window.cetakData.find((x) => String(x.id) === String(id)) : null;
+  const data = k ? {
+    kpiId: k.id || '',
+    tanggal: k.tanggal || '',
+    nilaiKpi: k.jumlahKinerja || '',
+    judul: k.judul || '',
+    kotaAsal: k.kotaAsal || '',
+    nominal: k.nominal || '',
+    statusPayment: k.statusPayment || 'Full Payment',
+    nominalDP: k.nominalDP || ''
+  } : null;
+  if (typeof window.openInputCetakDialog === 'function') {
+    return window.openInputCetakDialog(data);
+  }
+  Swal.fire('Form Cetak Belum Siap', 'Modul input cetak baru belum termuat. Reload halaman lalu coba lagi.', 'warning');
+}
+
+function toggleCetakDPField(value) {
+  const wrap = document.getElementById('cetak_dp_wrap');
+  const input = document.getElementById('cetak_nominal_dp');
+  if (!wrap || !input) return;
+  wrap.classList.toggle('hidden', value !== 'DP');
+  input.required = value === 'DP';
+  if (value !== 'DP') input.value = '';
+}
+
+function handleSaveCetak(e) {
+  if (e) e.preventDefault();
+  if (typeof window.saveCetakModalForm === 'function') {
+    window.saveCetakModalForm(e);
+    return;
+  }
+  Swal.fire('Form Cetak Belum Siap', 'Modul input cetak baru belum termuat. Reload halaman lalu coba lagi.', 'warning');
+}
+
+function deleteCetakEntry(id) {
+  Swal.fire({ title: 'Hapus Data Cetak?', text: 'Data tidak dapat dikembalikan!', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: 'Ya, Hapus!' }).
+  then((r) => {if (r.isConfirmed) gas.withSuccessHandler(() => {loadInputCetak();Swal.fire('Terhapus!', '', 'success');}).deleteKPI(id);});
+}
+
+// --- INPUT LAINNYA CS ---
+function loadInputLainnya() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const allKpi = res?.data || [];
+    let data = allKpi.filter((k) => k.picName === state.user.nama && k.jenis === 'Lainnya');
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const dataThisMonth = data.filter((k) => k.tanggal && k.tanggal.startsWith(currentMonth));
+    data = dataThisMonth;
+    const paymentAmount = (k) => k.statusPayment === 'DP' ? Number(k.nominalDP || 0) : Number(k.nominal || 0);
+    const totalNominal = dataThisMonth.reduce((a, k) => a + paymentAmount(k), 0);
+    const formatRp = (v) => 'Rp ' + Number(v).toLocaleString('id-ID');
+
+    content.innerHTML = "\n                    ".concat(
+      renderCSMobileInputTabs('lainnya'), "\n                    <div class=\"flex flex-wrap gap-4 mb-6\">\n                        <div class=\"bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 flex items-center gap-3\">\n                            <div class=\"w-8 h-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center\"><i class=\"fa-solid fa-layer-group\"></i></div>\n                            <div><p class=\"text-[10px] font-bold text-slate-400 uppercase\">Total Entry (Bulan Ini)</p><p class=\"font-black text-lg text-slate-800\">").concat(
+
+
+
+      dataThisMonth.length, "</p></div>\n                        </div>\n                        <div class=\"bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 flex items-center gap-3\">\n                            <div class=\"w-8 h-8 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center\"><i class=\"fa-solid fa-rupiah-sign\"></i></div>\n                            <div><p class=\"text-[10px] font-bold text-slate-400 uppercase\">Total Nominal (Bulan Ini)</p><p class=\"font-black text-lg text-emerald-600\">").concat(
+
+
+
+      formatRp(totalNominal), "</p></div>\n                        </div>\n                    </div>\n\n                    <div class=\"flex justify-between items-center mb-4\">\n                        <h3 class=\"font-bold text-slate-800\"><i class=\"fa-solid fa-layer-group text-amber-500 mr-2\"></i>Riwayat Input Lainnya</h3>\n                        <button onclick=\"openFormLainnya()\" class=\"btn-gradient text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md\"><i class=\"fa-solid fa-plus mr-2\"></i>Input Lainnya</button>\n                    </div>\n\n                    <div class=\"bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden\">\n                        <div class=\"overflow-x-auto\">\n                            <table class=\"w-full text-sm text-left\">\n                                <thead class=\"bg-slate-50 text-xs text-slate-500 uppercase\">\n                                    <tr>\n                                        <th class=\"px-6 py-4\">Tanggal</th>\n                                        <th class=\"px-6 py-4\">Spesifikasi</th>\n                                        <th class=\"px-6 py-4\">Nominal</th>\n                                        <th class=\"px-6 py-4\">Pembayaran</th>\n                                        <th class=\"px-6 py-4\">Nilai KPI</th>\n                                        <th class=\"px-6 py-4\">Aksi</th>\n                                    </tr>\n                                </thead>\n                                <tbody class=\"divide-y divide-slate-100\">\n                                    ").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      data.length === 0 ? '<tr><td colspan="6" class="px-6 py-8 text-center text-slate-400">Belum ada data input lainnya</td></tr>' :
+      data.sort((a, b) => (b.tanggal || '').localeCompare(a.tanggal || '')).map((k) => "\n                                        <tr class=\"hover:bg-slate-50 transition-colors\">\n                                            <td class=\"px-6 py-4 text-xs font-medium\">".concat(
+
+        k.tanggal || '-', "</td>\n                                            <td class=\"px-6 py-4\">\n                                                <div class=\"font-bold text-slate-800\">").concat(
+
+        k.spesifikasi || '-', "</div>\n                                                ").concat(
+        k.kotaAsal ? "<div class=\"text-[10px] text-slate-400 mt-0.5\"><i class=\"fa-solid fa-location-dot mr-1\"></i>".concat(k.kotaAsal, "</div>") : '', "\n                                            </td>\n                                            <td class=\"px-6 py-4 font-bold text-emerald-600\">").concat(
+
+        formatRp(k.nominal || 0), "</td>\n                                            <td class=\"px-6 py-4\">\n                                                <span class=\"px-2 py-1 rounded-md text-[10px] font-bold ").concat(
+
+        (k.statusPayment || 'Full Payment') === 'DP' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700', "\">").concat(k.statusPayment || 'Full Payment', "</span>\n                                                ").concat(
+        (k.statusPayment || 'Full Payment') === 'DP' ? "<div class=\"mt-1 text-[10px] font-bold text-amber-600\">DP: ".concat(formatRp(k.nominalDP || 0), "</div>") : '', "\n                                            </td>\n                                            <td class=\"px-6 py-4 text-xs text-slate-400\">").concat(
+
+        k.jumlahKinerja || '-', "</td>\n                                            <td class=\"px-6 py-4\">\n                                                <button onclick=\"openFormLainnya('").concat(
+
+        k.id, "')\" class=\"w-8 h-8 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 transition-colors mr-1\"><i class=\"fa-solid fa-pen\"></i></button>\n                                                <button onclick=\"deleteLainnyaEntry('").concat(
+        k.id, "')\" class=\"w-8 h-8 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors\"><i class=\"fa-solid fa-trash\"></i></button>\n                                            </td>\n                                        </tr>\n                                    ")
+
+
+      ).join(''), "\n                                </tbody>\n                            </table>\n                        </div>\n                    </div>\n                ");
+
+
+
+
+
+    window.lainnyaData = data;
+  }).getKPIData();
+}
+
+function openFormLainnya(id = null) {
+  document.getElementById('lainnya_id').value = id || '';
+  document.getElementById('lainnyaModalTitle').innerText = id ? 'Edit Input Lainnya' : 'Input Lainnya Baru';
+  if (id && window.lainnyaData) {
+    const k = window.lainnyaData.find((x) => x.id === id);
+    if (k) {
+      document.getElementById('lainnya_tanggal').value = k.tanggal || '';
+      document.getElementById('lainnya_spesifikasi').value = k.spesifikasi || '';
+      document.getElementById('lainnya_kota_asal').value = k.kotaAsal || '';
+      document.getElementById('lainnya_nominal').value = k.nominal || '';
+      document.getElementById('lainnya_status_payment').value = k.statusPayment || 'Full Payment';
+      document.getElementById('lainnya_nominal_dp').value = k.nominalDP || '';
+      toggleLainnyaDPField(k.statusPayment || 'Full Payment');
+      document.getElementById('lainnya_nilai_kpi').value = k.jumlahKinerja || '';
+    }
+  } else {
+    document.getElementById('lainnya_tanggal').value = new Date().toISOString().split('T')[0];
+    document.getElementById('lainnya_spesifikasi').value = '';
+    document.getElementById('lainnya_kota_asal').value = '';
+    document.getElementById('lainnya_nominal').value = '';
+    document.getElementById('lainnya_status_payment').value = 'Full Payment';
+    document.getElementById('lainnya_nominal_dp').value = '';
+    toggleLainnyaDPField('Full Payment');
+    document.getElementById('lainnya_nilai_kpi').value = '';
+  }
+  openModal('modalInputLainnya');
+}
+
+function toggleLainnyaDPField(value) {
+  const wrap = document.getElementById('lainnya_dp_wrap');
+  const input = document.getElementById('lainnya_nominal_dp');
+  if (!wrap || !input) return;
+  wrap.classList.toggle('hidden', value !== 'DP');
+  input.required = value === 'DP';
+  if (value !== 'DP') input.value = '';
+}
+
+function handleSaveLainnya(e) {
+  e.preventDefault();
+  const statusPayment = document.getElementById('lainnya_status_payment').value;
+  const payload = {
+    id: document.getElementById('lainnya_id').value,
+    picName: state.user.nama,
+    tanggal: document.getElementById('lainnya_tanggal').value,
+    jenis: 'Lainnya',
+    spesifikasi: document.getElementById('lainnya_spesifikasi').value,
+    kotaAsal: document.getElementById('lainnya_kota_asal')?.value.trim() || '',
+    nominal: document.getElementById('lainnya_nominal').value,
+    statusPayment,
+    nominalDP: statusPayment === 'DP' ? document.getElementById('lainnya_nominal_dp').value : '',
+    jumlahKinerja: document.getElementById('lainnya_nilai_kpi').value || '0'
+  };
+  Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => {Swal.showLoading();} });
+  gas.withSuccessHandler((res) => {
+    closeModal('modalInputLainnya');
+    loadInputLainnya();
+    Swal.fire({ icon: 'success', title: 'Tersimpan!', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
+  }).saveKPIData(payload);
+}
+
+function deleteLainnyaEntry(id) {
+  Swal.fire({ title: 'Hapus Data?', text: 'Data tidak dapat dikembalikan!', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: 'Ya, Hapus!' }).
+  then((r) => {if (r.isConfirmed) gas.withSuccessHandler(() => {loadInputLainnya();Swal.fire('Terhapus!', '', 'success');}).deleteKPI(id);});
+}
+
+[
+'deleteBroadcastItem',
+'deleteCetakEntry',
+'deleteEventItem',
+'deleteKehadiranItem',
+'deleteKomisi',
+'deleteKontenItem',
+'deleteLainnyaEntry',
+'deleteMitra',
+'downloadExcelKehadiran',
+'editBroadcast',
+'editEvent',
+'editKomisi',
+'editKonten',
+'editLevelMitra',
+'editMitra',
+'exportMitraCSV',
+'handleImportMitra',
+'handleSaveBroadcast',
+'handleSaveCetak',
+'handleSaveEvent',
+'handleSaveKomisi',
+'handleSaveKonten',
+'handleSaveLainnya',
+'handleSaveMitra',
+'handleUpdateLevelMitra',
+'loadDashboardCampaign',
+'loadDataMitra',
+'loadKomisiMitra',
+'loadLevelMitra',
+'loadManajemenCampaign',
+'openFormBroadcast',
+'openFormCetak',
+'openFormEvent',
+'openFormKomisi',
+'openFormKonten',
+'openFormLainnya',
+'openFormMitra',
+'showCampaignList',
+'showCampaignTab',
+'viewMitra'].
+forEach((name) => {
+  try {
+    const fn = eval(name);
+    if (typeof fn === 'function') window[name] = fn;
+  } catch (error) {}
+});
+</script>

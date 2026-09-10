@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finalisasi Data Naskah</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 20px; color: #334155; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .container { max-width: 600px; width: 100%; margin: 0 auto; background: white; border-radius: 28px; box-shadow: 0 20px 60px rgba(0,0,0,0.08); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #4763FD, #6a7dfd); color: white; padding: 32px 32px 24px; text-align: center; position: relative; }
+        .logo-img { height: 48px; margin-bottom: 12px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); }
+        .header h1 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+        .header p { margin: 6px 0 0; font-size: 13px; opacity: 0.9; font-weight: 600; }
+        .content { padding: 36px 32px; }
+        .badge { display: inline-flex; align-items: center; justify-content: center; padding: 8px 16px; background: #eff2ff; color: #4763FD; border-radius: 12px; font-size: 13px; font-weight: 800; margin-bottom: 24px; font-family: ui-monospace, monospace; width: 100%; box-sizing: border-box; }
+        h2 { margin: 0 0 8px; font-size: 22px; font-weight: 900; color: #0f172a; letter-spacing: -0.5px; }
+        p.desc { margin: 0 0 28px; font-size: 14px; color: #64748b; line-height: 1.6; }
+        .form-group { margin-bottom: 24px; text-align: left; }
+        label { display: block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 10px; }
+        input, textarea { width: 100%; box-sizing: border-box; padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px; font-size: 15px; font-weight: 600; font-family: inherit; color: #0f172a; transition: all 0.2s; background: #f8fafc; }
+        input:focus, textarea:focus { outline: none; border-color: #4763FD; background: white; box-shadow: 0 0 0 4px rgba(71,99,253,0.1); }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px; }
+        .info-box { background: white; border: 2px solid #f1f5f9; border-radius: 20px; padding: 18px; text-align: left; }
+        .info-box label { margin-bottom: 6px; font-size: 10px; color: #cbd5e1; }
+        .info-box div { font-weight: 800; font-size: 15px; color: #1e293b; line-height: 1.4; }
+        
+        .author-row, .editor-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; }
+        .author-row input, .editor-row input { flex: 1; margin-bottom: 0; }
+        .remove-author-btn { width: 48px; height: 48px; flex-shrink: 0; padding: 0; display: flex; align-items: center; justify-content: center; background: #fef2f2; color: #ef4444; border-radius: 16px; font-size: 18px; box-shadow: none; border: 2px solid #fee2e2; }
+        .remove-author-btn:hover { background: #fee2e2; transform: none; box-shadow: none; }
+        .add-author-btn { width: auto; padding: 10px 16px; background: #eff2ff; color: #4763FD; border-radius: 12px; font-size: 12px; font-weight: 800; margin-bottom: 8px; box-shadow: none; display: inline-flex; align-items: center; gap: 8px; float: right; margin-top: -38px; }
+        .add-author-btn:hover { background: #e0e7ff; transform: none; box-shadow: none; }
+        .editor-toggle { display: flex; gap: 12px; align-items: flex-start; padding: 16px; background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 20px; cursor: pointer; margin-bottom: 14px; }
+        .editor-toggle input { width: 22px; height: 22px; flex-shrink: 0; margin: 0; padding: 0; cursor: pointer; }
+        .editor-toggle span { display: block; font-size: 14px; font-weight: 800; color: #0f172a; line-height: 1.3; }
+        .editor-toggle small { display: block; font-size: 12px; font-weight: 600; color: #94a3b8; margin-top: 4px; line-height: 1.4; }
+        .editor-section { display: none; margin-top: 12px; }
+        .editor-section.active { display: block; }
+        .remove-editor-btn { width: 48px; height: 48px; flex-shrink: 0; padding: 0; display: flex; align-items: center; justify-content: center; background: #fef2f2; color: #ef4444; border-radius: 16px; font-size: 18px; box-shadow: none; border: 2px solid #fee2e2; }
+        .remove-editor-btn:hover { background: #fee2e2; transform: none; box-shadow: none; }
+        .add-editor-btn { width: auto; padding: 10px 16px; background: #eff2ff; color: #4763FD; border-radius: 12px; font-size: 12px; font-weight: 800; box-shadow: none; display: inline-flex; align-items: center; gap: 8px; border: none; cursor: pointer; }
+        .add-editor-btn:hover { background: #e0e7ff; transform: none; box-shadow: none; }
+        
+        .agreement-box { display: flex; gap: 16px; padding: 20px; background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 20px; margin-bottom: 24px; text-align: left; align-items: flex-start; cursor: pointer; transition: all 0.2s; }
+        .agreement-box:hover { border-color: #cbd5e1; }
+        .agreement-box input[type="checkbox"] { width: 24px; height: 24px; flex-shrink: 0; margin: 0; margin-top: 2px; cursor: pointer; border-radius: 6px; }
+        .agreement-box label { font-size: 13px; color: #475569; font-weight: 600; text-transform: none; letter-spacing: normal; cursor: pointer; margin: 0; line-height: 1.5; }
+        .agreement-box label strong { color: #0f172a; font-weight: 800; }
+        
+        button.main-btn { width: 100%; padding: 18px; background: linear-gradient(135deg, #4763FD, #3b52d9); color: white; border: none; border-radius: 16px; font-size: 16px; font-weight: 800; cursor: pointer; transition: all 0.2s; box-shadow: 0 8px 24px rgba(71,99,253,0.3); }
+        button.main-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(71,99,253,0.4); }
+        button.main-btn:disabled { background: #cbd5e1; cursor: not-allowed; box-shadow: none; transform: none; }
+        
+        .loading-screen, .error-screen, .success-screen { text-align: center; padding: 40px 20px; }
+        .icon { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; font-weight: 900; }
+        .icon.error { background: #fef2f2; color: #ef4444; font-size: 36px; }
+        .icon.success { background: #ecfdf5; color: #10b981; font-size: 32px; }
+        
+        #mainForm { display: none; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="https://nasmedia.id/wp-content/uploads/2022/03/logo-baru-nasmedia-kecil.png" alt="Nasmedia" class="logo-img" onerror="this.style.display='none'">
+            <h1>Portal Penulis</h1>
+            <p>Sistem Finalisasi Data Naskah</p>
+        </div>
+        
+        <div class="content">
+            <div id="statusArea" class="loading-screen">
+                <h2 style="color:#94a3b8;">Memuat data...</h2>
+            </div>
+
+            <form id="tokenForm" style="display:none; text-align:center;">
+                <div class="icon" style="background:#eff2ff; color:#4763FD; margin:0 auto 20px; font-size:24px;"><i class="fa-solid fa-key"></i></div>
+                <h2 style="font-size:22px;">Masukkan Token</h2>
+                <p class="desc">Masukkan Token Rahasia Naskah yang diberikan oleh Admin kami.</p>
+                <div class="form-group" style="margin-bottom:24px;">
+                    <input type="text" id="inputToken" placeholder="Contoh: a1b2c3d4..." required style="text-align:center; font-family:monospace; font-size:18px; letter-spacing:1px; background:#f8fafc;">
+                </div>
+                <button type="submit" id="btnVerifyToken" class="main-btn">Lanjutkan</button>
+            </form>
+
+            <form id="mainForm" style="display:none;">
+                <div class="badge" id="displayCode"></div>
+                <h2>Konfirmasi Data Final</h2>
+                <p class="desc">Mohon isi judul final dan nama penulis final sesuai yang akan dipakai dalam administrasi naskah dan produksi.</p>
+
+                <div class="form-group">
+                    <label>Judul Final *</label>
+                    <input type="text" id="judul" required>
+                </div>
+
+                <div class="form-group" style="position: relative;">
+                    <label>Nama Penulis *</label>
+                    <button type="button" id="btnAddAuthor" class="add-author-btn"><i class="fa-solid fa-plus"></i>Tambah Penulis</button>
+                    <div id="authorListContainer"></div>
+                    <p style="font-size:12px; color:#94a3b8; margin-top:12px; margin-bottom:0;">Penulis pertama akan menjadi penulis utama. Jika lebih dari satu, tampilan umum menjadi "Penulis Utama, dkk".</p>
+                </div>
+
+                <div class="form-group">
+                    <label class="editor-toggle" for="hasEditor">
+                        <input type="checkbox" id="hasEditor">
+                        <span>Tambahkan nama editor<small>Opsional. Centang jika naskah memiliki editor.</small></span>
+                    </label>
+                    <div id="editorSection" class="editor-section">
+                        <div id="editorListContainer"></div>
+                        <button type="button" id="btnAddEditor" class="add-editor-btn"><i class="fa-solid fa-plus"></i>Tambah Editor</button>
+                    </div>
+                </div>
+
+                <div class="info-grid">
+                    <div class="info-box">
+                        <label>Penerbit</label>
+                        <div id="displayPenerbit"></div>
+                    </div>
+                    <div class="info-box">
+                        <label>Paket</label>
+                        <div id="displayPaket"></div>
+                    </div>
+                </div>
+
+                <label class="agreement-box">
+                    <input type="checkbox" id="agreementCheck" required>
+                    <label for="agreementCheck">Dengan mengirimkan ini, saya sepakat bahwa <strong>judul yang saya berikan sudah sesuai untuk menjadi judul buku</strong> dan <strong>nama penulis fix saya</strong> sebagai keperluan administrasi dalam pengajuan ISBN.</label>
+                </label>
+
+                <button type="submit" id="submitBtn" class="main-btn">Kirim Data Final</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        var code = "<?= publicCode ?>";
+        var token = "<?= publicToken ?>";
+        var form = document.getElementById('mainForm');
+        var tokenForm = document.getElementById('tokenForm');
+        var statusArea = document.getElementById('statusArea');
+        var btn = document.getElementById('submitBtn');
+
+        function showError(msg) {
+            form.style.display = 'none';
+            tokenForm.style.display = 'none';
+            statusArea.style.display = 'block';
+            statusArea.className = 'error-screen';
+            statusArea.innerHTML = '<div class="icon error">!</div><h2>Gagal</h2><p class="desc">' + msg + '</p>' +
+            '<button onclick="location.reload()" style="margin-top:20px; max-width:200px; padding:12px;">Coba Lagi</button>';
+        }
+
+        function showSuccess() {
+            form.style.display = 'none';
+            tokenForm.style.display = 'none';
+            statusArea.style.display = 'block';
+            statusArea.className = 'success-screen';
+            statusArea.innerHTML = '<div class="icon success">✓</div><h2>Data Terkirim</h2><p class="desc">Terima kasih. Data final naskah sudah masuk ke sistem dan menunggu administrasi.</p>';
+        }
+        
+        function loadNaskah(c, t) {
+            statusArea.style.display = 'block';
+            statusArea.className = 'loading-screen';
+            statusArea.innerHTML = '<h2 style="color:#94a3b8;">Memuat data...</h2>';
+            tokenForm.style.display = 'none';
+            form.style.display = 'none';
+            
+            google.script.run
+                .withSuccessHandler(function(res) {
+                    if (!res || !res.success) {
+                        showError(res ? res.message : 'Gagal memuat data');
+                        return;
+                    }
+                    if (res.data.submitted) {
+                        showSuccess();
+                        return;
+                    }
+                    code = res.data.trackingCode || c;
+                    token = t; // save the active token
+                    
+                    statusArea.style.display = 'none';
+                    form.style.display = 'block';
+                    
+                    document.getElementById('displayCode').innerText = code;
+                    document.getElementById('displayPenerbit').innerText = res.data.penerbit || '-';
+                    document.getElementById('displayPaket').innerText = res.data.paket || '-';
+                    document.getElementById('judul').value = res.data.judul || '';
+                    
+                    var authors = res.data.penulisList || [];
+                    if (authors.length === 0 && res.data.penulis) authors = [res.data.penulis];
+                    renderAuthorInputs(authors.length ? authors : ['']);
+
+                    var editors = res.data.editorList || [];
+                    renderEditorInputs(editors.length ? editors : ['']);
+                    document.getElementById('hasEditor').checked = editors.length > 0;
+                    toggleEditorSection();
+                })
+                .withFailureHandler(function(err) {
+                    showError(err.message || 'Server tidak merespons');
+                })
+                .getNaskahFinalDataForm(c, t);
+        }
+
+        var authorListContainer = document.getElementById('authorListContainer');
+        var btnAddAuthor = document.getElementById('btnAddAuthor');
+        var editorListContainer = document.getElementById('editorListContainer');
+        var btnAddEditor = document.getElementById('btnAddEditor');
+        var hasEditor = document.getElementById('hasEditor');
+        var editorSection = document.getElementById('editorSection');
+
+        function renderAuthorInputs(authors) {
+            authorListContainer.innerHTML = '';
+            authors.forEach(function(author, index) {
+                var row = document.createElement('div');
+                row.className = 'author-row';
+                
+                var input = document.createElement('input');
+                input.type = 'text';
+                input.value = author;
+                input.placeholder = 'Nama Penulis ' + (index + 1);
+                input.required = index === 0;
+                
+                row.appendChild(input);
+                
+                if (index > 0) {
+                    var delBtn = document.createElement('button');
+                    delBtn.type = 'button';
+                    delBtn.className = 'remove-author-btn';
+                    delBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                    delBtn.onclick = function() { row.remove(); };
+                    row.appendChild(delBtn);
+                }
+                
+                authorListContainer.appendChild(row);
+            });
+        }
+        
+        btnAddAuthor.onclick = function() {
+            var inputs = authorListContainer.querySelectorAll('input');
+            var currentAuthors = Array.from(inputs).map(function(i) { return i.value; });
+            currentAuthors.push('');
+            renderAuthorInputs(currentAuthors);
+            var newInputs = authorListContainer.querySelectorAll('input');
+            if (newInputs.length > 0) newInputs[newInputs.length - 1].focus();
+        };
+
+        function toggleEditorSection() {
+            if (hasEditor.checked) {
+                editorSection.classList.add('active');
+                if (editorListContainer.querySelectorAll('input').length === 0) renderEditorInputs(['']);
+            } else {
+                editorSection.classList.remove('active');
+            }
+        }
+
+        function renderEditorInputs(editors) {
+            editorListContainer.innerHTML = '';
+            editors.forEach(function(editor, index) {
+                var row = document.createElement('div');
+                row.className = 'editor-row';
+
+                var input = document.createElement('input');
+                input.type = 'text';
+                input.value = editor;
+                input.placeholder = 'Nama Editor ' + (index + 1);
+
+                var delBtn = document.createElement('button');
+                delBtn.type = 'button';
+                delBtn.className = 'remove-editor-btn';
+                delBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                delBtn.onclick = function() {
+                    if (editorListContainer.querySelectorAll('.editor-row').length <= 1) {
+                        input.value = '';
+                        return;
+                    }
+                    row.remove();
+                };
+
+                row.appendChild(input);
+                row.appendChild(delBtn);
+                editorListContainer.appendChild(row);
+            });
+        }
+
+        hasEditor.onchange = toggleEditorSection;
+
+        btnAddEditor.onclick = function() {
+            var inputs = editorListContainer.querySelectorAll('input');
+            var currentEditors = Array.from(inputs).map(function(i) { return i.value; });
+            currentEditors.push('');
+            renderEditorInputs(currentEditors);
+            hasEditor.checked = true;
+            toggleEditorSection();
+            var newInputs = editorListContainer.querySelectorAll('input');
+            if (newInputs.length > 0) newInputs[newInputs.length - 1].focus();
+        };
+
+        if (!code && !token) {
+            statusArea.style.display = 'none';
+            tokenForm.style.display = 'block';
+            
+            tokenForm.onsubmit = function(e) {
+                e.preventDefault();
+                var input = document.getElementById('inputToken').value.trim();
+                if (!input) return;
+                loadNaskah('', input);
+            };
+        } else {
+            loadNaskah(code, token);
+        }
+
+        form.onsubmit = function(e) {
+            e.preventDefault();
+            if (!document.getElementById('agreementCheck').checked) {
+                alert('Anda harus menyetujui pernyataan di atas sebelum mengirimkan data.');
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.innerText = 'Menyimpan...';
+            
+            var authorInputs = authorListContainer.querySelectorAll('input');
+            var editorInputs = editorListContainer.querySelectorAll('input');
+            var payload = {
+                judul: document.getElementById('judul').value,
+                penulisList: Array.from(authorInputs).map(function(i) { return i.value.trim(); }).filter(Boolean),
+                editorList: hasEditor.checked ? Array.from(editorInputs).map(function(i) { return i.value.trim(); }).filter(Boolean) : []
+            };
+
+            google.script.run
+                .withSuccessHandler(function(res) {
+                    if (!res || !res.success) {
+                        btn.disabled = false;
+                        btn.innerText = 'Kirim Data Final';
+                        alert('Gagal: ' + (res ? res.message : 'Unknown error'));
+                        return;
+                    }
+                    showSuccess();
+                })
+                .withFailureHandler(function(err) {
+                    btn.disabled = false;
+                    btn.innerText = 'Kirim Data Final';
+                    alert('Gagal: ' + (err.message || 'Server error'));
+                })
+                .submitNaskahFinalData(code, token, payload);
+        };
+    </script>
+</body>
+</html>

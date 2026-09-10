@@ -1,0 +1,1091 @@
+<script>
+
+
+
+function loadDashboardMarketplace() {
+  gas.withSuccessHandler((resInit) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const d = resInit?.data || {};
+    const stokData = d.stok || [];
+    const penjualanData = d.penjualan || [];
+    const formatRp = (a) => 'Rp ' + Number(a).toLocaleString('id-ID');
+
+    const totalStokJogja = stokData.filter((s) => s.gudang === 'Jogja').reduce((a, b) => a + Number(b.stok), 0);
+    const totalStokMakassar = stokData.filter((s) => s.gudang === 'Makassar').reduce((a, b) => a + Number(b.stok), 0);
+    const totalPenjualan = penjualanData.reduce((a, b) => a + Number(b.qty), 0);
+    const totalOmzet = penjualanData.reduce((a, b) => a + Number(b.qty) * Number(b.hargaJual), 0);
+
+    const mpStats = {};
+    penjualanData.forEach((p) => {
+      if (!mpStats[p.marketplace]) mpStats[p.marketplace] = { qty: 0, omzet: 0 };
+      mpStats[p.marketplace].qty += Number(p.qty);
+      mpStats[p.marketplace].omzet += Number(p.qty) * Number(p.hargaJual);
+    });
+
+    content.innerHTML = "\n                            <div class=\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10\">\n                                ".concat(
+
+      renderStatCard('Stok Jogja', totalStokJogja + ' Eks', 'fa-warehouse', 'bg-blue-50 text-blue-600'), "\n                                ").concat(
+      renderStatCard('Stok Makassar', totalStokMakassar + ' Eks', 'fa-warehouse', 'bg-indigo-50 text-indigo-600'), "\n                                ").concat(
+      renderStatCard('Total Terjual', totalPenjualan + ' Eks', 'fa-cart-shopping', 'bg-amber-50 text-amber-600'), "\n                                ").concat(
+      renderStatCard('Total Omzet MP', formatRp(totalOmzet), 'fa-money-bill-wave', 'bg-emerald-50 text-emerald-600'), "\n                            </div>\n                            <div class=\"grid grid-cols-1 lg:grid-cols-2 gap-8\">\n                                <div class=\"bg-white p-8 rounded-3xl border border-slate-100 shadow-sm\">\n                                    <h3 class=\"font-bold text-slate-800 mb-6 flex items-center gap-2\"><i class=\"fa-solid fa-store text-accent-600\"></i> Penjualan per Marketplace</h3>\n                                    <div class=\"space-y-4\">\n                                        ").concat(
+
+
+
+
+
+      Object.keys(mpStats).length > 0 ? Object.entries(mpStats).map(([mp, d]) => {
+        const mpColor = mp === 'Shopee' ? 'text-orange-500 bg-orange-50' : mp === 'Tokopedia' ? 'text-emerald-500 bg-emerald-50' : 'text-slate-800 bg-slate-100';
+        return "<div class=\"flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100\">\n                                                <div class=\"flex items-center gap-3\"><div class=\"w-10 h-10 rounded-xl ".concat(
+          mpColor, " flex items-center justify-center font-bold text-sm\"><i class=\"fa-solid fa-shop\"></i></div>\n                                                <div><h4 class=\"font-bold text-slate-800 text-sm\">").concat(
+          mp, "</h4><p class=\"text-[10px] text-slate-400\">").concat(d.qty, " eksemplar terjual</p></div></div>\n                                                <div class=\"text-right\"><div class=\"font-mono font-bold text-emerald-600\">").concat(
+          formatRp(d.omzet), "</div></div>\n                                            </div>");
+
+      }).join('') : '<p class="text-center text-slate-300 italic py-6">Belum ada data penjualan.</p>', "\n                                    </div>\n                                </div>\n                                <div class=\"bg-white p-8 rounded-3xl border border-slate-100 shadow-sm\">\n                                    <h3 class=\"font-bold text-slate-800 mb-6 flex items-center gap-2\"><i class=\"fa-solid fa-boxes-stacked text-accent-600\"></i> Stok Rendah (< 10)</h3>\n                                    <div class=\"space-y-3 max-h-80 overflow-y-auto custom-scroll pr-2\">\n                                        ").concat(
+
+
+
+
+
+      stokData.filter((s) => s.stok < 10).map((s) => "\n                                            <div class=\"flex items-center justify-between p-4 rounded-2xl ".concat(
+        s.stok === 0 ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200', " border\">\n                                                <div><div class=\"font-bold text-slate-800 text-sm\">").concat(
+        s.judul, "</div><div class=\"text-[10px] text-slate-500\">").concat(s.gudang, "</div></div>\n                                                <span class=\"font-mono font-bold text-lg ").concat(
+        s.stok === 0 ? 'text-red-600' : 'text-amber-600', "\">").concat(s.stok, "</span>\n                                            </div>\n                                        ")
+
+      ).join('') || '<p class="text-center text-slate-300 italic py-6">Semua stok aman.</p>', "\n                                    </div>\n                                </div>\n                            </div>");
+
+
+
+  }).getInitialData();
+}
+
+function loadStokBuku() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const data = res?.data || [];
+    content.innerHTML = "\n                    <div class=\"mb-6 flex flex-col sm:flex-row gap-4 justify-end\">\n                        <div class=\"flex items-center gap-2 flex-grow sm:max-w-sm\">\n                            <span class=\"w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 flex items-center justify-center shrink-0\"><i class=\"fa-solid fa-search\"></i></span>\n                            <input type=\"text\" id=\"filterStokSearch\" onkeyup=\"filterStokBuku()\" placeholder=\"Cari judul buku...\" class=\"w-full p-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:border-accent-600\">\n                        </div>\n                        <select id=\"filterStokGudang\" onchange=\"filterStokBuku()\" class=\"p-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 outline-none focus:border-accent-600 bg-white\">\n                            <option value=\"\">Semua Gudang</option>\n                            <option value=\"Jogja\">Jogja</option>\n                            <option value=\"Makassar\">Makassar</option>\n                        </select>\n                    </div>\n                    <div class=\"bg-white rounded-3xl shadow-sm border border-slate-100 overflow-x-auto\">\n                        <table class=\"w-full text-left\">\n                            <thead class=\"bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest\">\n                                <tr><th class=\"px-8 py-4\">Judul Buku</th><th class=\"px-8 py-4\">Gudang</th><th class=\"px-8 py-4 text-center\">Stok</th><th class=\"px-8 py-4\">Update Terakhir</th><th class=\"px-8 py-4 text-center\">Aksi</th></tr>\n                            </thead>\n                            <tbody id=\"stokTbody\" class=\"divide-y divide-slate-50\">\n                                ".concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      data.map((s) => "\n                                    <tr class=\"text-[13px] hover:bg-slate-50 transition-colors stok-row\" data-judul=\"".concat(
+        s.judul.toLowerCase(), "\" data-gudang=\"").concat(s.gudang, "\">\n                                        <td class=\"px-8 py-4 font-bold text-slate-800\">").concat(
+        s.judul, "<br><span class=\"text-[10px] text-slate-400 font-mono\">").concat(s.id, "</span></td>\n                                        <td class=\"px-8 py-4\"><span class=\"px-2 py-1 rounded text-[10px] font-bold ").concat(
+        s.gudang === 'Jogja' ? 'bg-blue-50 text-blue-600' : 'bg-indigo-50 text-indigo-600', "\">").concat(s.gudang, "</span></td>\n                                        <td class=\"px-8 py-4 text-center font-mono font-bold text-lg ").concat(
+        s.stok < 10 ? s.stok === 0 ? 'text-red-600' : 'text-amber-600' : 'text-slate-800', "\">").concat(s.stok, "</td>\n                                        <td class=\"px-8 py-4 text-slate-500 text-[11px]\">").concat(
+        s.lastUpdate || '-', "</td>\n                                        <td class=\"px-8 py-4 text-center\">\n                                            <button onclick=\"editStok('").concat(
+
+        s.id, "')\" class=\"p-2 text-blue-500 hover:bg-blue-50 rounded-lg\"><i class=\"fa-solid fa-edit\"></i></button>\n                                            <button onclick=\"deleteStok('").concat(
+        s.id, "')\" class=\"p-2 text-red-500 hover:bg-red-50 rounded-lg ml-1\"><i class=\"fa-solid fa-trash\"></i></button>\n                                        </td>\n                                    </tr>")
+
+      ).join(''), "\n                                ").concat(
+      data.length === 0 ? '<tr class="no-data"><td colspan="5" class="p-16 text-center text-slate-300 italic">Belum ada data stok.</td></tr>' : '', "\n                            </tbody>\n                        </table>\n                    </div>");
+
+
+
+  }).getStokData();
+}
+
+function loadPenjualanMarketplace() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const data = (res?.data || []).sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
+    const formatRp = (a) => 'Rp ' + Number(a).toLocaleString('id-ID');
+    content.innerHTML = "\n                    <div class=\"mb-6 flex flex-col sm:flex-row gap-4 justify-end\">\n                        <div class=\"flex items-center gap-2 flex-grow sm:max-w-sm\">\n                            <span class=\"w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 flex items-center justify-center shrink-0\"><i class=\"fa-solid fa-search\"></i></span>\n                            <input type=\"text\" id=\"filterPjSearch\" onkeyup=\"filterPenjualan()\" placeholder=\"Cari judul buku...\" class=\"w-full p-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:border-accent-600\">\n                        </div>\n                        <select id=\"filterPjMarketplace\" onchange=\"filterPenjualan()\" class=\"p-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 outline-none focus:border-accent-600 bg-white\">\n                            <option value=\"\">Semua Marketplace</option>\n                            <option value=\"Shopee\">Shopee</option>\n                            <option value=\"Tokopedia\">Tokopedia</option>\n                            <option value=\"TikTok Shop\">TikTok Shop</option>\n                        </select>\n                        <select id=\"filterPjGudang\" onchange=\"filterPenjualan()\" class=\"p-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 outline-none focus:border-accent-600 bg-white\">\n                            <option value=\"\">Semua Gudang</option>\n                            <option value=\"Jogja\">Jogja</option>\n                            <option value=\"Makassar\">Makassar</option>\n                        </select>\n                    </div>\n                    <div class=\"bg-white rounded-3xl shadow-sm border border-slate-100 overflow-x-auto\">\n                        <table class=\"w-full text-left\">\n                            <thead class=\"bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest\">\n                                <tr><th class=\"px-8 py-4\">Judul Buku</th><th class=\"px-8 py-4\">Marketplace</th><th class=\"px-8 py-4\">Gudang</th><th class=\"px-8 py-4 text-center\">Qty</th><th class=\"px-8 py-4 text-right\">Harga Jual</th><th class=\"px-8 py-4 text-right\">Subtotal</th><th class=\"px-8 py-4\">Tanggal</th><th class=\"px-8 py-4 text-center\">Aksi</th></tr>\n                            </thead>\n                            <tbody id=\"penjualanTbody\" class=\"divide-y divide-slate-50\">\n                                ".concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      data.map((p) => {
+        const mpColor = p.marketplace === 'Shopee' ? 'bg-orange-50 text-orange-600 border-orange-100' : p.marketplace === 'Tokopedia' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-100 text-slate-700 border-slate-200';
+        return "<tr class=\"text-[13px] hover:bg-slate-50 transition-colors pj-row\" data-judul=\"".concat(p.judul.toLowerCase(), "\" data-mp=\"").concat(p.marketplace, "\" data-gudang=\"").concat(p.gudang, "\">\n                                        <td class=\"px-8 py-4 font-bold text-slate-800\">").concat(
+          p.judul, "</td>\n                                        <td class=\"px-8 py-4\"><span class=\"px-2 py-1 rounded-full text-[10px] font-bold border ").concat(
+          mpColor, "\">").concat(p.marketplace, "</span></td>\n                                        <td class=\"px-8 py-4 text-slate-500\">").concat(
+          p.gudang, "</td>\n                                        <td class=\"px-8 py-4 text-center font-mono font-bold\">").concat(
+          p.qty, "</td>\n                                        <td class=\"px-8 py-4 text-right font-mono text-slate-600\">").concat(
+          formatRp(p.hargaJual), "</td>\n                                        <td class=\"px-8 py-4 text-right font-mono font-bold text-emerald-600\">").concat(
+          formatRp(Number(p.qty) * Number(p.hargaJual)), "</td>\n                                        <td class=\"px-8 py-4 text-slate-500 text-[11px]\">").concat(
+          p.tanggal, "</td>\n                                        <td class=\"px-8 py-4 text-center\">\n                                            <button onclick=\"deletePenjualanItem('").concat(
+
+          p.id, "')\" class=\"p-2 text-red-500 hover:bg-red-50 rounded-lg\"><i class=\"fa-solid fa-trash\"></i></button>\n                                        </td>\n                                    </tr>");
+
+
+      }).join(''), "\n                                ").concat(
+      data.length === 0 ? '<tr class="no-data"><td colspan="8" class="p-16 text-center text-slate-300 italic">Belum ada data penjualan.</td></tr>' : '', "\n                            </tbody>\n                        </table>\n                    </div>");
+
+
+
+  }).getPenjualanData();
+}
+
+function loadRoyaltiBuku() {
+  gas.withSuccessHandler((resInit) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+
+    const d = resInit?.data || {};
+    let globalRoyalti = 10;
+    (d.settings || []).forEach((g) => {if (g.key === 'royaltiGlobal') globalRoyalti = parseFloat(g.value);});
+    const penjualanData = d.penjualan || [];
+    const naskahData = d.naskah || [];
+    const formatRp = (a) => 'Rp ' + Number(a).toLocaleString('id-ID');
+
+    const grouped = {};
+    penjualanData.forEach((p) => {
+      if (!grouped[p.judul]) {
+        const naskahInfo = naskahData.find((n) => n.judul.toLowerCase() === p.judul.toLowerCase());
+        grouped[p.judul] = {
+          judul: p.judul,
+          penulis: naskahInfo ? naskahInfo.penulis : '-',
+          hargaJual: Number(p.hargaJual),
+          qty: 0
+        };
+      }
+      grouped[p.judul].qty += Number(p.qty);
+    });
+    const listRoyalti = Object.values(grouped);
+
+    content.innerHTML = "\n                            <div class=\"mb-6 p-4 bg-indigo-50 text-indigo-700 rounded-xl text-sm border border-indigo-100 flex items-center gap-3\">\n                                <i class=\"fa-solid fa-info-circle\"></i>\n                                <div>Royalti global saat ini adalah <b>".concat(
+
+
+      globalRoyalti, "%</b>. Dihitung berdasarkan persentase &times; Harga Jual &times; Total Qty Terjual.</div>\n                            </div>\n                            <div class=\"bg-white rounded-3xl shadow-sm border border-slate-100 overflow-x-auto\">\n                                <table class=\"w-full text-left\">\n                                    <thead class=\"bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest\">\n                                        <tr><th class=\"px-8 py-4\">Judul Buku</th><th class=\"px-8 py-4\">Penulis</th><th class=\"px-8 py-4 text-center\">Royalti (%)</th><th class=\"px-8 py-4 text-right\">Harga Jual</th><th class=\"px-8 py-4 text-center\">Qty Terjual</th><th class=\"px-8 py-4 text-right\">Royalti Terkumpul</th></tr>\n                                    </thead>\n                                    <tbody class=\"divide-y divide-slate-50\">\n                                        ").concat(
+
+
+
+
+
+
+
+      listRoyalti.map((r) => {
+        const royaltiNominal = globalRoyalti / 100 * r.hargaJual * r.qty;
+        return "<tr class=\"text-[13px] hover:bg-slate-50 transition-colors\">\n                                                <td class=\"px-8 py-4 font-bold text-slate-800\">".concat(
+          r.judul, "</td>\n                                                <td class=\"px-8 py-4 text-slate-600\">").concat(
+          r.penulis, "</td>\n                                                <td class=\"px-8 py-4 text-center\"><span class=\"px-3 py-1 bg-accent-50 text-accent-600 rounded-full font-bold text-xs\">").concat(
+          globalRoyalti, "%</span></td>\n                                                <td class=\"px-8 py-4 text-right font-mono text-slate-600\">").concat(
+          formatRp(r.hargaJual), "</td>\n                                                <td class=\"px-8 py-4 text-center font-mono font-bold\">").concat(
+          r.qty, "</td>\n                                                <td class=\"px-8 py-4 text-right font-mono font-bold text-emerald-600 text-lg\">").concat(
+          formatRp(royaltiNominal), "</td>\n                                            </tr>");
+
+      }).join(''), "\n                                        ").concat(
+      listRoyalti.length === 0 ? '<tr><td colspan="6" class="p-16 text-center text-slate-300 italic">Belum ada penjualan buku.</td></tr>' : '', "\n                                    </tbody>\n                                </table>\n                            </div>");
+
+
+
+  }).getInitialData();
+}
+
+function loadKelolaRoyalti() {
+  gas.withSuccessHandler((resInit) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+
+    const d = resInit?.data || {};
+    let globalRoyalti = 10;
+    (d.settings || []).forEach((g) => {if (g.key === 'royaltiGlobal') globalRoyalti = parseFloat(g.value);});
+    const penjualanData = d.penjualan || [];
+    const naskahData = d.naskah || [];
+    const formatRp = (a) => 'Rp ' + Number(a).toLocaleString('id-ID');
+
+    const grouped = {};
+    penjualanData.forEach((p) => {
+      if (!grouped[p.judul]) {
+        const naskahInfo = naskahData.find((n) => n.judul.toLowerCase() === p.judul.toLowerCase());
+        grouped[p.judul] = {
+          judul: p.judul,
+          penulis: naskahInfo ? naskahInfo.penulis : '-',
+          hargaJual: Number(p.hargaJual),
+          qty: 0
+        };
+      }
+      grouped[p.judul].qty += Number(p.qty);
+    });
+    const listRoyalti = Object.values(grouped);
+
+    content.innerHTML = "\n                            <div class=\"mb-6 flex flex-col sm:flex-row justify-between sm:items-center bg-white p-6 rounded-3xl border border-slate-100 shadow-sm gap-4\">\n                                <div>\n                                    <h4 class=\"font-bold text-slate-800 text-lg\">Persentase Royalti Global: <span class=\"text-accent-600\">".concat(
+
+
+      globalRoyalti, "%</span></h4>\n                                    <p class=\"text-xs text-slate-500 mt-1\">Diberlakukan untuk semua buku yang terjual di marketplace.</p>\n                                </div>\n                                <button onclick=\"openFormRoyalti()\" class=\"btn-gradient text-white px-6 py-2.5 rounded-xl font-bold shadow-lg\">Ubah Persentase</button>\n                            </div>\n                            <div class=\"bg-white rounded-3xl shadow-sm border border-slate-100 overflow-x-auto\">\n                                <table class=\"w-full text-left\">\n                                    <thead class=\"bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest\">\n                                        <tr><th class=\"px-8 py-4\">Judul Buku</th><th class=\"px-8 py-4\">Penulis</th><th class=\"px-8 py-4 text-center\">Royalti (%)</th><th class=\"px-8 py-4 text-right\">Harga Jual</th><th class=\"px-8 py-4 text-center\">Qty Terjual</th><th class=\"px-8 py-4 text-right\">Estimasi Royalti</th></tr>\n                                    </thead>\n                                    <tbody class=\"divide-y divide-slate-50\">\n                                        ").concat(
+
+
+
+
+
+
+
+
+
+
+      listRoyalti.map((r) => {
+        const royaltiNominal = globalRoyalti / 100 * r.hargaJual * r.qty;
+        return "<tr class=\"text-[13px] hover:bg-slate-50 transition-colors\">\n                                                <td class=\"px-8 py-4 font-bold text-slate-800\">".concat(
+          r.judul, "</td>\n                                                <td class=\"px-8 py-4 text-slate-600\">").concat(
+          r.penulis, "</td>\n                                                <td class=\"px-8 py-4 text-center\"><span class=\"px-3 py-1 bg-accent-50 text-accent-600 rounded-full font-bold text-xs\">").concat(
+          globalRoyalti, "%</span></td>\n                                                <td class=\"px-8 py-4 text-right font-mono text-slate-600\">").concat(
+          formatRp(r.hargaJual), "</td>\n                                                <td class=\"px-8 py-4 text-center font-mono font-bold\">").concat(
+          r.qty, "</td>\n                                                <td class=\"px-8 py-4 text-right font-mono font-bold text-emerald-600\">").concat(
+          formatRp(royaltiNominal), "</td>\n                                            </tr>");
+
+      }).join(''), "\n                                        ").concat(
+      listRoyalti.length === 0 ? '<tr><td colspan="6" class="p-16 text-center text-slate-300 italic">Belum ada penjualan buku.</td></tr>' : '', "\n                                    </tbody>\n                                </table>\n                            </div>");
+
+
+
+  }).getInitialData();
+}
+
+// --- MARKETPLACE HANDLERS ---
+function openFormStok() {
+  document.getElementById('stokModalTitle').innerText = 'Input Stok Baru';
+  document.getElementById('stok_id').value = '';
+  document.getElementById('stok_judul').value = '';
+  document.getElementById('stok_gudang').value = '';
+  document.getElementById('stok_qty').value = '';
+  openModal('modalStok');
+}
+function editStok(id) {
+  gas.withSuccessHandler((res) => {
+    const s = (res?.data || []).find((x) => x.id === id);
+    if (s) {
+      document.getElementById('stokModalTitle').innerText = 'Edit Stok';
+      document.getElementById('stok_id').value = s.id;
+      document.getElementById('stok_judul').value = s.judul;
+      document.getElementById('stok_gudang').value = s.gudang;
+      document.getElementById('stok_qty').value = s.stok;
+      openModal('modalStok');
+    }
+  }).getStokData();
+}
+function deleteStok(id) {Swal.fire({ title: 'Hapus Stok?', text: 'Data stok akan dihapus permanen!', icon: 'warning', showCancelButton: true }).then((r) => {if (r.isConfirmed) gas.withSuccessHandler(() => loadStokBuku()).deleteStok(id);});}
+function handleSaveStok(e) {
+  e.preventDefault();
+  const payload = { id: document.getElementById('stok_id').value, judul: document.getElementById('stok_judul').value, gudang: document.getElementById('stok_gudang').value, stok: Number(document.getElementById('stok_qty').value), lastUpdate: new Date().toISOString().split('T')[0] };
+  Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => {Swal.showLoading();} });
+  gas.withSuccessHandler(() => {closeModal('modalStok');loadStokBuku();Swal.fire('Tersimpan!', 'Data stok berhasil diperbarui.', 'success');}).withFailureHandler((error) => {
+    showServerError('Gagal Menyimpan Stok', error);
+  }).saveStokData(payload);
+}
+function openFormPenjualan() {
+  document.getElementById('penjualanModalTitle').innerText = 'Input Penjualan Baru';
+  document.getElementById('pnj_id').value = '';
+  document.getElementById('pnj_marketplace').value = '';
+  document.getElementById('pnj_gudang').value = '';
+  document.getElementById('pnj_qty').value = '';
+  document.getElementById('pnj_harga').value = '';
+  document.getElementById('pnj_tanggal').value = new Date().toISOString().split('T')[0];
+  const judulSelect = document.getElementById('pnj_judul');
+  judulSelect.innerHTML = '<option value="">Memuat data stok...</option>';
+  gas.withSuccessHandler((res) => {
+    const stokData = res?.data || [];
+    window._stokDataCache = stokData;
+    judulSelect.innerHTML = '<option value="">Pilih Judul Buku</option>';
+    const uniqueTitles = [...new Set(stokData.map((s) => s.judul))].sort();
+    uniqueTitles.forEach((judul) => {
+      const stokInfo = stokData.filter((s) => s.judul === judul);
+      const totalStok = stokInfo.reduce((a, s) => a + Number(s.stok || 0), 0);
+      const el = document.createElement('option');
+      el.value = judul;
+      el.textContent = totalStok <= 0 ? judul + ' (Stok Habis)' : judul;
+      if (totalStok <= 0) {el.disabled = true;el.style.color = '#94a3b8';}
+      judulSelect.appendChild(el);
+    });
+    if (uniqueTitles.length === 0) {
+      judulSelect.innerHTML = '<option value="">Belum ada data stok</option>';
+    }
+  }).getStokData();
+  openModal('modalPenjualan');
+}
+function editPenjualan(id) {
+  gas.withSuccessHandler((res) => {
+    const p = (res?.data || []).find((x) => x.id === id);
+    if (p) {
+      document.getElementById('penjualanModalTitle').innerText = 'Edit Penjualan';
+      document.getElementById('pnj_id').value = p.id;
+      const judulSelect = document.getElementById('pnj_judul');
+      judulSelect.innerHTML = '<option value="">Memuat...</option>';
+      gas.withSuccessHandler((resStok) => {
+        const stokData = resStok?.data || [];
+        judulSelect.innerHTML = '<option value="">Pilih Judul Buku</option>';
+        const uniqueTitles = [...new Set(stokData.map((s) => s.judul))].sort();
+        if (p.judul && !uniqueTitles.includes(p.judul)) uniqueTitles.unshift(p.judul);
+        uniqueTitles.forEach((judul) => {
+          const el = document.createElement('option');
+          el.value = judul;
+          el.textContent = judul;
+          if (judul === p.judul) el.selected = true;
+          judulSelect.appendChild(el);
+        });
+      }).getStokData();
+      document.getElementById('pnj_marketplace').value = p.marketplace;
+      document.getElementById('pnj_gudang').value = p.gudang;
+      document.getElementById('pnj_qty').value = p.qty;
+      document.getElementById('pnj_harga').value = p.hargaJual;
+      document.getElementById('pnj_tanggal').value = p.tanggal;
+      openModal('modalPenjualan');
+    }
+  }).getPenjualanData();
+}
+function deletePenjualanItem(id) {Swal.fire({ title: 'Hapus Penjualan?', text: 'Data penjualan akan dihapus dan stok akan dikembalikan otomatis.', icon: 'warning', showCancelButton: true }).then((r) => {if (r.isConfirmed) gas.withSuccessHandler(() => loadPenjualanMarketplace()).deletePenjualan(id);});}
+function handleSavePenjualan(e) {
+  e.preventDefault();
+  const judul = document.getElementById('pnj_judul').value;
+  const qty = Number(document.getElementById('pnj_qty').value);
+  const isEdit = !!document.getElementById('pnj_id').value;
+  if (!isEdit && window._stokDataCache) {
+    const gudang = document.getElementById('pnj_gudang').value;
+    const stokInfoGudang = window._stokDataCache.filter((s) => s.judul === judul && s.gudang === gudang);
+    const stokGudang = stokInfoGudang.reduce((a, s) => a + Number(s.stok || 0), 0);
+    if (stokGudang <= 0) {
+      Swal.fire('Stok Habis di Gudang ' + gudang + '!', 'Buku ini tidak memiliki stok di gudang ' + gudang + '. Silakan pilih gudang lain atau update stok terlebih dahulu.', 'warning');
+      return;
+    }
+    if (qty > stokGudang) {
+      Swal.fire('Stok Tidak Cukup!', 'Jumlah penjualan (' + qty + ') melebihi stok di gudang ' + gudang + ' (' + stokGudang + '). Silakan kurangi jumlah atau update stok.', 'warning');
+      return;
+    }
+  }
+  const payload = { id: document.getElementById('pnj_id').value, judul: judul, marketplace: document.getElementById('pnj_marketplace').value, gudang: document.getElementById('pnj_gudang').value, qty: qty, hargaJual: Number(document.getElementById('pnj_harga').value), tanggal: document.getElementById('pnj_tanggal').value };
+  Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => {Swal.showLoading();} });
+  gas.withSuccessHandler(() => {closeModal('modalPenjualan');loadPenjualanMarketplace();Swal.fire('Tersimpan!', 'Data penjualan berhasil dicatat.', 'success');}).withFailureHandler((error) => {
+    showServerError('Gagal Menyimpan Penjualan', error);
+  }).savePenjualanData(payload);
+}
+
+function openFormRoyalti() {
+  document.getElementById('royaltiModalTitle').innerText = 'Ubah Persentase Royalti';
+  gas.withSuccessHandler((res) => {
+    document.getElementById('roy_persentase').value = res.data || 10;
+    openModal('modalRoyalti');
+  }).getRoyaltiData();
+}
+function handleSaveRoyalti(e) {
+  e.preventDefault();
+  const payload = { persentase: Number(document.getElementById('roy_persentase').value) };
+  Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => {Swal.showLoading();} });
+  gas.withSuccessHandler(() => {closeModal('modalRoyalti');loadKelolaRoyalti();Swal.fire('Tersimpan!', 'Persentase royalti global berhasil diperbarui.', 'success');}).saveRoyaltiData(payload);
+}
+window.loadRoyaltiBuku = loadRoyaltiBuku;
+window.loadKelolaRoyalti = loadKelolaRoyalti;
+window.openFormRoyalti = openFormRoyalti;
+window.handleSaveRoyalti = handleSaveRoyalti;
+
+// --- DOWNLOAD & CLEAR KPI/TARGET ---
+function downloadKPIExcel() {
+  gas.withSuccessHandler((resUsers) => {
+    gas.withSuccessHandler((resTarget) => {
+      gas.withSuccessHandler((resKPI) => {
+        gas.withSuccessHandler((resDeal) => {
+          const users = (resUsers?.data || []).filter((u) => ['cs', 'editor', 'layouter', 'pic_editor', 'pic_layouter', 'admin', 'css', 'admin_marketplace', 'campaign'].includes(u.role));
+          const targets = resTarget?.data || [];
+          const allKPI = resKPI?.data || [];
+          const allDeal = resDeal?.data || [];
+          const currentMonth = new Date().toISOString().slice(0, 7);
+          const namaBulan = new Date().toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+
+          // Sheet 1: Rekap KPI & Target per Pegawai
+          const rekapRows = users.map((usr) => {
+            const t = targets.find((x) => x.username === usr.username) || { targetTerbit: 0, targetCetak: 0, targetOmzet: 0, targetKata: 0, targetHalaman: 0 };
+            const myKPI = allKPI.filter((k) => k.picName === usr.nama && String(k.tanggal || '').startsWith(currentMonth));
+            const myDeals = allDeal.filter((d) => d.csName === usr.nama && String(d.deadline || d.tanggal || '').startsWith(currentMonth));
+            let capaian = myKPI.length + ' item';
+            let targetUtama = t.targetTerbit;
+            let satuan = 'Item';
+            let targetDetail = '-';
+            if (usr.role === 'editor' || usr.role === 'pic_editor') {const mainKPI = myKPI.filter((k) => !isRevisiKPI(k));const total = mainKPI.reduce((a, b) => a + Number(b.jumlahKata || 0), 0);capaian = total + ' Kata / ' + mainKPI.length + ' Judul';satuan = 'Kata';targetUtama = t.targetKata;} else
+            if (usr.role === 'layouter' || usr.role === 'pic_layouter') {const mainKPI = myKPI.filter((k) => !isRevisiKPI(k));const total = mainKPI.reduce((a, b) => {let v = Number(b.jumlahHalaman || 0);if (b.qualityControl) {v *= 1 - Number(b.qualityControl) * 0.1;}return a + v;}, 0);capaian = total + ' Hal / ' + mainKPI.length + ' Judul';satuan = 'Halaman';targetUtama = t.targetHalaman;} else
+            if (usr.role === 'cs') {satuan = 'Deal';capaian = myDeals.length + ' Deal';} else
+            if (['admin', 'css', 'admin_marketplace', 'campaign'].includes(usr.role)) {
+              const perJenis = t.targetPerJenis || {};
+              const jenisKeys = Object.keys(perJenis);
+              if (jenisKeys.length > 0) {
+                targetDetail = jenisKeys.map((j) => "".concat(j, ": ").concat(perJenis[j])).join(' | ');
+                const parts = jenisKeys.map((j) => {
+                  const achieved = myKPI.filter((k) => k.jenis === j).reduce((a, b) => a + Number(b.jumlahKinerja || 0), 0);
+                  return "".concat(j, ": ").concat(achieved, "/").concat(perJenis[j]);
+                });
+                capaian = parts.join(' | ');
+                targetUtama = jenisKeys.reduce((a, j) => a + (perJenis[j] || 0), 0);
+              } else {
+                const total = myKPI.reduce((a, b) => a + Number(b.jumlahKinerja || 0), 0);
+                capaian = total + ' Nilai / ' + myKPI.length + ' Item';
+              }
+              satuan = 'Kinerja';
+            }
+            return {
+              'Nama': usr.nama, 'Role': usr.role.toUpperCase(),
+              'Target Naskah/Item': t.targetTerbit,
+              'Target Cetak': usr.role === 'cs' ? t.targetCetak : '-',
+              'Target Omzet': usr.role === 'cs' ? t.targetOmzet : '-',
+              'Target Kata': usr.role === 'editor' || usr.role === 'pic_editor' ? t.targetKata : '-',
+              'Target Halaman': usr.role === 'layouter' || usr.role === 'pic_layouter' ? t.targetHalaman : '-',
+              'Target Per Jenis': targetDetail,
+              'Capaian Bulan Ini': capaian
+            };
+          });
+
+          // Sheet 2: Detail KPI Individu
+          const detailRows = allKPI.filter((k) => String(k.tanggal || '').startsWith(currentMonth)).map((k) => ({
+            'Tanggal': k.tanggal, 'Nama PIC': k.picName, 'Jenis KPI': k.jenis,
+            'Judul Naskah': k.judul,
+            'Jumlah Kata': k.jumlahKata || '-',
+            'Jumlah Halaman': k.jumlahHalaman || '-',
+            'Nilai Kinerja': k.jumlahKinerja || '-'
+          }));
+
+          // Sheet 3: Data Deal CS
+          const dealRows = allDeal.filter((d) => String(d.deadline || d.tanggal || '').startsWith(currentMonth)).map((d) => ({
+            'CS': d.csName, 'Penulis': d.penulis, 'Judul': d.judul,
+            'Penerbit': d.penerbit, 'Paket': d.paket,
+            'Nilai Deal': d.nilai, 'Status Bayar': d.statusPayment,
+            'Nominal DP': d.nominalDP || 0, 'Deadline': d.deadline,
+            'Catatan': d.catatan || '-'
+          }));
+
+          const wb = XLSX.utils.book_new();
+          const ws1 = XLSX.utils.json_to_sheet(rekapRows);
+          const ws2 = XLSX.utils.json_to_sheet(detailRows.length > 0 ? detailRows : [{ 'Info': 'Belum ada data KPI bulan ini' }]);
+          const ws3 = XLSX.utils.json_to_sheet(dealRows.length > 0 ? dealRows : [{ 'Info': 'Belum ada data deal bulan ini' }]);
+          XLSX.utils.book_append_sheet(wb, ws1, 'Rekap KPI & Target');
+          XLSX.utils.book_append_sheet(wb, ws2, 'Detail KPI');
+          XLSX.utils.book_append_sheet(wb, ws3, 'Data Deal CS');
+          XLSX.writeFile(wb, "KPI_Target_".concat(currentMonth, ".xlsx"));
+          Swal.fire('Berhasil!', "File Excel periode <b>".concat(namaBulan, "</b> berhasil diunduh (3 sheet)."), 'success');
+        }).getDealData();
+      }).getKPIData();
+    }).getTargetData();
+  }).getUsersData();
+}
+
+function clearAllKPITarget() {
+  const namaBulan = new Date().toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+  Swal.fire({
+    title: '<i class="fa-solid fa-triangle-exclamation text-red-500"></i> Reset Data Bulanan',
+    html: "<div class=\"text-left text-sm space-y-2\">\n                    <p>Anda akan mereset data <b>periode ".concat(
+      namaBulan, "</b>:</p>\n                    <div class=\"bg-red-50 p-3 rounded-lg border border-red-100 text-red-700\">\n                        <b>Data yang akan DIHAPUS:</b>\n                        <ul class=\"list-disc ml-4 mt-1 text-xs\">\n                            <li>Seluruh pencapaian KPI (Editor, Layouter, Admin, CSS)</li>\n                            <li>Seluruh data Deal CS (omzet & deal closing)</li>\n                            <li>Semua target direset ke nol</li>\n                        </ul>\n                    </div>\n                    <div class=\"bg-emerald-50 p-3 rounded-lg border border-emerald-100 text-emerald-700\">\n                        <b>Data yang TETAP ADA:</b>\n                        <ul class=\"list-disc ml-4 mt-1 text-xs\">\n                            <li>Naskah yang sedang diproses (proofreading, layout, ISBN, produksi)</li>\n                            <li>Data arsip dan surat</li>\n                            <li>Pengaturan penerbit, jenis KPI, dan pengguna</li>\n                        </ul>\n                    </div>\n                    <p class=\"text-red-500 font-bold text-xs\">?? Pastikan sudah download Excel terlebih dahulu!</p>\n                    <p>Ketik <b class=\"text-red-600\">RESET</b> untuk konfirmasi:</p>\n                </div>"),
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    input: 'text',
+    inputPlaceholder: 'Ketik RESET...',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    confirmButtonText: 'Ya, Reset Sekarang',
+    cancelButtonText: 'Batal',
+    inputValidator: (value) => {if (value !== 'RESET') return 'Ketik RESET untuk melanjutkan!';}
+  }).then((r) => {
+    if (r.isConfirmed) {
+      gas.withSuccessHandler(() => {
+        loadTargetKPI();
+        Swal.fire('Reset Berhasil!', "<div class=\"text-sm\">Data KPI, Deal, dan Target untuk periode <b>".concat(namaBulan, "</b> telah direset.<br><br><span class=\"text-emerald-600 font-bold\">✅ Naskah dalam proses tetap berjalan untuk tim lain.</span></div>"), 'success');
+      }).withFailureHandler((error) => {
+        showServerError('Reset Gagal', error);
+      }).resetDataBulanan();
+    }
+  });
+}
+
+
+// --- NASKAH DELETE REQUEST & APPROVAL (CSS -> Manajemen) ---
+function requestDeleteNaskah(id) {
+  const naskah = mockNaskahDB.find((n) => n.id === id);
+  if (!naskah) return;
+
+  // Check if already requested
+  const existing = mockDeleteRequestDB.find((r) => r.naskahId === id && r.status === 'pending');
+  if (existing) {Swal.fire('Info', 'Permintaan hapus untuk naskah ini sudah diajukan dan menunggu persetujuan.', 'info');return;}
+
+  const startDate = new Date(naskah.tanggal);
+  const endDate = new Date();
+  const durasiHari = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+
+  Swal.fire({
+    title: '<i class="fa-solid fa-file-circle-xmark text-red-500"></i> Ajukan Hapus Naskah',
+    html: "\n                    <div class=\"text-left text-sm space-y-3\">\n                        <div class=\"bg-slate-50 p-3 rounded-lg border\">\n                            <div class=\"font-bold text-slate-800\">".concat(
+
+
+      naskah.judul, "</div>\n                            <div class=\"text-xs text-slate-500 mt-1\">Penulis: ").concat(
+      naskah.penulis, " &bull; CS: ").concat(naskah.cs, "</div>\n                            <div class=\"text-xs text-slate-500\">Durasi: <b>").concat(
+      durasiHari, " hari</b> (").concat(naskah.tanggal, " s/d hari ini)</div>\n                        </div>\n                        <div>\n                            <label class=\"text-[10px] font-bold text-slate-400 uppercase\">Alasan Pembatalan *</label>\n                            <textarea id=\"del_catatan\" class=\"w-full p-2 border rounded-lg outline-none focus:border-indigo-500 text-sm\" rows=\"3\" placeholder=\"Tuliskan alasan pembatalan...\"></textarea>\n                        </div>\n                    </div>"),
+
+
+
+
+
+
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    confirmButtonText: '<i class="fa-solid fa-paper-plane mr-1"></i> Ajukan ke Manajemen',
+    cancelButtonText: 'Batal',
+    preConfirm: () => {
+      const alasan = document.getElementById('del_catatan').value.trim();
+      if (!alasan) {Swal.showValidationMessage('Alasan pembatalan wajib diisi.');return false;}
+      return { alasan };
+    }
+  }).then((r) => {
+    if (r.isConfirmed) {
+      const payload = {
+        naskahId: naskah.id,
+        judul: naskah.judul,
+        penulis: naskah.penulis,
+        cs: naskah.cs,
+        penerbit: naskah.penerbit,
+        paket: naskah.paket,
+        tanggalMasuk: naskah.tanggal,
+        durasiHari: durasiHari,
+        jumlahKata: naskah.estimasiKata || 0,
+        jumlahHalaman: naskah.estimasiHalaman || 0,
+        alasan: r.value.alasan,
+        requestBy: state.user.nama,
+        role: state.user.role
+      };
+      gas.withSuccessHandler(() => {
+        loadProgres();
+        Swal.fire('Terkirim!', 'Permintaan hapus telah dikirim ke Manajemen untuk disetujui.', 'success');
+      }).saveDeleteRequest(payload);
+    }
+  });
+}
+
+function loadApprovalHapusNaskah() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const requests = (res?.data || []).sort((a, b) => a.status === 'pending' ? -1 : 1);
+    const pending = requests.filter((r) => r.status === 'pending');
+    window._deleteApprovalRequests = requests;
+
+    content.innerHTML = "\n                    ".concat(
+      pending.length > 0 ? "<div class=\"mb-6 p-4 bg-amber-50 text-amber-800 rounded-xl text-sm border border-amber-200 flex items-center gap-3\">\n                        <i class=\"fa-solid fa-bell text-lg\"></i>\n                        <div>Ada <b>".concat(
+
+        pending.length, " permintaan hapus naskah</b> yang menunggu persetujuan Anda.</div>\n                    </div>") :
+      '', "\n                    <div class=\"bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden\">\n                        <div class=\"divide-y divide-slate-50\">\n                        ").concat(
+
+
+      requests.map((req, idx) => {
+        const isPending = req.status === 'pending';
+        const isApproved = req.status === 'approved';
+        const statusBadge = isPending ? '<span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold">Menunggu</span>' :
+        isApproved ? '<span class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">Disetujui</span>' :
+        '<span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-[10px] font-bold">Ditolak</span>';
+
+        return "\n                            <div class=\"px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3 hover:bg-slate-50/70 transition-colors ".concat(
+          isPending ? 'bg-amber-50/20' : '', "\">\n                                <div class=\"min-w-0 flex-1\">\n                                    <div class=\"flex items-center gap-2 mb-1\">\n                                        <h4 class=\"font-bold text-slate-800 truncate\">").concat(
+
+
+          req.judul, "</h4>\n                                        ").concat(
+          statusBadge, "\n                                    </div>\n                                    <p class=\"text-xs text-slate-400 truncate\">Diajukan oleh: <b>").concat(
+
+          req.requestedBy || req.requestBy || '-', "</b> pada ").concat(req.requestDate || '-', "</p>\n                                </div>\n                                <button onclick=\"showDeleteApprovalDetail(").concat(
+
+          idx, ")\" class=\"px-4 py-2 bg-accent-600 hover:bg-accent-700 text-white rounded-xl font-bold text-xs shadow-sm transition-colors whitespace-nowrap\">\n                                    <i class=\"fa-solid fa-eye mr-1\"></i> Lihat Detail\n                                </button>\n                            </div>");
+
+
+
+      }).join(''), "\n                        ").concat(
+      requests.length === 0 ? '<div class="p-16 text-center text-slate-300 italic">Belum ada permintaan hapus naskah.</div>' : '', "\n                        </div>\n                    </div>");
+
+
+  }).getDeleteRequests();
+}
+
+function showDeleteApprovalDetail(idx) {
+  const req = window._deleteApprovalRequests?.[idx];
+  if (!req) return;
+  const isPending = req.status === 'pending';
+  const isApproved = req.status === 'approved';
+  const statusText = isPending ? 'Menunggu' : isApproved ? 'Disetujui' : 'Ditolak';
+  const note = req.catatan || req.alasan || '';
+
+  Swal.fire({
+    title: null,
+    html: "\n                    <div class=\"text-left\">\n                        <div class=\"flex items-start gap-3 mb-4\">\n                            <div class=\"w-10 h-10 rounded-xl ".concat(
+
+
+      isPending ? 'bg-amber-50 text-amber-600' : isApproved ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600', " flex items-center justify-center\">\n                                <i class=\"fa-solid ").concat(
+      isPending ? 'fa-clock' : isApproved ? 'fa-check' : 'fa-xmark', "\"></i>\n                            </div>\n                            <div class=\"min-w-0 flex-1\">\n                                <div class=\"font-bold text-slate-800 text-lg leading-tight\">").concat(
+
+
+      req.judul, "</div>\n                                <div class=\"text-[10px] text-slate-400 uppercase font-bold tracking-wider mt-1\">").concat(
+      statusText, "</div>\n                            </div>\n                        </div>\n                        <div class=\"grid grid-cols-2 gap-3 mb-4 bg-slate-50 p-3 rounded-2xl\">\n                            <div>\n                                <div class=\"text-[10px] text-slate-400 uppercase font-bold\">Penulis</div>\n                                <div class=\"text-xs font-bold text-slate-700\">").concat(
+
+
+
+
+
+      req.penulis || '-', "</div>\n                            </div>\n                            <div>\n                                <div class=\"text-[10px] text-slate-400 uppercase font-bold\">CS</div>\n                                <div class=\"text-xs font-bold text-slate-700\">").concat(
+
+
+
+      req.cs || '-', "</div>\n                            </div>\n                            <div>\n                                <div class=\"text-[10px] text-slate-400 uppercase font-bold\">Penerbit</div>\n                                <div class=\"text-xs font-bold text-slate-700\">").concat(
+
+
+
+      req.penerbit || '-', " (").concat(req.paket || '-', ")</div>\n                            </div>\n                            <div>\n                                <div class=\"text-[10px] text-slate-400 uppercase font-bold\">Tanggal Masuk</div>\n                                <div class=\"text-xs font-bold text-slate-700\">").concat(
+
+
+
+      req.tanggalMasuk || '-', "</div>\n                            </div>\n                            <div>\n                                <div class=\"text-[10px] text-slate-400 uppercase font-bold\">Durasi</div>\n                                <div class=\"text-xs font-bold text-slate-700\">").concat(
+
+
+
+      req.durasiHari || 0, " hari</div>\n                            </div>\n                            <div>\n                                <div class=\"text-[10px] text-slate-400 uppercase font-bold\">Jumlah Kata / Halaman</div>\n                                <div class=\"text-xs font-bold text-slate-700\">").concat(
+
+
+
+      Number(req.jumlahKata || 0).toLocaleString('id-ID'), " kata / ").concat(Number(req.jumlahHalaman || 0).toLocaleString('id-ID'), " hal</div>\n                            </div>\n                        </div>\n                        ").concat(
+
+
+      note ? "<div class=\"text-xs text-slate-500 p-3 bg-slate-50 rounded-xl border border-slate-100 italic\"><i class=\"fa-solid fa-note-sticky mr-1 text-amber-500\"></i> ".concat(note, "</div>") : '', "\n                        <div class=\"text-[11px] text-slate-400 mt-4\">Diajukan oleh: <b>").concat(
+      req.requestedBy || req.requestBy || '-', "</b> pada ").concat(req.requestDate || '-', "</div>\n                    </div>\n                "),
+
+
+    showCancelButton: true,
+    showDenyButton: isPending,
+    showConfirmButton: isPending,
+    confirmButtonText: '<i class="fa-solid fa-check mr-1"></i> Setujui & Hapus',
+    denyButtonText: '<i class="fa-solid fa-xmark mr-1"></i> Tolak',
+    cancelButtonText: 'Tutup',
+    confirmButtonColor: '#10b981',
+    denyButtonColor: '#ef4444',
+    width: '34em'
+  }).then((result) => {
+    if (result.isConfirmed) approveDelete(req.id);
+    if (result.isDenied) rejectDelete(req.id);
+  });
+}
+
+function approveDelete(reqId) {
+  Swal.fire({
+    title: 'Setujui Penghapusan?',
+    text: 'Naskah akan dihapus permanen dari sistem dan hilang dari semua halaman.',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#10b981',
+    confirmButtonText: 'Ya, Setujui',
+    cancelButtonText: 'Batal'
+  }).then((r) => {
+    if (r.isConfirmed) {
+      gas.withSuccessHandler(() => {
+        loadApprovalHapusNaskah();
+        Swal.fire('Disetujui!', 'Naskah berhasil dihapus dari sistem.', 'success');
+      }).approveDeleteRequest(reqId);
+    }
+  });
+}
+
+function rejectDelete(reqId) {
+  Swal.fire({
+    title: 'Tolak Permintaan?',
+    text: 'Naskah tidak akan dihapus dan tetap ada di sistem.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    confirmButtonText: 'Ya, Tolak',
+    cancelButtonText: 'Batal'
+  }).then((r) => {
+    if (r.isConfirmed) {
+      gas.withSuccessHandler(() => {
+        loadApprovalHapusNaskah();
+        Swal.fire('Ditolak', 'Permintaan hapus ditolak. Naskah tetap di sistem.', 'info');
+      }).rejectDeleteRequest(reqId);
+    }
+  });
+}
+
+function filterStokBuku() {
+  const search = document.getElementById('filterStokSearch').value.toLowerCase();
+  const gudang = document.getElementById('filterStokGudang').value;
+  const rows = document.querySelectorAll('#stokTbody tr.stok-row');
+  let visibleCount = 0;
+
+  rows.forEach((row) => {
+    const matchSearch = row.getAttribute('data-judul').includes(search);
+    const matchGudang = gudang === '' || row.getAttribute('data-gudang') === gudang;
+
+    if (matchSearch && matchGudang) {
+      row.style.display = '';
+      visibleCount++;
+    } else {
+      row.style.display = 'none';
+    }
+  });
+
+  // Handle no data row
+  let noDataRow = document.querySelector('#stokTbody tr.no-data-filter');
+  if (visibleCount === 0 && rows.length > 0) {
+    if (!noDataRow) {
+      noDataRow = document.createElement('tr');
+      noDataRow.className = 'no-data-filter';
+      noDataRow.innerHTML = '<td colspan="5" class="p-16 text-center text-slate-400 italic">Tidak ada stok yang cocok dengan filter.</td>';
+      document.getElementById('stokTbody').appendChild(noDataRow);
+    }
+    noDataRow.style.display = '';
+  } else if (noDataRow) {
+    noDataRow.style.display = 'none';
+  }
+}
+
+function filterPenjualan() {
+  const search = document.getElementById('filterPjSearch').value.toLowerCase();
+  const mp = document.getElementById('filterPjMarketplace').value;
+  const gudang = document.getElementById('filterPjGudang').value;
+  const rows = document.querySelectorAll('#penjualanTbody tr.pj-row');
+  let visibleCount = 0;
+
+  rows.forEach((row) => {
+    const matchSearch = row.getAttribute('data-judul').includes(search);
+    const matchMp = mp === '' || row.getAttribute('data-mp') === mp;
+    const matchGudang = gudang === '' || row.getAttribute('data-gudang') === gudang;
+
+    if (matchSearch && matchMp && matchGudang) {
+      row.style.display = '';
+      visibleCount++;
+    } else {
+      row.style.display = 'none';
+    }
+  });
+
+  // Handle no data row
+  let noDataRow = document.querySelector('#penjualanTbody tr.no-data-filter');
+  if (visibleCount === 0 && rows.length > 0) {
+    if (!noDataRow) {
+      noDataRow = document.createElement('tr');
+      noDataRow.className = 'no-data-filter';
+      noDataRow.innerHTML = '<td colspan="8" class="p-16 text-center text-slate-400 italic">Tidak ada penjualan yang cocok dengan filter.</td>';
+      document.getElementById('penjualanTbody').appendChild(noDataRow);
+    }
+    noDataRow.style.display = '';
+  } else if (noDataRow) {
+    noDataRow.style.display = 'none';
+  }
+}
+
+function loadMarketplaceCalculator() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const settings = res?.data || {};
+    const sizes = Array.isArray(settings.sizes) && settings.sizes.length ? settings.sizes : [
+      { id: 'A5', label: 'A5', perPage: 75, fixedCost: 8000, multiplier: 5 }
+    ];
+    const safe = typeof reportSafeText === 'function' ? reportSafeText : (value) => String(value == null ? '' : value);
+    window._marketplaceCalcSettings = { ...settings, sizes };
+    content.innerHTML = "\n                <div class=\"max-w-5xl mx-auto space-y-5\">\n                    <div class=\"bg-white border border-slate-100 shadow-sm p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4\">\n                        <div>\n                            <h3 class=\"text-xl font-black text-slate-900\">Kalkulator Harga Marketplace</h3>\n                            <p class=\"text-sm text-slate-400 mt-1\">Hitung harga jual berdasarkan ukuran buku, halaman, biaya admin, dan pembulatan.</p>\n                        </div>\n                        ".concat(
+      normalizeRole(state.user.role) === 'manajemen' ? "<button onclick=\"switchTab('marketplace_calculator_settings')\" class=\"px-5 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-black\"><i class=\"fa-solid fa-gear mr-2\"></i>Pengaturan</button>" : '', "\n                    </div>\n                    <div class=\"grid grid-cols-1 lg:grid-cols-[1fr_20rem] gap-5\">\n                        <div class=\"bg-white border border-slate-100 shadow-sm p-6 rounded-2xl space-y-4\">\n                            <div class=\"grid grid-cols-1 md:grid-cols-2 gap-4\">\n                                <div><label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2\">Ukuran Buku</label><select id=\"mp_calc_size\" onchange=\"updateMarketplaceCalculatorResult()\" class=\"w-full p-3 border rounded-xl outline-none focus:border-accent-600\">").concat(
+      sizes.map((size, idx) => "<option value=\"".concat(idx, "\">").concat(safe(size.label || size.id || 'Ukuran'), "</option>")).join(''), "</select></div>\n                                <div><label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2\">Jumlah Halaman</label><input id=\"mp_calc_pages\" type=\"number\" min=\"1\" value=\"150\" oninput=\"updateMarketplaceCalculatorResult()\" class=\"w-full p-3 border rounded-xl outline-none focus:border-accent-600\"></div>\n                            </div>\n                            <div class=\"grid grid-cols-1 md:grid-cols-2 gap-4\">\n                                <div><label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2\">Biaya Admin Marketplace (%)</label><input id=\"mp_calc_admin\" type=\"number\" min=\"0\" step=\"0.1\" value=\"").concat(
+      Number(settings.adminPercent || 0), "\" oninput=\"updateMarketplaceCalculatorResult()\" class=\"w-full p-3 border rounded-xl outline-none focus:border-accent-600\"></div>\n                                <div><label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2\">Pembulatan (Rp)</label><input id=\"mp_calc_rounding\" type=\"number\" min=\"1\" value=\"").concat(
+      Number(settings.rounding || 1000), "\" oninput=\"updateMarketplaceCalculatorResult()\" class=\"w-full p-3 border rounded-xl outline-none focus:border-accent-600\"></div>\n                            </div>\n                        </div>\n                        <div class=\"bg-slate-900 text-white p-6 rounded-2xl shadow-sm\">\n                            <div class=\"text-[10px] font-black uppercase tracking-widest text-white/50\">Harga Jual Rekomendasi</div>\n                            <div id=\"mp_calc_result\" class=\"text-3xl font-black mt-3\">Rp 0</div>\n                            <div id=\"mp_calc_detail\" class=\"text-xs text-white/60 mt-4 leading-6\"></div>\n                        </div>\n                    </div>\n                </div>");
+    updateMarketplaceCalculatorResult();
+  }).withFailureHandler((error) => showServerError('Gagal Memuat Kalkulator Marketplace', error)).getMarketplaceCalculatorSettings();
+}
+
+function updateMarketplaceCalculatorResult() {
+  const settings = window._marketplaceCalcSettings || {};
+  const sizes = settings.sizes || [];
+  const size = sizes[Number(document.getElementById('mp_calc_size')?.value || 0)] || {};
+  const pages = Number(document.getElementById('mp_calc_pages')?.value || 0);
+  const adminPercent = Number(document.getElementById('mp_calc_admin')?.value || settings.adminPercent || 0);
+  const rounding = Math.max(1, Number(document.getElementById('mp_calc_rounding')?.value || settings.rounding || 1000));
+  const printCost = pages * Number(size.perPage || 0) + Number(size.fixedCost || 0);
+  const basePrice = printCost * Number(size.multiplier || 1);
+  const adminValue = basePrice * adminPercent / 100;
+  const finalPrice = Math.ceil((basePrice + adminValue) / rounding) * rounding;
+  const result = document.getElementById('mp_calc_result');
+  const detail = document.getElementById('mp_calc_detail');
+  if (result) result.textContent = 'Rp ' + Number(finalPrice || 0).toLocaleString('id-ID');
+  if (detail) detail.innerHTML = [
+    'Biaya cetak: Rp ' + Number(printCost || 0).toLocaleString('id-ID'),
+    'Harga dasar: Rp ' + Number(basePrice || 0).toLocaleString('id-ID'),
+    'Admin: Rp ' + Number(adminValue || 0).toLocaleString('id-ID')
+  ].join('<br>');
+}
+
+function loadMarketplaceCalculatorSettings() {
+  gas.withSuccessHandler((res) => {
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const data = res?.data || { adminPercent: 18.5, rounding: 1000, sizes: [] };
+    window._marketplaceCalcSettings = data;
+    const safe = reportSafeText;
+
+    const renderSizeRow = (size, idx) => "\n                <div class=\"flex flex-col md:flex-row md:items-center gap-3 p-4 border border-slate-100 rounded-xl bg-slate-50 relative group\">\n                    <div class=\"flex-1 min-w-0\">\n                        <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1\">ID / Nama Ukuran *</label>\n                        <input type=\"text\" id=\"calc_size_label_".concat(
+
+
+
+      idx, "\" value=\"").concat(safe(size.label || size.id || ''), "\" class=\"swal2-input !mx-0 !mt-0 !w-full !text-sm\" placeholder=\"Misal: A5\">\n                    </div>\n                    <div class=\"w-full md:w-32\">\n                        <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1\">Harga / Hal *</label>\n                        <input type=\"number\" id=\"calc_size_perpage_").concat(
+
+
+
+      idx, "\" value=\"").concat(Number(size.perPage || 0), "\" min=\"0\" step=\"0.1\" class=\"swal2-input !mx-0 !mt-0 !w-full !text-sm text-right\">\n                    </div>\n                    <div class=\"w-full md:w-32\">\n                        <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1\">Biaya Tetap (Cover) *</label>\n                        <input type=\"number\" id=\"calc_size_fixed_").concat(
+
+
+
+      idx, "\" value=\"").concat(Number(size.fixedCost || 0), "\" min=\"0\" class=\"swal2-input !mx-0 !mt-0 !w-full !text-sm text-right\">\n                    </div>\n                    <div class=\"w-full md:w-24\">\n                        <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1\">Pengali *</label>\n                        <input type=\"number\" id=\"calc_size_multiplier_").concat(
+
+
+
+      idx, "\" value=\"").concat(Number(size.multiplier || 1), "\" min=\"1\" step=\"0.1\" class=\"swal2-input !mx-0 !mt-0 !w-full !text-sm text-center\">\n                    </div>\n                    <div class=\"flex items-end justify-end\">\n                        <button onclick=\"removeMarketplaceCalcSize(").concat(
+
+
+      idx, ")\" type=\"button\" class=\"w-10 h-10 rounded-xl bg-white border border-red-100 text-red-500 hover:bg-red-50 flex items-center justify-center transition\" title=\"Hapus Ukuran\"><i class=\"fa-solid fa-trash\"></i></button>\n                    </div>\n                </div>");
+
+
+
+    content.innerHTML = "\n                <div class=\"max-w-4xl mx-auto space-y-5\">\n                    <div class=\"bg-white border border-slate-100 shadow-sm p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4\">\n                        <div>\n                            <h3 class=\"text-xl font-black text-slate-900\">Pengaturan Kalkulator Harga Jual</h3>\n                            <p class=\"text-sm text-slate-400 mt-1\">Konfigurasi parameter untuk kalkulator harga jual buku marketplace otomatis.</p>\n                        </div>\n                        <button onclick=\"saveMarketplaceCalcSettings()\" class=\"btn-gradient text-white px-5 py-2.5 rounded-xl font-black text-sm\"><i class=\"fa-solid fa-floppy-disk mr-2\"></i>Simpan Pengaturan</button>\n                    </div>\n                    \n                    <div class=\"grid grid-cols-1 md:grid-cols-2 gap-5\">\n                        <div class=\"bg-white border border-slate-100 shadow-sm p-6 rounded-2xl\">\n                            <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2\">Biaya Admin Marketplace (%) *</label>\n                            <div class=\"relative\">\n                                <input type=\"number\" id=\"calc_admin_percent\" value=\"".concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+      Number(data.adminPercent || 0), "\" min=\"0\" step=\"0.1\" class=\"swal2-input !mx-0 !mt-0 !w-full !pl-4 !pr-10 !text-lg font-bold\" placeholder=\"Misal: 18.5\">\n                                <span class=\"absolute right-4 top-1/2 -translate-y-1/2 font-black text-slate-400\">%</span>\n                            </div>\n                            <p class=\"text-[11px] text-slate-400 mt-2\">Biaya layanan/admin platform e-commerce (Shopee, Tokopedia, dll).</p>\n                        </div>\n                        \n                        <div class=\"bg-white border border-slate-100 shadow-sm p-6 rounded-2xl\">\n                            <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2\">Pembulatan Harga (Rp) *</label>\n                            <input type=\"number\" id=\"calc_rounding\" value=\"").concat(
+
+
+
+
+
+
+
+      Number(data.rounding || 1000), "\" min=\"1\" step=\"100\" class=\"swal2-input !mx-0 !mt-0 !w-full !px-4 !text-lg font-bold\" placeholder=\"Misal: 1000\">\n                            <p class=\"text-[11px] text-slate-400 mt-2\">Harga jual final akan dibulatkan ke atas kelipatan nilai ini (disarankan 1000).</p>\n                        </div>\n                    </div>\n                    \n                    <div class=\"bg-white border border-slate-100 shadow-sm p-6 rounded-2xl\">\n                        <div class=\"flex items-center justify-between mb-4\">\n                            <div>\n                                <h4 class=\"font-black text-slate-800\">Parameter Ukuran Buku</h4>\n                                <p class=\"text-xs text-slate-400 mt-1\">Atur harga cetak per halaman, cover, dan pengali margin untuk setiap ukuran buku.</p>\n                            </div>\n                            <button onclick=\"addMarketplaceCalcSize()\" class=\"px-4 py-2 bg-blue-50 text-accent-600 rounded-xl font-black text-xs hover:bg-blue-100 transition\"><i class=\"fa-solid fa-plus mr-2\"></i>Tambah Ukuran</button>\n                        </div>\n                        \n                        <div id=\"calc_sizes_container\" class=\"space-y-3\">\n                            ").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      (data.sizes || []).length > 0 ?
+      data.sizes.map((s, i) => renderSizeRow(s, i)).join('') :
+      '<div class="p-6 text-center text-slate-400 font-bold bg-slate-50 rounded-xl border border-dashed border-slate-200">Belum ada parameter ukuran buku.</div>', "\n                        </div>\n                    </div>\n                </div>");
+
+
+
+  }).withFailureHandler((error) => showServerError('Gagal Memuat Pengaturan Kalkulator', error)).getMarketplaceCalculatorSettings();
+}
+
+function addMarketplaceCalcSize() {
+  const data = window._marketplaceCalcSettings;
+  if (!data) return;
+  data.sizes = data.sizes || [];
+  data.adminPercent = Number(document.getElementById('calc_admin_percent')?.value || 0);
+  data.rounding = Number(document.getElementById('calc_rounding')?.value || 1000);
+  data.sizes.forEach((s, idx) => {
+    s.label = document.getElementById("calc_size_label_".concat(idx))?.value || '';
+    s.id = s.label.replace(/\s+/g, '_').toUpperCase();
+    s.perPage = Number(document.getElementById("calc_size_perpage_".concat(idx))?.value || 0);
+    s.fixedCost = Number(document.getElementById("calc_size_fixed_".concat(idx))?.value || 0);
+    s.multiplier = Number(document.getElementById("calc_size_multiplier_".concat(idx))?.value || 1);
+  });
+
+  data.sizes.push({ id: '', label: '', perPage: 76.5, fixedCost: 5500, multiplier: 5 });
+  const renderSizeRow = (size, idx) => "\n            <div class=\"flex flex-col md:flex-row md:items-center gap-3 p-4 border border-slate-100 rounded-xl bg-slate-50 relative group\">\n                <div class=\"flex-1 min-w-0\">\n                    <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1\">ID / Nama Ukuran *</label>\n                    <input type=\"text\" id=\"calc_size_label_".concat(
+
+
+
+    idx, "\" value=\"").concat(reportSafeText(size.label || size.id || ''), "\" class=\"swal2-input !mx-0 !mt-0 !w-full !text-sm\" placeholder=\"Misal: A5\">\n                </div>\n                <div class=\"w-full md:w-32\">\n                    <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1\">Harga / Hal *</label>\n                    <input type=\"number\" id=\"calc_size_perpage_").concat(
+
+
+
+    idx, "\" value=\"").concat(Number(size.perPage || 0), "\" min=\"0\" step=\"0.1\" class=\"swal2-input !mx-0 !mt-0 !w-full !text-sm text-right\">\n                </div>\n                <div class=\"w-full md:w-32\">\n                    <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1\">Biaya Tetap (Cover) *</label>\n                    <input type=\"number\" id=\"calc_size_fixed_").concat(
+
+
+
+    idx, "\" value=\"").concat(Number(size.fixedCost || 0), "\" min=\"0\" class=\"swal2-input !mx-0 !mt-0 !w-full !text-sm text-right\">\n                </div>\n                <div class=\"w-full md:w-24\">\n                    <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1\">Pengali *</label>\n                    <input type=\"number\" id=\"calc_size_multiplier_").concat(
+
+
+
+    idx, "\" value=\"").concat(Number(size.multiplier || 1), "\" min=\"1\" step=\"0.1\" class=\"swal2-input !mx-0 !mt-0 !w-full !text-sm text-center\">\n                </div>\n                <div class=\"flex items-end justify-end\">\n                    <button onclick=\"removeMarketplaceCalcSize(").concat(
+
+
+    idx, ")\" type=\"button\" class=\"w-10 h-10 rounded-xl bg-white border border-red-100 text-red-500 hover:bg-red-50 flex items-center justify-center transition\" title=\"Hapus Ukuran\"><i class=\"fa-solid fa-trash\"></i></button>\n                </div>\n            </div>");
+
+
+  document.getElementById('calc_sizes_container').innerHTML = data.sizes.map((s, i) => renderSizeRow(s, i)).join('');
+}
+
+function removeMarketplaceCalcSize(idx) {
+  const data = window._marketplaceCalcSettings;
+  if (!data || !data.sizes) return;
+  data.adminPercent = Number(document.getElementById('calc_admin_percent')?.value || 0);
+  data.rounding = Number(document.getElementById('calc_rounding')?.value || 1000);
+  data.sizes.forEach((s, i) => {
+    s.label = document.getElementById("calc_size_label_".concat(i))?.value || '';
+    s.id = s.label.replace(/\s+/g, '_').toUpperCase();
+    s.perPage = Number(document.getElementById("calc_size_perpage_".concat(i))?.value || 0);
+    s.fixedCost = Number(document.getElementById("calc_size_fixed_".concat(i))?.value || 0);
+    s.multiplier = Number(document.getElementById("calc_size_multiplier_".concat(i))?.value || 1);
+  });
+
+  data.sizes.splice(idx, 1);
+
+  const container = document.getElementById('calc_sizes_container');
+  if (data.sizes.length > 0) {
+    const renderSizeRow = (size, idx) => "\n                <div class=\"flex flex-col md:flex-row md:items-center gap-3 p-4 border border-slate-100 rounded-xl bg-slate-50 relative group\">\n                    <div class=\"flex-1 min-w-0\">\n                        <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1\">ID / Nama Ukuran *</label>\n                        <input type=\"text\" id=\"calc_size_label_".concat(
+
+
+
+      idx, "\" value=\"").concat(reportSafeText(size.label || size.id || ''), "\" class=\"swal2-input !mx-0 !mt-0 !w-full !text-sm\" placeholder=\"Misal: A5\">\n                    </div>\n                    <div class=\"w-full md:w-32\">\n                        <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1\">Harga / Hal *</label>\n                        <input type=\"number\" id=\"calc_size_perpage_").concat(
+
+
+
+      idx, "\" value=\"").concat(Number(size.perPage || 0), "\" min=\"0\" step=\"0.1\" class=\"swal2-input !mx-0 !mt-0 !w-full !text-sm text-right\">\n                    </div>\n                    <div class=\"w-full md:w-32\">\n                        <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1\">Biaya Tetap (Cover) *</label>\n                        <input type=\"number\" id=\"calc_size_fixed_").concat(
+
+
+
+      idx, "\" value=\"").concat(Number(size.fixedCost || 0), "\" min=\"0\" class=\"swal2-input !mx-0 !mt-0 !w-full !text-sm text-right\">\n                    </div>\n                    <div class=\"w-full md:w-24\">\n                        <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1\">Pengali *</label>\n                        <input type=\"number\" id=\"calc_size_multiplier_").concat(
+
+
+
+      idx, "\" value=\"").concat(Number(size.multiplier || 1), "\" min=\"1\" step=\"0.1\" class=\"swal2-input !mx-0 !mt-0 !w-full !text-sm text-center\">\n                    </div>\n                    <div class=\"flex items-end justify-end\">\n                        <button onclick=\"removeMarketplaceCalcSize(").concat(
+
+
+      idx, ")\" type=\"button\" class=\"w-10 h-10 rounded-xl bg-white border border-red-100 text-red-500 hover:bg-red-50 flex items-center justify-center transition\" title=\"Hapus Ukuran\"><i class=\"fa-solid fa-trash\"></i></button>\n                    </div>\n                </div>");
+
+
+    container.innerHTML = data.sizes.map((s, i) => renderSizeRow(s, i)).join('');
+  } else {
+    container.innerHTML = '<div class="p-6 text-center text-slate-400 font-bold bg-slate-50 rounded-xl border border-dashed border-slate-200">Belum ada parameter ukuran buku.</div>';
+  }
+}
+
+function saveMarketplaceCalcSettings() {
+  const adminPercent = document.getElementById('calc_admin_percent');
+  const rounding = document.getElementById('calc_rounding');
+  if (!adminPercent || !rounding) return;
+
+  const payload = {
+    adminPercent: Number(adminPercent.value || 0),
+    rounding: Number(rounding.value || 1000),
+    sizes: []
+  };
+
+  const sizeInputs = document.querySelectorAll('[id^="calc_size_label_"]');
+  let hasError = false;
+
+  sizeInputs.forEach((input, idx) => {
+    const label = input.value.trim();
+    const perPage = Number(document.getElementById("calc_size_perpage_".concat(idx))?.value || 0);
+    const fixedCost = Number(document.getElementById("calc_size_fixed_".concat(idx))?.value || 0);
+    const multiplier = Number(document.getElementById("calc_size_multiplier_".concat(idx))?.value || 1);
+
+    if (!label) hasError = true;
+    payload.sizes.push({
+      id: label.replace(/\s+/g, '_').toUpperCase(),
+      label: label,
+      perPage: perPage,
+      fixedCost: fixedCost,
+      multiplier: multiplier
+    });
+  });
+
+  if (hasError) {
+    Swal.fire('Data Tidak Lengkap', 'Nama ukuran buku tidak boleh kosong.', 'warning');
+    return;
+  }
+
+  Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+  gas.withSuccessHandler((res) => {
+    if (!res || res.success === false) {
+      Swal.fire('Gagal', res?.message || 'Gagal menyimpan pengaturan kalkulator.', 'error');
+      return;
+    }
+    Swal.fire('Tersimpan', 'Pengaturan kalkulator marketplace berhasil diperbarui.', 'success');
+    loadMarketplaceCalculatorSettings();
+  }).withFailureHandler((error) => showServerError('Gagal Menyimpan', error)).saveMarketplaceCalculatorSettings(payload);
+}
+
+[
+'deletePenjualanItem',
+'deleteStok',
+'editStok',
+'filterPenjualan',
+'filterStokBuku',
+'handleSavePenjualan',
+'handleSaveStok',
+'openFormPenjualan',
+'openFormRoyalti',
+'openFormStok',
+'showDeleteApprovalDetail',
+'loadMarketplaceCalculator',
+'updateMarketplaceCalculatorResult',
+'loadMarketplaceCalculatorSettings',
+'addMarketplaceCalcSize',
+'removeMarketplaceCalcSize',
+'saveMarketplaceCalcSettings'].
+forEach((name) => {
+  try {
+    const fn = eval(name);
+    if (typeof fn === 'function') window[name] = fn;
+  } catch (error) {}
+});
+</script>

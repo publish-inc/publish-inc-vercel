@@ -1,0 +1,1587 @@
+<script>
+
+
+
+function tambahDpDeal(id) {
+  gas.withSuccessHandler((res) => {
+    const d = (res?.data || []).find((x) => x.id === id);
+    if (!d) {
+      Swal.fire('Data Tidak Ditemukan', 'Deal tidak ditemukan atau sudah berubah.', 'warning');
+      return;
+    }
+    if (d.statusPayment !== 'DP') {
+      Swal.fire('Tidak Tersedia', 'Tambah DP hanya tersedia untuk deal yang masih DP.', 'warning');
+      return;
+    }
+    const sisa = Math.max(0, Number(d.nilai || 0) - Number(d.nominalDP || 0));
+    Swal.fire({
+      title: 'Tambah DP',
+      html: 'Masukkan nominal DP tambahan.<br><small>Sisa tagihan saat ini: <b>' + reportFormatRp(sisa) + '</b></small>',
+      icon: 'question',
+      input: 'number',
+      showCancelButton: true,
+      confirmButtonColor: '#4763FD',
+      confirmButtonText: 'Simpan DP',
+      cancelButtonText: 'Batal',
+      inputValidator: (value) => {
+        const amount = Number(value || 0);
+        if (amount <= 0) return 'Nominal tambah DP tidak valid!';
+        if (amount >= sisa) return 'Jika nominal sama/melebihi sisa, gunakan tombol Lunasi.';
+      }
+    }).then((r) => {
+      if (!r.isConfirmed || !r.value) return;
+      gas.withSuccessHandler((saveRes) => {
+        if (!saveRes || saveRes.success === false) {
+          Swal.fire('Gagal', saveRes && (saveRes.message || saveRes.error) || 'Tambah DP gagal disimpan.', 'error');
+          return;
+        }
+        if (state.activeTab === 'dashboard_kpi') loadDashboardKPI();
+        if (state.activeTab === 'kelola_deal' && typeof loadKelolaDeal === 'function') loadKelolaDeal();
+        Swal.fire('Berhasil!', 'Tambah DP berhasil dicatat sebagai omzet bulan berjalan.', 'success');
+      }).withFailureHandler((error) => {
+        showServerError('Gagal Menyimpan Tambah DP', error);
+      }).addDealDpPayment(id, Number(r.value));
+    });
+  }).withFailureHandler((error) => {
+    showServerError('Gagal Memuat Deal', error);
+  }).getDealData();
+}
+function lunasiDeal(id) {
+  gas.withSuccessHandler((res) => {
+    const d = (res?.data || []).find((x) => x.id === id);
+    if (!d) {
+      Swal.fire('Data Tidak Ditemukan', 'Deal tidak ditemukan atau sudah berubah.', 'warning');
+      return;
+    }
+    const sisa = Math.max(0, Number(d.nilai || 0) - Number(d.nominalDP || 0));
+    Swal.fire({
+      title: 'Konfirmasi Pelunasan',
+      html: 'Masukkan nominal pelunasan yang diterima.<br><small>Nominal ini akan masuk omzet bulan berjalan.</small>',
+      icon: 'question',
+      input: 'number',
+      inputValue: sisa,
+      showCancelButton: true,
+      confirmButtonColor: '#10b981',
+      confirmButtonText: 'Simpan & Lunasi',
+      cancelButtonText: 'Batal',
+      inputValidator: (value) => {
+        if (!value || Number(value) <= 0) return 'Nominal pelunasan tidak valid!';
+      }
+    }).then((r) => {
+      if (!r.isConfirmed || !r.value) return;
+      const pelunasanBaru = Number(r.value);
+      gas.withSuccessHandler((resSave) => {
+        if (resSave && resSave.success === false) {
+          Swal.fire('Gagal', resSave.message || resSave.error || 'Pelunasan gagal disimpan.', 'error');
+          return;
+        }
+        if (state.activeTab === 'dashboard_kpi') loadDashboardKPI();
+        Swal.fire('Berhasil!', 'Pelunasan berhasil dicatat dan ditambahkan ke capaian omzet bulan berjalan.', 'success');
+      }).withFailureHandler((error) => {
+        showServerError('Gagal Menyimpan Pelunasan', error);
+      }).addDealPelunasanPayment(id, pelunasanBaru);
+    });
+  }).getDealData();
+}
+function tambahBiayaDeal(id) {
+  gas.withSuccessHandler((res) => {
+    const d = (res?.data || []).find((x) => x.id === id);
+    if (!d) {
+      Swal.fire('Data Tidak Ditemukan', 'Deal tidak ditemukan atau sudah berubah.', 'warning');
+      return;
+    }
+    const tx = Array.isArray(d.transaksiTambahan) ? d.transaksiTambahan : (() => {
+      try {
+        const parsed = JSON.parse(d.transaksiTambahan || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (err) {
+        return [];
+      }
+    })();
+    const isTambahDp = (item) => String(item?.kategori || '').toLowerCase() === 'tambah dp' || String(item?.tipe || '').toLowerCase() === 'tambah dp';
+    const biayaSaatIni = tx.filter((item) => !isTambahDp(item)).reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+    Swal.fire({
+      title: 'Update Biaya',
+      html: 'Edit total biaya tambahan untuk deal ini.<br><small>Total biaya saat ini: <b>' + reportFormatRp(biayaSaatIni) + '</b>. Isi 0 untuk menghapus biaya tambahan.</small>',
+      icon: 'question',
+      input: 'number',
+      inputValue: biayaSaatIni,
+      showCancelButton: true,
+      confirmButtonColor: '#10b981',
+      confirmButtonText: 'Update Biaya',
+      cancelButtonText: 'Batal',
+      inputValidator: (value) => {
+        if (value === '' || value === null || Number(value) < 0) return 'Nominal biaya tidak valid!';
+      }
+    }).then((r) => {
+      if (!r.isConfirmed) return;
+      gas.withSuccessHandler((saveRes) => {
+        if (!saveRes || saveRes.success === false) {
+          Swal.fire('Gagal', saveRes && (saveRes.message || saveRes.error) || 'Update biaya gagal disimpan.', 'error');
+          return;
+        }
+        if (state.activeTab === 'dashboard_kpi') loadDashboardKPI();
+        if (state.activeTab === 'kelola_deal' && typeof loadKelolaDeal === 'function') loadKelolaDeal();
+        Swal.fire('Berhasil!', 'Total biaya berhasil diperbarui dan akan mengikuti capaian omzet/KPI CS bulan berjalan.', 'success');
+      }).withFailureHandler((error) => {
+        showServerError('Gagal Update Biaya', error);
+      }).updateDealAdditionalPayment(id, Number(r.value || 0));
+    });
+  }).withFailureHandler((error) => {
+    showServerError('Gagal Memuat Deal', error);
+  }).getDealData();
+}
+function updatePembayaranDealCS(id) {
+  gas.withSuccessHandler((res) => {
+    const d = (res?.data || []).find((x) => x.id === id);
+    if (!d) {
+      Swal.fire('Data Tidak Ditemukan', 'Deal tidak ditemukan atau sudah berubah.', 'warning');
+      return;
+    }
+    const nilai = Number(d.nilai || 0);
+    const dp = Number(d.nominalDP || 0);
+    const pelunasan = Number(d.nominalPelunasan || 0);
+    const hasPelunasan = pelunasan > 0;
+    const payment = d.statusPayment || 'Full Payment';
+    Swal.fire({
+      title: 'Update Pembayaran',
+      html: `
+        <div class="text-left space-y-3 text-sm">
+          <div class="rounded-xl bg-slate-50 border border-slate-100 p-3 text-xs text-slate-500">
+            <div><b>${reportSafeText(d.judul || '-')}</b></div>
+            <div>Status saat ini: ${reportSafeText(payment)}${hasPelunasan ? ' | Pelunasan: ' + reportFormatRp(pelunasan) : ''}</div>
+          </div>
+          <label class="block">
+            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nilai Deal Total (Rp)</span>
+            <input id="payment_update_nilai" type="number" min="1" value="${nilai}" class="mt-1 w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:border-accent-400">
+          </label>
+          <label class="block">
+            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status Pembayaran</span>
+            <select id="payment_update_status" class="mt-1 w-full px-4 py-3 rounded-xl border border-slate-200 outline-none bg-white focus:border-accent-400">
+              <option value="Full Payment" ${payment === 'Full Payment' ? 'selected' : ''}>Full Payment</option>
+              <option value="DP" ${payment === 'DP' ? 'selected' : ''}>DP</option>
+            </select>
+          </label>
+          <label id="payment_update_dp_wrap" class="block">
+            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">${hasPelunasan ? 'Nominal DP Awal (Rp)' : 'Nominal DP (Rp)'}</span>
+            <input id="payment_update_dp" type="number" min="0" value="${dp}" class="mt-1 w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:border-accent-400">
+            <p class="text-[10px] text-slate-400 mt-1">${hasPelunasan ? 'Deal ini sudah punya pelunasan, jadi DP awal tetap dipakai untuk histori omzet.' : 'Diisi hanya jika status pembayaran DP.'}</p>
+          </label>
+          <label class="block">
+            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Catatan Koreksi</span>
+            <textarea id="payment_update_note" rows="2" class="mt-1 w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:border-accent-400" placeholder="Contoh: salah input nominal awal"></textarea>
+          </label>
+          <label class="block">
+            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Password Otorisasi</span>
+            <input id="payment_update_password" type="password" class="mt-1 w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:border-accent-400" placeholder="Password otorisasi">
+          </label>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#4763FD',
+      confirmButtonText: 'Simpan Update',
+      cancelButtonText: 'Batal',
+      didOpen: () => {
+        const status = document.getElementById('payment_update_status');
+        const wrap = document.getElementById('payment_update_dp_wrap');
+        const toggle = () => {
+          if (wrap) wrap.classList.toggle('hidden', !hasPelunasan && status?.value !== 'DP');
+        };
+        status?.addEventListener('change', toggle);
+        toggle();
+      },
+      preConfirm: () => {
+        const nextNilai = Number(document.getElementById('payment_update_nilai')?.value || 0);
+        const nextStatus = document.getElementById('payment_update_status')?.value || '';
+        const nextDp = Number(document.getElementById('payment_update_dp')?.value || 0);
+        const authPassword = document.getElementById('payment_update_password')?.value || '';
+        const note = document.getElementById('payment_update_note')?.value || '';
+        if (nextNilai <= 0) {
+          Swal.showValidationMessage('Nilai deal wajib lebih dari 0.');
+          return false;
+        }
+        if (!authPassword) {
+          Swal.showValidationMessage('Password otorisasi wajib diisi.');
+          return false;
+        }
+        if ((nextStatus === 'DP' || hasPelunasan) && (nextDp <= 0 || nextDp >= nextNilai)) {
+          Swal.showValidationMessage(hasPelunasan ? 'Nominal DP awal wajib lebih dari 0 dan lebih kecil dari nilai deal.' : 'Nominal DP wajib lebih dari 0 dan lebih kecil dari nilai deal.');
+          return false;
+        }
+        return { nilai: nextNilai, statusPayment: nextStatus, nominalDP: nextDp, authPassword, note, username: state.user?.username || '', updatedBy: state.user?.nama || '' };
+      }
+    }).then((result) => {
+      if (!result.isConfirmed || !result.value) return;
+      gas.withSuccessHandler((saveRes) => {
+        if (!saveRes || saveRes.success === false) {
+          Swal.fire('Gagal', saveRes && (saveRes.message || saveRes.error) || 'Update pembayaran gagal disimpan.', 'error');
+          return;
+        }
+        if (state.activeTab === 'kelola_deal' && typeof loadKelolaDeal === 'function') loadKelolaDeal();
+        if (state.activeTab === 'dashboard_kpi') loadDashboardKPI();
+        Swal.fire('Berhasil', 'Pembayaran deal berhasil diperbarui dan capaian omzet akan mengikuti data terbaru.', 'success');
+      }).withFailureHandler((error) => showServerError('Gagal Update Pembayaran', error)).updateDealPaymentCorrection(id, result.value);
+    });
+  }).withFailureHandler((error) => showServerError('Gagal Memuat Deal', error)).getDealData();
+}
+function arsipkanDealSelesai(id) {
+  Swal.fire({
+    title: 'Arsipkan Deal?',
+    text: 'Deal akan dipindahkan dari daftar aktif ke arsip agar dashboard CS tetap ringan.',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#4763FD',
+    confirmButtonText: 'Arsipkan',
+    cancelButtonText: 'Batal'
+  }).then((r) => {
+    if (!r.isConfirmed) return;
+    gas.withSuccessHandler((res) => {
+      if (!res || res.success === false) {
+        Swal.fire('Gagal', res && (res.message || res.error) || 'Deal gagal diarsipkan.', 'error');
+        return;
+      }
+      if (state.activeTab === 'dashboard_kpi') loadDashboardKPI();
+      if (state.activeTab === 'deal_lama') loadDealLama();
+      Swal.fire('Diarsipkan', 'Deal selesai berhasil dipindahkan ke arsip.', 'success');
+    }).archiveDeal(id);
+  });
+}
+function loadDetailCapaianSaya() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const d = res?.data || {};
+    const role = normalizeRole(state.user.role);
+    const currentMonth = getReportCurrentMonth();
+    const rows = [];
+    const safe = reportSafeText;
+    const formatValue = (value) => Number.isFinite(Number(value)) ? Number(value || 0).toLocaleString('id-ID') : String(value || '-');
+    const isCurrentMonth = (value) => String(value || '').startsWith(currentMonth);
+    const isTambahDpTx = (tx) => String(tx?.tipe || '').toLowerCase() === 'tambah dp';
+    const paymentTx = (value) => normalizeReportTransactions(value);
+    const originalDealNominal = (deal) => {
+      const tx = paymentTx(deal.transaksiTambahan);
+      const addedDp = tx.filter(isTambahDpTx).reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+      const addedCost = tx.filter((item) => !isTambahDpTx(item)).reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+      const hasPelunasan = Number(deal.nominalPelunasan || 0) > 0;
+      if (deal.statusPayment === 'DP' || hasPelunasan) return Math.max(0, Number(deal.nominalDP || 0) - addedDp);
+      return Math.max(0, Number(deal.nilai || 0) - addedCost);
+    };
+    const originalKpiNominal = (kpi) => {
+      const tx = paymentTx(kpi.transaksiTambahan);
+      const addedDp = tx.filter(isTambahDpTx).reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+      const hasPelunasan = Number(kpi.nominalPelunasan || 0) > 0;
+      if (kpi.statusPayment === 'DP' || hasPelunasan) return Math.max(0, Number(kpi.nominalDP || 0) - addedDp);
+      return Number(kpi.nominal || 0);
+    };
+    const push = (row) => rows.push({ tanggal: row.tanggal || '', ...row });
+
+    if (role === 'cs') {
+      const deals = [...(d.deal || []), ...(d.dealArchive || [])].filter((deal) => deal.csName === state.user.nama);
+      deals.forEach((deal) => {
+        const packageText = [deal.penerbit, deal.paket].filter(Boolean).join(' - ') || 'Deal Penerbitan';
+        const dealDate = deal.tanggal || deal.deadline || '';
+        if (deal.source !== 'legacy' && isCurrentMonth(dealDate)) {
+          push({
+            tanggal: dealDate,
+            judul: deal.judul || '-',
+            kotaAsal: deal.kotaAsal || '-',
+            uraian: packageText,
+            jenis: 'Terbit',
+            terbit: 1,
+            cetak: '',
+            lainnya: '',
+            nominal: originalDealNominal(deal)
+          });
+        }
+        if (isCurrentMonth(deal.tanggalPelunasan)) {
+          push({
+            tanggal: deal.tanggalPelunasan,
+            judul: deal.judul || '-',
+            kotaAsal: deal.kotaAsal || '-',
+            uraian: 'Pelunasan - ' + packageText,
+            jenis: 'Pelunasan',
+            terbit: '',
+            cetak: '',
+            lainnya: '',
+            nominal: Number(deal.nominalPelunasan || 0)
+          });
+        }
+        paymentTx(deal.transaksiTambahan).forEach((tx) => {
+          if (!isCurrentMonth(tx.tanggal)) return;
+          push({
+            tanggal: tx.tanggal,
+            judul: deal.judul || '-',
+            kotaAsal: deal.kotaAsal || '-',
+            uraian: (isTambahDpTx(tx) ? 'Tambah DP - ' : 'Tambahan biaya - ') + packageText,
+            jenis: isTambahDpTx(tx) ? 'Tambah DP' : 'Tambahan Biaya',
+            terbit: '',
+            cetak: '',
+            lainnya: '',
+            nominal: Number(tx.nominal || 0)
+          });
+        });
+      });
+      (d.kpi || []).filter((k) => k.picName === state.user.nama && (k.jenis === 'Cetak' || k.jenis === 'Lainnya')).forEach((k) => {
+        const nilaiKpi = Number(k.jumlahKinerja || k.jumlahUmum || 1) || 1;
+        if (isCurrentMonth(k.tanggal)) {
+          push({
+            tanggal: k.tanggal,
+            judul: k.judul || k.spesifikasi || '-',
+            kotaAsal: k.kotaAsal || '-',
+            uraian: k.spesifikasi || k.jenis || '-',
+            jenis: k.jenis,
+            terbit: '',
+            cetak: k.jenis === 'Cetak' ? nilaiKpi : '',
+            lainnya: k.jenis === 'Lainnya' ? nilaiKpi : '',
+            nominal: originalKpiNominal(k)
+          });
+        }
+        if (isCurrentMonth(k.tanggalPelunasan)) {
+          push({ tanggal: k.tanggalPelunasan, judul: k.judul || k.spesifikasi || '-', kotaAsal: k.kotaAsal || '-', uraian: 'Pelunasan - ' + (k.spesifikasi || k.jenis), jenis: 'Pelunasan ' + k.jenis, terbit: '', cetak: '', lainnya: '', nominal: Number(k.nominalPelunasan || 0) });
+        }
+        paymentTx(k.transaksiTambahan).forEach((tx) => {
+          if (isCurrentMonth(tx.tanggal)) push({ tanggal: tx.tanggal, judul: k.judul || k.spesifikasi || '-', kotaAsal: k.kotaAsal || '-', uraian: 'Tambah DP - ' + (k.spesifikasi || k.jenis), jenis: 'Tambah DP ' + k.jenis, terbit: '', cetak: '', lainnya: '', nominal: Number(tx.nominal || 0) });
+        });
+      });
+    } else {
+      (d.kpi || []).filter((k) => k.picName === state.user.nama && isCurrentMonth(k.tanggal)).forEach((k) => {
+        let capaian = Number(k.jumlahKinerja || k.jumlahUmum || 0);
+        let satuan = 'Nilai';
+        if (Number(k.jumlahKata || 0) > 0) {capaian = Number(k.jumlahKata || 0);satuan = 'Kata';} else
+        if (Number(k.jumlahHalaman || 0) > 0) {capaian = Number(k.jumlahHalaman || 0);satuan = 'Halaman';} else
+        if (k.jenis === 'Quality Control') {capaian = Number(k.qcErrorCount || 0);satuan = k.qcResult === 'tidak_ada' ? 'Tidak ada kesalahan' : 'Kesalahan QC';} else
+        if (k.jenis === 'Evaluasi Tim') {capaian = k.evalMet === '1' || k.evalMet === 1 || k.evalMet === true ? 'Memenuhi' : 'Belum memenuhi';satuan = k.evalLayouter || 'Evaluasi';}
+        push({
+          tanggal: k.tanggal,
+          judul: k.judul || k.spesifikasi || k.evalLayouter || k.jenis || '-',
+          jenis: k.jenis || '-',
+          capaian,
+          satuan,
+          keterangan: k.spesifikasi || k.qualityControl || k.evalTarget || '-'
+        });
+      });
+    }
+
+    rows.sort((a, b) => String(b.tanggal).localeCompare(String(a.tanggal)) || String(a.judul).localeCompare(String(b.judul)));
+    const key = 'detail_capaian_saya';
+    const page = getReportDetailPage(key, rows.length);
+    const pageRows = rows.slice((page - 1) * REPORT_DETAIL_PAGE_SIZE, page * REPORT_DETAIL_PAGE_SIZE);
+    const totalNominal = rows.reduce((sum, row) => sum + Number(row.nominal || 0), 0);
+    const isCs = role === 'cs';
+    const headerStats = isCs ?
+    [
+    { label: 'Terbit', value: rows.reduce((sum, r) => sum + Number(r.terbit || 0), 0) },
+    { label: 'Cetak', value: rows.reduce((sum, r) => sum + Number(r.cetak || 0), 0) },
+    { label: 'Lainnya', value: rows.reduce((sum, r) => sum + Number(r.lainnya || 0), 0) },
+    { label: 'Nominal', value: reportFormatRp(totalNominal) }] :
+
+    [
+    { label: 'Total Entri', value: rows.length },
+    { label: 'Bulan', value: currentMonth },
+    { label: 'Role', value: getRoleLabel(role) }];
+
+    const personalGroup = {
+      nama: state.user.nama,
+      role: getRoleLabel(role),
+      rows,
+      pageRows,
+      summary: {
+        terbit: rows.reduce((sum, r) => sum + Number(r.terbit || 0), 0),
+        cetak: rows.reduce((sum, r) => sum + Number(r.cetak || 0), 0),
+        lainnya: rows.reduce((sum, r) => sum + Number(r.lainnya || 0), 0),
+        nominal: totalNominal,
+        entri: rows.length,
+        nilai: rows.reduce((sum, r) => sum + Number(r.capaian || 0), 0)
+      },
+      paginationKey: key
+    };
+    const getPersonalDealRowStyle = (row) => {
+      const text = String([row.uraian, row.jenis].filter(Boolean).join(' ')).toLowerCase();
+      if (text.includes('pelunasan') || text.includes('tambah dp') || text.includes('tambahan biaya') || text.includes('tambahan')) return 'background-color:#ffffff;';
+      if (text.includes('exclusive') || text.includes('eksklusif') || text.includes('ekslusif') || text.includes('exlusive')) return 'background-color:#fef08a;';
+      if (text.includes('express') || text.includes('expres')) return 'background-color:#bfdbfe;';
+      if (text.includes('advance') || text.includes('advanced')) return 'background-color:#fed7aa;';
+      if (text.includes('idebuku') || text.includes('ide buku')) return 'background-color:#ddd6fe;';
+      return 'background-color:#ffffff;';
+    };
+    const isCreative = ['editor', 'layouter', 'pic_editor', 'pic_layouter'].includes(role);
+    const renderPersonalSummary = () => {
+      if (isCs) return "\n                    <div class=\"grid grid-cols-2 lg:grid-cols-4 gap-2 px-5 py-4 bg-white border-b border-slate-100\">\n                        <div class=\"border border-slate-100 bg-slate-50 px-3 py-2\"><div class=\"text-[9px] uppercase tracking-widest text-slate-400 font-black\">Terbit</div><div class=\"text-xl font-black text-accent-600\">".concat(
+
+        personalGroup.summary.terbit.toLocaleString('id-ID'), "</div></div>\n                        <div class=\"border border-slate-100 bg-slate-50 px-3 py-2\"><div class=\"text-[9px] uppercase tracking-widest text-slate-400 font-black\">Cetak</div><div class=\"text-xl font-black text-accent-600\">").concat(
+        personalGroup.summary.cetak.toLocaleString('id-ID'), "</div></div>\n                        <div class=\"border border-slate-100 bg-slate-50 px-3 py-2\"><div class=\"text-[9px] uppercase tracking-widest text-slate-400 font-black\">Lainnya</div><div class=\"text-xl font-black text-accent-600\">").concat(
+        personalGroup.summary.lainnya.toLocaleString('id-ID'), "</div></div>\n                        <div class=\"border border-slate-100 bg-slate-50 px-3 py-2\"><div class=\"text-[9px] uppercase tracking-widest text-slate-400 font-black\">Nominal</div><div class=\"text-xl font-black text-emerald-600\">").concat(
+        reportFormatRp(personalGroup.summary.nominal), "</div></div>\n                    </div>");
+
+      const byJenis = {};
+      rows.forEach((row) => {
+        const label = row.jenis || 'Tanpa Jenis';
+        byJenis[label] = (byJenis[label] || 0) + 1;
+      });
+      const items = Object.entries(byJenis).slice(0, 5).map(([label, value]) => ({ label, value }));
+      if (!items.length) items.push({ label: 'Total Entri', value: rows.length });
+      return "<div class=\"px-5 py-4 border-b border-slate-100 bg-slate-50/50 grid grid-cols-2 md:grid-cols-".concat(Math.min(items.length, 5), " gap-3\">\n                    ").concat(
+        items.map((item) => "<div class=\"bg-white border border-slate-100 px-3 py-2\"><div class=\"text-[9px] font-black uppercase tracking-widest text-slate-400\">".concat(reportSafeText(item.label), "</div><div class=\"mt-1 text-lg font-black text-slate-900\">").concat(Number(item.value || 0).toLocaleString('id-ID'), "</div></div>")).join(''), "\n                </div>");
+
+    };
+    const renderPersonalTable = () => isCs ? "\n                <div class=\"overflow-x-auto\">\n                    <table class=\"w-full text-left text-xs table-fixed\">\n                        <colgroup><col class=\"w-[6.2rem]\"><col><col class=\"w-[8rem]\"><col class=\"w-[10rem]\"><col class=\"w-[3.7rem]\"><col class=\"w-[3.7rem]\"><col class=\"w-[4.3rem]\"><col class=\"w-[8rem]\"></colgroup>\n                        <thead class=\"bg-slate-50 text-[10px] text-slate-400 uppercase tracking-widest\">\n                            <tr><th class=\"px-3 py-3\">Tanggal</th><th class=\"px-3 py-3\">Judul</th><th class=\"px-3 py-3\">Kota</th><th class=\"px-3 py-3\">Paket</th><th class=\"px-2 py-3 text-center\">Terbit</th><th class=\"px-2 py-3 text-center\">Cetak</th><th class=\"px-2 py-3 text-center\">Lainnya</th><th class=\"px-3 py-3 text-right\">Nominal</th></tr>\n                        </thead>\n                        <tbody class=\"divide-y divide-slate-50\">\n                            ".concat(
+
+
+
+
+
+
+
+      pageRows.map((row) => {
+        const rowStyle = getPersonalDealRowStyle(row);
+        return "<tr style=\"".concat(rowStyle, "\">\n                                    <td style=\"").concat(
+          rowStyle, "\" class=\"px-3 py-3 font-mono text-[11px] text-slate-500 whitespace-nowrap\">").concat(safe(row.tanggal), "</td>\n                                    <td style=\"").concat(
+          rowStyle, "\" class=\"px-3 py-3 font-bold text-slate-800 truncate\" title=\"").concat(safe(row.judul), "\">").concat(safe(row.judul), "</td>\n                                    <td style=\"").concat(
+          rowStyle, "\" class=\"px-3 py-3 text-slate-600 truncate\" title=\"").concat(safe(row.kotaAsal || '-'), "\">").concat(safe(row.kotaAsal || '-'), "</td>\n                                    <td style=\"").concat(
+          rowStyle, "\" class=\"px-3 py-3 text-slate-600 truncate\" title=\"").concat(safe(row.uraian), "\">").concat(safe(row.uraian), "</td>\n                                    <td style=\"").concat(
+          rowStyle, "\" class=\"px-2 py-3 text-center font-black text-slate-700\">").concat(safe(row.terbit || '-'), "</td>\n                                    <td style=\"").concat(
+          rowStyle, "\" class=\"px-2 py-3 text-center font-black text-slate-700\">").concat(safe(row.cetak || '-'), "</td>\n                                    <td style=\"").concat(
+          rowStyle, "\" class=\"px-2 py-3 text-center font-black text-slate-700\">").concat(safe(row.lainnya || '-'), "</td>\n                                    <td style=\"").concat(
+          rowStyle, "\" class=\"px-3 py-3 text-right font-mono font-black text-emerald-600 whitespace-nowrap\">").concat(reportFormatRp(row.nominal), "</td>\n                                </tr>");
+
+      }).join(''), "\n                        </tbody>\n                    </table>\n                </div>") : "\n                <div class=\"overflow-x-auto\">\n                    <table class=\"w-full text-left text-xs table-fixed\">\n                        <colgroup><col><col class=\"w-[8rem]\"><col class=\"w-[9rem]\"><col class=\"w-[8rem]\"><col class=\"w-[12rem]\"></colgroup>\n                        <thead class=\"bg-slate-50 text-[10px] text-slate-400 uppercase tracking-widest\">\n                            <tr><th class=\"px-3 py-3\">Judul</th><th class=\"px-3 py-3\">Tanggal</th><th class=\"px-3 py-3 text-center\">Jenis KPI</th><th class=\"px-3 py-3 text-right\">Capaian</th><th class=\"px-3 py-3\">Keterangan</th></tr>\n                        </thead>\n                        <tbody class=\"divide-y divide-slate-50\">\n                            ".concat(
+
+
+
+
+
+
+
+
+
+
+      pageRows.map((row) => "<tr class=\"hover:bg-slate-50\">\n                                <td class=\"px-3 py-3 font-bold text-slate-800 truncate\" title=\"".concat(
+        safe(row.judul), "\">").concat(safe(row.judul), "</td>\n                                <td class=\"px-3 py-3 font-mono text-[11px] text-slate-500 whitespace-nowrap\">").concat(
+        safe(row.tanggal), "</td>\n                                <td class=\"px-3 py-3 text-center\"><span class=\"px-2 py-1 bg-accent-50 text-accent-600 rounded-lg text-[10px] font-black\">").concat(
+        safe(row.jenis), "</span></td>\n                                <td class=\"px-3 py-3 text-right font-mono font-black text-emerald-600 whitespace-nowrap\">").concat(
+        safe(formatValue(row.capaian)), " <span class=\"text-slate-400\">").concat(safe(row.satuan), "</span></td>\n                                <td class=\"px-3 py-3 text-slate-500 truncate\" title=\"").concat(
+        safe(row.keterangan), "\">").concat(safe(row.keterangan), "</td>\n                            </tr>")
+      ).join(''), "\n                        </tbody>\n                    </table>\n                </div>");
+
+
+
+
+    content.innerHTML = "\n                <div class=\"space-y-5\">\n                    <div class=\"bg-white border border-slate-100 shadow-sm p-6\">\n                        <h3 class=\"text-xl font-black text-slate-900\">Detail Capaian Saya</h3>\n                        <p class=\"text-sm text-slate-400 mt-1\">Data bulan berjalan (".concat(
+
+
+
+      currentMonth, ") untuk ").concat(safe(state.user.nama), ".</p>\n                    </div>\n                    <div class=\"bg-white border border-slate-100 shadow-sm overflow-hidden\">\n                        <div class=\"px-5 py-4 border-b border-accent-100 bg-accent-50/60 flex items-center gap-3\">\n                            <div class=\"w-10 h-10 rounded-xl bg-accent-600 text-white flex items-center justify-center font-black\">").concat(
+
+
+
+      safe(String(state.user.nama || 'S').charAt(0).toUpperCase()), "</div>\n                            <div>\n                                <div class=\"text-[10px] font-black text-accent-500 uppercase tracking-widest\">").concat(
+
+      safe(isCs ? 'Customer Service' : getRoleLabel(role)), "</div>\n                                <div class=\"font-black text-slate-900\">").concat(
+      safe(state.user.nama), "</div>\n                            </div>\n                        </div>\n                        ").concat(
+
+
+      renderPersonalSummary(), "\n                        ").concat(
+      renderPersonalTable(), "\n                        ").concat(
+      rows.length === 0 ? "<div class=\"p-12 text-center text-slate-300 italic\">Belum ada detail capaian bulan ini.</div>" : '', "\n                        ").concat(
+      renderReportDetailPagination(key, rows.length, 'loadDetailCapaianSaya'), "\n                    </div>\n                </div>");
+
+
+  }).getInitialData();
+}
+function loadDetailDealCS() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const d = res?.data || {};
+    const users = d.users || [];
+    const targets = d.target || [];
+    const deals = [...(d.deal || []), ...(d.dealArchive || [])];
+    const kpi = d.kpi || [];
+    const currentMonth = getReportCurrentMonth();
+    const isCurrentMonth = (value) => String(value || '').startsWith(currentMonth);
+    const isTambahDp = (tx) => String(tx?.tipe || '').toLowerCase() === 'tambah dp';
+    const originalDealNominal = (deal) => {
+      const tx = normalizeReportTransactions(deal.transaksiTambahan);
+      const addedDp = tx.filter(isTambahDp).reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+      const addedCost = tx.filter((item) => !isTambahDp(item)).reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+      const hasPelunasan = Number(deal.nominalPelunasan || 0) > 0;
+      if (deal.statusPayment === 'DP' || hasPelunasan) return Math.max(0, Number(deal.nominalDP || 0) - addedDp);
+      return Math.max(0, Number(deal.nilai || 0) - addedCost);
+    };
+    const originalKpiNominal = (row) => {
+      const tx = normalizeReportTransactions(row.transaksiTambahan);
+      const addedDp = tx.filter(isTambahDp).reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+      const hasPelunasan = Number(row.nominalPelunasan || 0) > 0;
+      if (row.statusPayment === 'DP' || hasPelunasan) return Math.max(0, Number(row.nominalDP || 0) - addedDp);
+      return Number(row.nominal || 0);
+    };
+    const groups = users.filter((u) => normalizeRole(u.role) === 'cs').map((u) => {
+      const rows = [];
+      const push = (row) => {
+        const nominal = Number(row.nominal || 0);
+        if (nominal <= 0) return;
+        rows.push({ ...row, nominal });
+      };
+      deals.filter((deal) => deal.csName === u.nama).forEach((deal) => {
+        const packageText = [deal.penerbit, deal.paket].filter(Boolean).join(' - ') || 'Deal Penerbitan';
+        const baseDate = deal.tanggal || deal.deadline || '';
+        if (deal.source !== 'legacy' && isCurrentMonth(baseDate)) {
+          const category = deal.source === 'legacy' ? normalizeLegacyDealCategory(deal.kategori) : 'Terbit';
+          push({
+            tanggal: baseDate,
+            judul: deal.judul,
+            kotaAsal: deal.kotaAsal || '-',
+            uraian: packageText,
+            terbit: category === 'Terbit' ? 1 : '',
+            cetak: category === 'Cetak' ? 1 : '',
+            lainnya: category === 'Lainnya' ? 1 : '',
+            nominal: originalDealNominal(deal),
+            sumber: deal.source === 'legacy' ? 'Deal Lama - ' + category : 'Deal'
+          });
+        }
+        if (isCurrentMonth(deal.tanggalPelunasan)) push({ tanggal: deal.tanggalPelunasan, judul: deal.judul, kotaAsal: deal.kotaAsal || '-', uraian: 'Pelunasan - ' + packageText, terbit: '', cetak: '', lainnya: '', nominal: Number(deal.nominalPelunasan || 0), sumber: 'Pelunasan' });
+        normalizeReportTransactions(deal.transaksiTambahan).forEach((tx) => {
+          if (!isCurrentMonth(tx.tanggal)) return;
+          push({ tanggal: tx.tanggal, judul: deal.judul, kotaAsal: deal.kotaAsal || '-', uraian: (isTambahDp(tx) ? 'Tambah DP - ' : 'Tambahan biaya - ') + packageText, terbit: '', cetak: '', lainnya: '', nominal: Number(tx.nominal || 0), sumber: isTambahDp(tx) ? 'Tambah DP' : 'Tambahan' });
+        });
+      });
+      kpi.filter((row) => row.picName === u.nama && (row.jenis === 'Cetak' || row.jenis === 'Lainnya')).forEach((row) => {
+        const nilaiKpi = Number(row.jumlahKinerja || row.jumlahUmum || 1) || 1;
+        if (isCurrentMonth(row.tanggal)) push({ tanggal: row.tanggal, judul: row.judul || row.spesifikasi, kotaAsal: row.kotaAsal || '-', uraian: row.spesifikasi || row.jenis, terbit: '', cetak: row.jenis === 'Cetak' ? nilaiKpi : '', lainnya: row.jenis === 'Lainnya' ? nilaiKpi : '', nominal: originalKpiNominal(row), sumber: row.jenis });
+        if (isCurrentMonth(row.tanggalPelunasan)) push({ tanggal: row.tanggalPelunasan, judul: row.judul || row.spesifikasi, kotaAsal: row.kotaAsal || '-', uraian: 'Pelunasan - ' + (row.spesifikasi || row.jenis), terbit: '', cetak: '', lainnya: '', nominal: Number(row.nominalPelunasan || 0), sumber: 'Pelunasan ' + row.jenis });
+        normalizeReportTransactions(row.transaksiTambahan).forEach((tx) => {
+          if (!isCurrentMonth(tx.tanggal)) return;
+          push({ tanggal: tx.tanggal, judul: row.judul || row.spesifikasi, kotaAsal: row.kotaAsal || '-', uraian: 'Tambah DP - ' + (row.spesifikasi || row.jenis), terbit: '', cetak: '', lainnya: '', nominal: Number(tx.nominal || 0), sumber: 'Tambah DP ' + row.jenis });
+        });
+      });
+      rows.sort((a, b) => String(a.tanggal).localeCompare(String(b.tanggal)) || String(a.judul).localeCompare(String(b.judul)));
+      const summary = rows.reduce((sum, row) => {
+        sum.terbit += Number(row.terbit || 0);
+        sum.cetak += Number(row.cetak || 0);
+        sum.lainnya += Number(row.lainnya || 0);
+        sum.nominal += Number(row.nominal || 0);
+        return sum;
+      }, { terbit: 0, cetak: 0, lainnya: 0, nominal: 0 });
+      return { nama: u.nama, rows, total: summary.nominal, summary };
+    }).filter((group) => group.rows.length > 0).sort((a, b) => b.total - a.total || a.nama.localeCompare(b.nama));
+    const getDealRowStyle = (row) => {
+      const text = String([row.uraian, row.sumber].filter(Boolean).join(' ')).toLowerCase();
+      if (text.includes('pelunasan') || text.includes('tambah dp') || text.includes('tambahan biaya') || text.includes('tambahan')) return 'background-color:#ffffff;';
+      if (text.includes('exclusive') || text.includes('eksklusif') || text.includes('ekslusif') || text.includes('exlusive')) return 'background-color:#fef08a;';
+      if (text.includes('express') || text.includes('expres')) return 'background-color:#bfdbfe;';
+      if (text.includes('advance') || text.includes('advanced')) return 'background-color:#fed7aa;';
+      if (text.includes('idebuku') || text.includes('ide buku')) return 'background-color:#ddd6fe;';
+      return 'background-color:#ffffff;';
+    };
+    groups.forEach((group, index) => {
+      const key = "detail_deal_cs_".concat(index);
+      const page = getReportDetailPage(key, group.rows.length);
+      const start = (page - 1) * REPORT_DETAIL_PAGE_SIZE;
+      group.pageRows = group.rows.slice(start, start + REPORT_DETAIL_PAGE_SIZE);
+      group.paginationKey = key;
+    });
+    const targetCards = users.filter((u) => normalizeRole(u.role) === 'cs').map((u) => {
+      const t = targets.find((row) => row.username === u.username) || {};
+      const summary = getCsKpiSummary(u.nama, t, deals, kpi, currentMonth);
+      const items = [];
+      if (Number(t.targetOmzet || 0) > 0) {
+        const pct = reportTargetPercent(summary.omzet, t.targetOmzet);
+        items.push({ label: 'Omzet', achievedText: reportFormatRp(summary.omzet), targetText: reportFormatRp(t.targetOmzet), valueText: "".concat(reportFormatRp(summary.omzet), " / ").concat(reportFormatRp(t.targetOmzet)), pct, over: reportOverTargetInfo(summary.omzet, t.targetOmzet) });
+      }
+      if (Number(t.targetTerbit || 0) > 0) {
+        const pct = reportTargetPercent(summary.dealCount, t.targetTerbit);
+        items.push({ label: 'Deal', achievedText: "".concat(summary.dealCount, " Deal"), targetText: "".concat(Number(t.targetTerbit || 0).toLocaleString('id-ID'), " Deal"), valueText: "".concat(summary.dealCount, " / ").concat(Number(t.targetTerbit || 0).toLocaleString('id-ID')), pct, over: reportOverTargetInfo(summary.dealCount, t.targetTerbit, 'Deal') });
+      }
+      const avgPct = items.length ? Math.round(items.reduce((sum, item) => sum + item.pct, 0) / items.length) : 0;
+      return { nama: u.nama, role: getRoleLabel(u.role), items, avgPct };
+    }).filter((card) => card.items.length > 0);
+
+    content.innerHTML = "\n                    <div class=\"space-y-6\">\n                        <div class=\"bg-white border border-slate-100 shadow-sm p-6\">\n                            <div class=\"flex flex-col md:flex-row md:items-end justify-between gap-3\">\n                                <div><h3 class=\"text-xl font-black text-slate-900\">Detail Deal CS</h3><p class=\"text-sm text-slate-400 mt-1\">Data transaksi bulan berjalan (".concat(
+
+
+
+      currentMonth, ") per CS.</p></div>\n                            </div>\n                        </div>\n                        ").concat(
+
+
+      renderReportTargetCards(targetCards, 'detail_deal_cs_target'), "\n                        <div class=\"space-y-5\">\n                            ").concat(
+
+      groups.map((group, groupIndex) => "\n                                <div class=\"bg-white border border-slate-100 shadow-sm overflow-hidden\">\n                                    <div class=\"px-5 py-4 border-b border-accent-100 bg-accent-50/60 flex items-center gap-3\">\n                                        <div class=\"flex items-center gap-3\">\n                                            <div class=\"w-10 h-10 rounded-xl bg-accent-600 text-white flex items-center justify-center font-black\">".concat(
+
+
+
+        reportSafeText(String(group.nama || 'C').charAt(0).toUpperCase()), "</div>\n                                            <div><div class=\"text-[10px] font-black text-accent-500 uppercase tracking-widest\">Customer Service</div><div class=\"font-black text-slate-900\">").concat(
+        reportSafeText(group.nama), "</div></div>\n                                        </div>\n                                    </div>\n                                    <div class=\"grid grid-cols-2 lg:grid-cols-4 gap-2 px-5 py-4 bg-white border-b border-slate-100\">\n                                        <div class=\"border border-slate-100 bg-slate-50 px-3 py-2\"><div class=\"text-[9px] uppercase tracking-widest text-slate-400 font-black\">Terbit</div><div class=\"text-xl font-black text-accent-600\">").concat(
+
+
+
+        group.summary.terbit.toLocaleString('id-ID'), "</div></div>\n                                        <div class=\"border border-slate-100 bg-slate-50 px-3 py-2\"><div class=\"text-[9px] uppercase tracking-widest text-slate-400 font-black\">Cetak</div><div class=\"text-xl font-black text-accent-600\">").concat(
+        group.summary.cetak.toLocaleString('id-ID'), "</div></div>\n                                        <div class=\"border border-slate-100 bg-slate-50 px-3 py-2\"><div class=\"text-[9px] uppercase tracking-widest text-slate-400 font-black\">Lainnya</div><div class=\"text-xl font-black text-accent-600\">").concat(
+        group.summary.lainnya.toLocaleString('id-ID'), "</div></div>\n                                        <div class=\"border border-slate-100 bg-slate-50 px-3 py-2\"><div class=\"text-[9px] uppercase tracking-widest text-slate-400 font-black\">Nominal</div><div class=\"text-xl font-black text-emerald-600\">").concat(
+        reportFormatRp(group.summary.nominal), "</div></div>\n                                    </div>\n                                    <div class=\"overflow-x-auto\">\n                                        <table class=\"w-full text-left text-xs table-fixed\">\n                                            <colgroup>\n                                                <col class=\"w-[6.2rem]\"><col><col class=\"w-[8rem]\"><col class=\"w-[10rem]\"><col class=\"w-[3.7rem]\"><col class=\"w-[3.7rem]\"><col class=\"w-[4.3rem]\"><col class=\"w-[8rem]\">\n                                            </colgroup>\n                                            <thead class=\"bg-slate-50 text-[10px] text-slate-400 uppercase tracking-widest\">\n                                                <tr>\n                                                    <th class=\"px-3 py-3\">Tanggal</th>\n                                                    <th class=\"px-3 py-3\">Judul</th>\n                                                    <th class=\"px-3 py-3\">Kota</th>\n                                                    <th class=\"px-3 py-3\">Paket</th>\n                                                    <th class=\"px-2 py-3 text-center\">Terbit</th>\n                                                    <th class=\"px-2 py-3 text-center\">Cetak</th>\n                                                    <th class=\"px-2 py-3 text-center\">Lainnya</th>\n                                                    <th class=\"px-3 py-3 text-right\">Nominal</th>\n                                                </tr>\n                                            </thead>\n                                            <tbody class=\"divide-y divide-slate-50\">\n                                                ").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        group.pageRows.map((row) => {
+          const rowStyle = getDealRowStyle(row);
+          return "\n                                                    <tr style=\"".concat(
+            rowStyle, "\">\n                                                        <td style=\"").concat(
+            rowStyle, "\" class=\"px-3 py-3 font-mono text-[11px] text-slate-500 whitespace-nowrap\">").concat(reportSafeText(row.tanggal), "</td>\n                                                        <td style=\"").concat(
+            rowStyle, "\" class=\"px-3 py-3 font-bold text-slate-800 truncate\" title=\"").concat(reportSafeText(row.judul), "\">").concat(reportSafeText(row.judul), "</td>\n                                                        <td style=\"").concat(
+            rowStyle, "\" class=\"px-3 py-3 text-slate-600 truncate\" title=\"").concat(reportSafeText(row.kotaAsal || '-'), "\">").concat(reportSafeText(row.kotaAsal || '-'), "</td>\n                                                        <td style=\"").concat(
+            rowStyle, "\" class=\"px-3 py-3 text-slate-600 truncate\" title=\"").concat(reportSafeText(row.uraian), "\">").concat(reportSafeText(row.uraian), "</td>\n                                                        <td style=\"").concat(
+            rowStyle, "\" class=\"px-2 py-3 text-center font-black text-slate-700\">").concat(reportSafeText(row.terbit || '-'), "</td>\n                                                        <td style=\"").concat(
+            rowStyle, "\" class=\"px-2 py-3 text-center font-black text-slate-700\">").concat(reportSafeText(row.cetak || '-'), "</td>\n                                                        <td style=\"").concat(
+            rowStyle, "\" class=\"px-2 py-3 text-center font-black text-slate-700\">").concat(reportSafeText(row.lainnya || '-'), "</td>\n                                                        <td style=\"").concat(
+            rowStyle, "\" class=\"px-3 py-3 text-right font-mono font-black text-emerald-600 whitespace-nowrap\">").concat(reportFormatRp(row.nominal), "</td>\n                                                    </tr>");
+
+        }).join(''), "\n                                            </tbody>\n                                        </table>\n                                    </div>\n                                    ").concat(
+
+
+
+        renderReportDetailPagination(group.paginationKey, group.rows.length, 'loadDetailDealCS'), "\n                                </div>\n                            ")
+
+      ).join(''), "\n                            ").concat(
+      groups.length === 0 ? '<div class="bg-white border border-dashed border-slate-200 p-12 text-center text-slate-400 italic">Belum ada detail deal CS pada bulan berjalan.</div>' : '', "\n                        </div>\n                    </div>");
+
+
+  }).getInitialData();
+}
+function loadKelolaDeal() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    let deals = (res?.data || []).
+    filter((d) => d.csName === state.user.nama).
+    sort((a, b) => String(b.tanggal || b.deadline || '').localeCompare(String(a.tanggal || a.deadline || '')));
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const monthDeals = deals.filter((d) => String(d.tanggal || d.deadline || '').startsWith(currentMonth));
+    deals = monthDeals;
+    const totalDeal = monthDeals.length;
+    const totalDp = monthDeals.filter((d) => d.statusPayment === 'DP').length;
+    const totalFull = monthDeals.filter((d) => d.statusPayment === 'Full Payment').length;
+    const totalNominal = monthDeals.reduce((sum, d) => sum + Number(d.nilai || 0), 0);
+    const safe = (value) => reportSafeText(value || '-');
+    const safeAttr = (value) => String(value || '').replace(/[&<>"']/g, (ch) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    })[ch]);
+    content.innerHTML = "\n                    <div class=\"bg-slate-50/80 rounded-[2rem] p-6 md:p-8 space-y-8\">\n                        ".concat(
+
+      renderCSMobileInputTabs('deal'), "\n                        <div class=\"flex flex-wrap gap-4\">\n                            <div class=\"bg-white border border-slate-100 shadow-sm rounded-2xl px-5 py-4 min-w-[220px] flex items-center gap-4\">\n                                <div class=\"w-11 h-11 rounded-xl bg-accent-50 text-accent-600 flex items-center justify-center text-xl\"><i class=\"fa-solid fa-handshake\"></i></div>\n                                <div><div class=\"text-[10px] uppercase tracking-widest text-slate-400 font-black\">Total Deal (Bulan Ini)</div><div class=\"text-2xl font-black text-slate-900 mt-1\">").concat(
+
+
+
+      totalDeal, " Poin</div></div>\n                            </div>\n                            <div class=\"bg-white border border-slate-100 shadow-sm rounded-2xl px-5 py-4 min-w-[260px] flex items-center gap-4\">\n                                <div class=\"w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl font-black\">Rp</div>\n                                <div><div class=\"text-[10px] uppercase tracking-widest text-slate-400 font-black\">Total Nominal (Bulan Ini)</div><div class=\"text-2xl font-black text-emerald-600 mt-1\">Rp ").concat(
+
+
+
+      totalNominal.toLocaleString('id-ID'), "</div></div>\n                            </div>\n                        </div>\n\n                        <div class=\"flex flex-col md:flex-row md:items-center justify-between gap-4\">\n                            <h3 class=\"text-xl font-black text-slate-900 flex items-center gap-3\"><i class=\"fa-solid fa-handshake text-accent-600\"></i>Riwayat Input Deal</h3>\n                            <button onclick=\"openFormDeal()\" class=\"btn-gradient text-white px-6 py-3 rounded-xl font-black shadow-lg text-sm\"><i class=\"fa-solid fa-plus mr-2\"></i>Input Deal</button>\n                        </div>\n\n                        <div class=\"bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden\">\n                            <div class=\"overflow-x-auto\">\n                                <table class=\"w-full text-left text-sm\">\n                                    <thead class=\"bg-slate-50 text-[10px] uppercase tracking-widest font-black text-slate-400\">\n                                        <tr>\n                                            <th class=\"px-5 py-4\">Penulis & Judul</th>\n                                            <th class=\"px-5 py-4\">Paket & Spesifikasi</th>\n                                            <th class=\"px-5 py-4 text-right\">Nilai Deal (Rp)</th>\n                                            <th class=\"px-5 py-4\">Status & Deadline</th>\n                                            <th class=\"px-5 py-4 text-center\">Aksi</th>\n                                        </tr>\n                                    </thead>\n                                    <tbody class=\"divide-y divide-slate-100\">\n                                        ").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      deals.length === 0 ? '<tr><td colspan="5" class="px-5 py-12 text-center text-slate-300 italic">Belum ada deal yang diinput.</td></tr>' : deals.map((d) => {
+        const payment = d.statusPayment || 'Full Payment';
+        const nilai = Number(d.nilai || 0);
+        const dp = Number(d.nominalDP || 0);
+        const sisa = Math.max(0, nilai - dp);
+        const specs = [d.spesifikasiCetak, d.ukuran, d.estimasiHalaman ? "±".concat(Number(d.estimasiHalaman).toLocaleString('id-ID'), " Hal") : '', d.estimasiKata ? "±".concat(Number(d.estimasiKata).toLocaleString('id-ID'), " Kata") : ''].filter(Boolean).join(' | ');
+        const catatan = String(d.catatan || '').trim();
+        return "\n                                            <tr class=\"hover:bg-slate-50/70 transition\">\n                                                <td class=\"px-5 py-5 min-w-[340px]\">\n                                                    <div class=\"font-black text-slate-900 leading-snug\">".concat(
+
+
+          safe(d.judul), "</div>\n                                                    <div class=\"text-xs text-slate-400 mt-1\">Penulis: ").concat(
+          safe(d.penulis), "</div>\n                                                    ").concat(
+          d.kotaAsal ? "<div class=\"text-xs text-slate-400 mt-1\"><i class=\"fa-solid fa-location-dot text-slate-300\"></i> ".concat(safe(d.kotaAsal), "</div>") : '', "\n                                                    ").concat(
+          catatan ? "<div class=\"mt-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-100 text-[11px] italic text-amber-700 max-w-xl\"><i class=\"fa-solid fa-note-sticky mr-1\"></i>".concat(safe(catatan), "</div>") : '', "\n                                                </td>\n                                                <td class=\"px-5 py-5 text-slate-600 min-w-[230px]\">\n                                                    <div class=\"font-black text-slate-700\">").concat(
+
+
+          safe(d.penerbit), " <span class=\"text-slate-300\">&bull;</span> <span class=\"font-bold\">").concat(safe(d.paket), "</span></div>\n                                                    <div class=\"text-xs text-slate-400 mt-2 leading-relaxed\">").concat(
+          safe(specs || '-'), "</div>\n                                                </td>\n                                                <td class=\"px-5 py-5 whitespace-nowrap text-right font-mono\">\n                                                    <div class=\"font-black text-slate-900\">Rp ").concat(
+
+
+          nilai.toLocaleString('id-ID'), "</div>\n                                                    ").concat(
+          payment === 'DP' ? "<div class=\"mt-2 text-[11px] font-black text-orange-600\">DP: Rp ".concat(dp.toLocaleString('id-ID'), "</div><div class=\"text-[11px] font-black text-red-500\">Sisa: Rp ").concat(sisa.toLocaleString('id-ID'), "</div>") : '', "\n                                                </td>\n                                                <td class=\"px-5 py-5 whitespace-nowrap\">\n                                                    <span class=\"inline-flex px-3 py-1 rounded-lg text-[10px] font-black ").concat(
+
+
+          payment === 'DP' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700', "\">").concat(safe(payment), "</span>\n                                                    <div class=\"text-xs text-slate-400 mt-2\"><i class=\"fa-solid fa-clock mr-1\"></i>").concat(
+          safe(d.deadline || d.tanggal), "</div>\n                                                    <div class=\"text-[10px] text-slate-400 mt-1\">").concat(
+          safe(d.statusProses || '-'), "</div>\n                                                </td>\n                                                <td class=\"px-5 py-5\">\n                                                    <div class=\"flex flex-col items-center gap-2\">\n                                                        ").concat(
+
+
+
+          payment === 'DP' ? "<button onclick=\"tambahDpDeal('".concat(safeAttr(d.id), "')\" class=\"px-4 py-2 rounded-xl bg-accent-50 hover:bg-accent-100 text-accent-600 text-xs font-black transition whitespace-nowrap\"><i class=\"fa-solid fa-plus mr-1\"></i>Tambah DP</button>") : '', "\n                                                        <div class=\"flex items-center justify-center gap-2\">\n                                                        <button onclick=\"editDealCS('").concat(
+
+          safeAttr(d.id), "')\" class=\"w-9 h-9 rounded-xl bg-accent-50 hover:bg-accent-100 text-accent-600 flex items-center justify-center transition\" title=\"Edit\"><i class=\"fa-solid fa-pen\"></i></button>\n                                                        <button onclick=\"hapusDealCS('").concat(
+          safeAttr(d.id), "')\" class=\"w-9 h-9 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center transition\" title=\"Hapus\"><i class=\"fa-solid fa-trash\"></i></button>\n                                                        </div>\n                                                        <button onclick=\"updatePembayaranDealCS('").concat(
+          safeAttr(d.id), "')\" class=\"px-4 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-black transition whitespace-nowrap\"><i class=\"fa-solid fa-money-check-dollar mr-1\"></i>Update Pembayaran</button>\n                                                    </div>\n                                                </td>\n                                            </tr>");
+
+
+
+
+      }).join(''), "\n                                    </tbody>\n                                </table>\n                            </div>\n                        </div>\n                    </div>");
+
+
+
+
+
+  }).withFailureHandler((error) => showServerError('Gagal Memuat Deal', error)).getDealData();
+}
+function setDealPaymentFieldsLocked(isLocked) {
+  ['deal_nilai', 'deal_status', 'deal_nominal_dp'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !!isLocked;
+  });
+  const notice = document.getElementById('deal_payment_lock_notice');
+  if (notice) notice.classList.toggle('hidden', !isLocked);
+}
+function ensureDealPhoneField() {
+  if (document.getElementById('deal_no_hp_penulis')) return;
+  const penulisInput = document.getElementById('deal_penulis');
+  const anchor = penulisInput?.closest('.grid');
+  if (!anchor) return;
+  const wrapper = document.createElement('div');
+  wrapper.className = 'grid grid-cols-1 md:grid-cols-2 gap-4';
+  wrapper.innerHTML = "\n            <div>\n                <label class=\"text-[10px] font-bold text-slate-400 uppercase\">No HP Penulis *</label>\n                <input type=\"tel\" id=\"deal_no_hp_penulis\" required inputmode=\"numeric\" pattern=\"[0-9]{5,18}\" class=\"w-full p-3 border rounded-xl outline-none focus:border-accent-600\" placeholder=\"Contoh: 081234567890\">\n                <p class=\"text-[9px] text-slate-400 mt-1\">Dipakai untuk verifikasi 4 digit terakhir tracking customer.</p>\n            </div>\n        ";
+
+
+
+
+
+
+  anchor.insertAdjacentElement('afterend', wrapper);
+}
+
+function isDealPackageSelected() {
+  return !!String(document.getElementById('deal_paket')?.value || '').trim();
+}
+
+function setDealAcceleration(value) {
+  const hidden = document.getElementById('deal_percepatan_proses');
+  const normalized = ['VIP', 'VVIP'].includes(String(value || '').toUpperCase()) ? String(value).toUpperCase() : '';
+  if (hidden) hidden.value = isDealPackageSelected() ? normalized : '';
+  ['VIP', 'VVIP'].forEach((item) => {
+    const btn = document.querySelector(`[data-deal-acceleration="${item}"]`);
+    if (!btn) return;
+    const active = hidden && hidden.value === item;
+    btn.classList.toggle('bg-blue-600', active);
+    btn.classList.toggle('text-white', active);
+    btn.classList.toggle('border-blue-600', active);
+    btn.classList.toggle('shadow-sm', active);
+    btn.classList.toggle('bg-white', !active);
+    btn.classList.toggle('text-slate-600', !active);
+    btn.classList.toggle('border-slate-200', !active);
+  });
+}
+
+function toggleDealAcceleration(value) {
+  const hidden = document.getElementById('deal_percepatan_proses');
+  const next = hidden && hidden.value === value ? '' : value;
+  setDealAcceleration(next);
+  updateDealDeadlineFromPackage();
+}
+
+function updateDealAccelerationVisibility() {
+  const wrap = document.getElementById('deal_acceleration_wrap');
+  const hasPackage = isDealPackageSelected();
+  if (wrap) wrap.classList.toggle('hidden', !hasPackage);
+  if (!hasPackage) setDealAcceleration('');
+  else setDealAcceleration(document.getElementById('deal_percepatan_proses')?.value || '');
+}
+
+function openFormDeal() {
+  ensureDealPhoneField();
+  const form = document.querySelector('#modalDeal form');
+  if (form) form.reset();
+  const title = document.getElementById('dealModalTitle');
+  if (title) title.innerText = 'Input Deal Baru';
+  const id = document.getElementById('deal_id');
+  if (id) id.value = '';
+  setDealPaymentFieldsLocked(false);
+  toggleDPField('Full Payment');
+  if (typeof window.loadDealCssOptionsCore === 'function') {
+    window.loadDealCssOptionsCore('');
+  }
+  setDealAcceleration('');
+  updateDealAccelerationVisibility();
+  populatePenerbitDropdown('deal_penerbit', '', () => {
+    updatePaketDropdown('deal_penerbit', 'deal_paket', '', () => {
+      updateDealAccelerationVisibility();
+      updateDealDeadlineFromPackage();
+    });
+  });
+  openModal('modalDeal');
+}
+function authorizeDealAction(actionLabel, onAuthorized) {
+  gas.withSuccessHandler((res) => {
+    const expected = String(res?.data?.passwordDeal || 'admin123');
+    Swal.fire({
+      title: 'Password Otorisasi',
+      text: 'Masukkan password otorisasi untuk ' + actionLabel + '.',
+      icon: 'question',
+      input: 'password',
+      inputPlaceholder: 'Password otorisasi',
+      showCancelButton: true,
+      confirmButtonColor: '#4763FD',
+      confirmButtonText: 'Lanjut',
+      cancelButtonText: 'Batal',
+      inputValidator: (value) => {
+        if (!value) return 'Password wajib diisi.';
+        if (String(value) !== expected) return 'Password otorisasi salah.';
+      }
+    }).then((result) => {
+      if (result.isConfirmed) onAuthorized();
+    });
+  }).withFailureHandler((error) => showServerError('Gagal Memuat Password Otorisasi', error)).getSettingsData();
+}
+function loadPengaturanDeal() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const currentPassword = String(res?.data?.passwordDeal || 'admin123');
+    content.innerHTML = "\n                    <div class=\"max-w-3xl\">\n                        <div class=\"bg-white border border-slate-100 shadow-sm rounded-3xl overflow-hidden\">\n                            <div class=\"p-6 border-b border-slate-100 bg-slate-50/60\">\n                                <div class=\"w-12 h-12 rounded-2xl bg-accent-50 text-accent-600 flex items-center justify-center text-xl mb-4\">\n                                    <i class=\"fa-solid fa-lock\"></i>\n                                </div>\n                                <h3 class=\"text-xl font-black text-slate-900\">Pengaturan Deal</h3>\n                                <p class=\"text-sm text-slate-400 mt-1\">Atur password otorisasi untuk edit dan hapus data deal CS.</p>\n                            </div>\n                            <form onsubmit=\"handleSaveDealPasswordCS(event)\" class=\"p-6 space-y-5\">\n                                <div>\n                                    <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2\">Password Otorisasi Saat Ini</label>\n                                    <div class=\"flex items-center gap-3\">\n                                        <input id=\"deal_password_current\" type=\"text\" readonly value=\"".concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+      reportSafeText(currentPassword), "\" class=\"w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 font-bold outline-none\">\n                                        <button type=\"button\" onclick=\"copyDealPassword()\" class=\"px-4 py-3 rounded-xl bg-slate-100 text-slate-600 text-xs font-black\">Copy</button>\n                                    </div>\n                                </div>\n                                <div>\n                                    <label class=\"block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2\">Password Otorisasi Baru</label>\n                                    <input id=\"deal_password_new\" type=\"text\" required placeholder=\"Masukkan password baru\" class=\"w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-800 font-bold outline-none focus:border-accent-400\">\n                                    <p class=\"text-[10px] text-slate-400 mt-2\">Password ini dipakai saat CS melakukan edit atau hapus deal.</p>\n                                </div>\n                                <div class=\"pt-4 border-t border-slate-100 flex justify-end\">\n                                    <button type=\"submit\" class=\"btn-gradient text-white px-6 py-3 rounded-xl font-black shadow-lg text-sm\">\n                                        <i class=\"fa-solid fa-floppy-disk mr-2\"></i>Simpan Password\n                                    </button>\n                                </div>\n                            </form>\n                        </div>\n                    </div>");
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  }).withFailureHandler((error) => showServerError('Gagal Memuat Pengaturan Deal', error)).getSettingsData();
+}
+function handleSaveDealPasswordCS(event) {
+  event.preventDefault();
+  const value = document.getElementById('deal_password_new')?.value?.trim();
+  if (!value) {
+    Swal.fire('Password Kosong', 'Password otorisasi wajib diisi.', 'warning');
+    return;
+  }
+  Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => {Swal.showLoading();} });
+  gas.withSuccessHandler((res) => {
+    if (!res || res.success === false) {
+      Swal.fire('Gagal', res && (res.message || res.error) || 'Password gagal disimpan.', 'error');
+      return;
+    }
+    Swal.fire('Tersimpan', 'Password otorisasi deal berhasil diperbarui.', 'success');
+    loadPengaturanDeal();
+  }).withFailureHandler((error) => showServerError('Gagal Menyimpan Password Deal', error)).saveDealPassword(value);
+}
+function copyDealPassword() {
+  const value = document.getElementById('deal_password_current')?.value || '';
+  if (!value) return;
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(value).then(() => Swal.fire('Tersalin', 'Password berhasil disalin.', 'success'));
+  } else {
+    Swal.fire('Password Otorisasi', value, 'info');
+  }
+}
+function updateDealDeadlineFromPackage() {
+  const publisher = document.getElementById('deal_penerbit')?.value || '';
+  const paket = document.getElementById('deal_paket')?.value || '';
+  const acceleration = document.getElementById('deal_percepatan_proses')?.value || '';
+  const deadline = document.getElementById('deal_deadline');
+  const hint = document.getElementById('deal_deadline_hint');
+  if (!deadline) return;
+  const apply = (rows) => {
+    window._deadlineSettings = rows && rows.length ? rows : getDefaultDeadlineSettings();
+    if (!paket) {
+      if (hint) {
+        const pubSettings = window._deadlineSettings.filter((s) => !s.penerbit || String(s.penerbit).toLowerCase() === String(publisher).toLowerCase());
+        const labels = pubSettings.map((s) => "".concat(s.paket, " (").concat(Number(s.totalHari || s.selesai || 0), " hari)")).join(', ');
+        hint.textContent = labels ? "Pilih paket: ".concat(labels) : 'Pilih paket terlebih dahulu.';
+      }
+      return;
+    }
+    const setting = resolveDealDeadlineSettingClient(publisher, paket, acceleration, window._deadlineSettings);
+    if (!setting) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const minDate = addBusinessDaysClient(today, Number(setting.totalHari || setting.selesai || 0));
+    deadline.min = minDate;
+    if (!deadline.value || businessDaysBetweenClient(today, deadline.value) < Number(setting.totalHari || setting.selesai || 0)) {
+      deadline.value = minDate;
+    }
+    if (hint) {
+      const dayText = Number(setting.totalHari || setting.selesai || 0);
+      hint.textContent = acceleration ?
+        "".concat(acceleration, ": minimal ").concat(dayText, " hari kerja (").concat(minDate, "). CS hanya bisa memperpanjang.") :
+        "Standar paket ".concat(setting.paket, ": minimal ").concat(dayText, " hari kerja (").concat(minDate, "). CS hanya bisa memperpanjang.");
+    }
+  };
+  if (window._deadlineSettings) {
+    apply(window._deadlineSettings);
+  } else {
+    fetchDeadlineSettingsClient((res) => apply(res?.data || []), () => apply(getDefaultDeadlineSettings()));
+  }
+}
+function editDealCS(id) {
+  authorizeDealAction('edit deal', () => openEditDealCS(id));
+}
+function openEditDealCS(id) {
+  ensureDealPhoneField();
+  gas.withSuccessHandler((res) => {
+    const d = (res?.data || []).find((x) => x.id === id);
+    if (!d) {
+      Swal.fire('Data Tidak Ditemukan', 'Deal tidak ditemukan atau sudah berubah.', 'warning');
+      return;
+    }
+    const title = document.getElementById('dealModalTitle');
+    if (title) title.innerText = 'Edit Deal';
+    document.getElementById('deal_id').value = d.id || '';
+    document.getElementById('deal_penulis').value = d.penulis || '';
+    document.getElementById('deal_no_hp_penulis').value = d.noHpPenulis || '';
+    document.getElementById('deal_judul').value = d.judul || '';
+    document.getElementById('deal_kota_asal').value = d.kotaAsal || '';
+    document.getElementById('deal_ukuran').value = d.ukuran || 'A5';
+    document.getElementById('deal_estimasi_halaman').value = d.estimasiHalaman || '';
+    document.getElementById('deal_estimasi_kata').value = d.estimasiKata || '';
+    document.getElementById('deal_nilai').value = d.nilai || '';
+    document.getElementById('deal_status').value = d.statusPayment || 'Full Payment';
+    document.getElementById('deal_deadline').value = d.deadline || '';
+    document.getElementById('deal_nominal_dp').value = d.nominalDP || '';
+    document.getElementById('deal_catatan').value = d.catatan || '';
+    document.getElementById('deal_spesifikasi_cetak').value = d.spesifikasiCetak || '';
+    document.getElementById('deal_status_proses').value = d.statusProses || 'Belum Siap Proses';
+    document.getElementById('deal_butuh_proofreading').value = String(d.butuhProofreading ?? '1') === '0' ? '0' : '1';
+    populatePenerbitDropdown('deal_penerbit', d.penerbit || '', () => updatePaketDropdown('deal_penerbit', 'deal_paket', d.paket || '', () => {
+      setDealAcceleration(d.percepatanProses || '');
+      updateDealAccelerationVisibility();
+      updateDealDeadlineFromPackage();
+    }));
+    if (typeof window.loadDealCssOptionsCore === 'function') {
+      window.loadDealCssOptionsCore(d.assignedCssUsername || '');
+    }
+    toggleDPField(d.statusPayment || 'Full Payment');
+    setDealPaymentFieldsLocked(true);
+    openModal('modalDeal');
+  }).withFailureHandler((error) => showServerError('Gagal Memuat Deal', error)).getDealData();
+}
+function hapusDealCS(id) {
+  authorizeDealAction('hapus deal', () => {
+    Swal.fire({
+      title: 'Hapus Deal?',
+      text: 'Deal dan naskah terkait akan dihapus dari daftar aktif.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      confirmButtonText: 'Hapus',
+      cancelButtonText: 'Batal'
+    }).then((result) => {
+      if (!result.isConfirmed) return;
+      gas.withSuccessHandler((res) => {
+        if (!res || res.success === false) {
+          Swal.fire('Gagal', res && (res.message || res.error) || 'Deal gagal dihapus.', 'error');
+          return;
+        }
+        if (state.activeTab === 'kelola_deal') loadKelolaDeal();
+        if (state.activeTab === 'dashboard_kpi') loadDashboardKPI();
+        Swal.fire('Terhapus', 'Deal berhasil dihapus.', 'success');
+      }).withFailureHandler((error) => showServerError('Gagal Menghapus Deal', error)).deleteDeal(id);
+    });
+  });
+}
+function handleSaveDealCS(event) {
+  event.preventDefault();
+  ensureDealPhoneField();
+  const isAppsScriptUrl = /script\.google\.com|googleusercontent\.com/i.test(String(location.hostname || ''));
+  if (isAppsScriptUrl && window.__portalGasMode !== 'apps-script') {
+    Swal.fire('Koneksi Apps Script Belum Siap', 'Halaman belum tersambung ke database. Reload halaman lalu coba lagi.', 'error');
+    return;
+  }
+  const id = document.getElementById('deal_id').value;
+  const isEdit = !!id;
+  const statusPayment = document.getElementById('deal_status').value;
+  const noHpPenulis = (document.getElementById('deal_no_hp_penulis')?.value || '').replace(/\D+/g, '');
+  const assignedCssUsername = (document.getElementById('deal_assigned_css')?.value || '').trim();
+  const payload = {
+    id,
+    csName: state.user.nama,
+    penulis: document.getElementById('deal_penulis').value.trim(),
+    noHpPenulis,
+    kotaAsal: document.getElementById('deal_kota_asal').value.trim(),
+    judul: document.getElementById('deal_judul').value.trim(),
+    penerbit: document.getElementById('deal_penerbit').value,
+    paket: document.getElementById('deal_paket').value,
+    percepatanProses: document.getElementById('deal_percepatan_proses')?.value || '',
+    ukuran: document.getElementById('deal_ukuran').value,
+    estimasiHalaman: Number(document.getElementById('deal_estimasi_halaman').value || 0),
+    estimasiKata: Number(document.getElementById('deal_estimasi_kata').value || 0),
+    deadline: document.getElementById('deal_deadline').value,
+    catatan: document.getElementById('deal_catatan').value.trim(),
+    spesifikasiCetak: document.getElementById('deal_spesifikasi_cetak').value.trim(),
+    statusProses: document.getElementById('deal_status_proses').value,
+    butuhProofreading: document.getElementById('deal_butuh_proofreading').value,
+    assignedCssUsername
+  };
+  if (!isEdit) {
+    payload.nilai = Number(document.getElementById('deal_nilai').value || 0);
+    payload.statusPayment = statusPayment;
+    payload.nominalDP = statusPayment === 'DP' ? Number(document.getElementById('deal_nominal_dp').value || 0) : 0;
+  }
+  if (!payload.penulis || !payload.judul || !payload.penerbit || !payload.paket || !payload.deadline) {
+    Swal.fire('Data Belum Lengkap', 'Penulis, judul, penerbit, paket, dan deadline wajib diisi.', 'warning');
+    return;
+  }
+  if (!/^\d{5,18}$/.test(payload.noHpPenulis)) {
+    Swal.fire('Format No HP', 'Nomor HP penulis wajib angka 5-18 digit.', 'warning');
+    return;
+  }
+  if (!isEdit && !payload.assignedCssUsername) {
+    Swal.fire('CCO Belum Dipilih', 'Pilih CCO penanggung jawab sebelum menyimpan deal.', 'warning');
+    return;
+  }
+  if (!isEdit && payload.nilai <= 0) {
+    Swal.fire('Nominal Tidak Valid', 'Nilai deal wajib lebih dari 0.', 'warning');
+    return;
+  }
+  if (!isEdit && payload.statusPayment === 'DP' && (payload.nominalDP <= 0 || payload.nominalDP >= payload.nilai)) {
+    Swal.fire('DP Tidak Valid', 'Nominal DP wajib lebih dari 0 dan lebih kecil dari nilai deal.', 'warning');
+    return;
+  }
+  const deadlineSetting = resolveDealDeadlineSettingClient(payload.penerbit, payload.paket, payload.percepatanProses);
+  if (!isEdit && deadlineSetting) {
+    const today = new Date().toISOString().slice(0, 10);
+    const minDays = Number(deadlineSetting.totalHari || deadlineSetting.selesai || 0);
+    const chosenDays = businessDaysBetweenClient(today, payload.deadline);
+    if (chosenDays < minDays) {
+      payload.deadline = addBusinessDaysClient(today, minDays);
+    }
+  }
+  const finishDealSave = (res) => {
+    if (!res || res.success === false) {
+      Swal.fire('Gagal', res && (res.message || res.error) || 'Deal gagal disimpan.', 'error');
+      return;
+    }
+    const savedDealId = res?.data?.dealId || payload.id || '';
+    const showSuccess = (meta = {}) => {
+      closeModal('modalDeal');
+      if (state.activeTab === 'kelola_deal') loadKelolaDeal();
+      if (state.activeTab === 'dashboard_kpi') loadDashboardKPI();
+      Swal.fire({
+        title: 'Berhasil',
+        text: isEdit ? 'Deal berhasil diperbarui.' : 'Input berhasil.',
+        icon: 'success'
+      });
+    };
+    if (!savedDealId) {
+      showSuccess();
+      return;
+    }
+    gas.withSuccessHandler((checkRes) => {
+      const exists = (checkRes?.data || []).some((row) => String(row.id || '') === String(savedDealId));
+      if (!exists) {
+        Swal.fire('Belum Tersimpan', 'Server mengembalikan sukses, tetapi Deal ID ' + savedDealId + ' belum ditemukan di sheet Deals. Coba ulangi atau hubungi admin untuk cek akses deployment.', 'error');
+        return;
+      }
+      showSuccess({ totalDeals: (checkRes?.data || []).length });
+    }).withFailureHandler((error) => showServerError('Gagal Verifikasi Deal', error)).getDealData();
+  };
+  const submitDeal = () => {
+    Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => {Swal.showLoading();} });
+    gas.withSuccessHandler(finishDealSave).withFailureHandler((error) => showServerError('Gagal Menyimpan Deal', error)).saveDealData(payload);
+  };
+
+  submitDeal();
+}
+function chooseCssForDealBeforeSave(onSelect) {
+  gas.withSuccessHandler((res) => {
+    const cssRows = res?.data || [];
+    if (!cssRows.length) {
+      Swal.fire('Peringatan', 'Belum ada akun CCO yang tersedia. Silakan buat akun CCO terlebih dahulu.', 'warning');
+      return;
+    }
+    let selectedCssUsername = '';
+    const cssCards = cssRows.map((css) => {
+      const workload = Object.entries(css.byPublisher || {}).map(([pub, count]) => "<span style=\"display:inline-block;padding:2px 8px;margin:2px;border-radius:6px;background:#f1f5f9;font-size:10px;font-weight:700;color:#64748b;\">".concat(cssAssignEscape(pub), ": ").concat(count, "</span>")).join('');
+      return "<button type=\"button\" data-css-save=\"".concat(cssAssignEscape(css.username), "\" style=\"width:100%;text-align:left;padding:16px;border-radius:12px;border:2px solid #e2e8f0;background:white;cursor:pointer;transition:all 0.2s;margin-bottom:8px;\">\n                    <div style=\"display:flex;align-items:center;justify-content:space-between;\">\n                        <div style=\"flex:1;min-width:0;\">\n                            <div style=\"font-size:14px;font-weight:900;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;\">").concat(
+
+
+        cssAssignEscape(css.nama || css.username), "</div>\n                            <div style=\"font-size:11px;font-weight:700;color:#94a3b8;margin-top:4px;\">").concat(
+        Number(css.total || 0), " naskah aktif</div>\n                            <div style=\"margin-top:6px;\">").concat(
+        workload, "</div>\n                        </div>\n                        <div style=\"width:36px;height:36px;border-radius:8px;background:#f0f3ff;color:#4763FD;display:flex;align-items:center;justify-content:center;margin-left:12px;flex-shrink:0;opacity:0;transform:scale(0.8);transition:all 0.2s;\" class=\"css-save-check\">\n                            <i class=\"fa-solid fa-circle-check\"></i>\n                        </div>\n                    </div>\n                </button>");
+
+
+
+
+
+
+    }).join('');
+
+    Swal.fire({
+      title: 'Pilih CCO Penanggung Jawab',
+      width: 680,
+      html: "\n                    <div style=\"text-align:left;\">\n                        <p style=\"font-size:13px;color:#64748b;font-weight:700;margin-bottom:16px;\">Deal akan disimpan setelah CCO dipilih.</p>\n                        <div style=\"max-height:400px;overflow-y:auto;\">".concat(
+
+
+        cssCards, "</div>\n                    </div>\n                "),
+
+
+      showConfirmButton: true,
+      confirmButtonText: 'Simpan Deal',
+      confirmButtonColor: '#4763FD',
+      showCancelButton: true,
+      cancelButtonText: 'Batal',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      preConfirm: () => {
+        if (!selectedCssUsername) {
+          Swal.showValidationMessage('Pilih CCO penanggung jawab terlebih dahulu.');
+          return false;
+        }
+        return selectedCssUsername;
+      },
+      didOpen: () => {
+        const confirmBtn = Swal.getConfirmButton();
+        confirmBtn.style.borderRadius = '999px';
+        confirmBtn.style.padding = '12px 32px';
+        confirmBtn.style.fontWeight = '900';
+        document.querySelectorAll('[data-css-save]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('[data-css-save]').forEach((b) => {
+              b.style.borderColor = '#e2e8f0';
+              b.style.background = 'white';
+              const icon = b.querySelector('.css-save-check');
+              if (icon) {icon.style.opacity = '0';icon.style.transform = 'scale(0.8)';}
+            });
+            btn.style.borderColor = '#4763FD';
+            btn.style.background = '#f0f3ff';
+            const icon = btn.querySelector('.css-save-check');
+            if (icon) {icon.style.opacity = '1';icon.style.transform = 'scale(1)';}
+            selectedCssUsername = btn.getAttribute('data-css-save') || '';
+          });
+        });
+      }
+    }).then((result) => {
+      if (!result.isConfirmed || !result.value) return;
+      onSelect(result.value);
+    });
+  }).withFailureHandler((error) => showServerError('Gagal Memuat Daftar CCO', error)).getCssAssignmentOptions();
+}
+function loadDealLama() {
+  gas.withSuccessHandler((resDeal) => {
+    gas.withSuccessHandler((resArchive) => {
+      if (!state.user) return;
+      const content = document.getElementById('contentArea');
+      if (!content) return;
+      const activeDeals = (resDeal?.data || []).filter((d) => d.source === 'legacy');
+      const archivedDeals = resArchive?.data || [];
+      const totalPiutang = activeDeals.
+      filter((d) => d.statusPayment === 'DP').
+      reduce((sum, d) => sum + Math.max(0, Number(d.nilai || 0) - Number(d.nominalDP || 0)), 0);
+      const formatRp = (angka) => 'Rp ' + Number(angka || 0).toLocaleString('id-ID');
+      const legacyKategori = (d) => normalizeLegacyDealCategory(d.kategori || d.jenis || d.tipe || 'Terbit');
+      const statusBadge = (status) => status === 'DP' ?
+      '<span class="px-2 py-1 bg-amber-50 text-amber-600 rounded-lg text-[9px] font-black">DP</span>' :
+      '<span class="px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[9px] font-black">Full Payment</span>';
+
+      content.innerHTML = "\n                        <div class=\"space-y-6\">\n                            <div class=\"migration-hero\">\n                                <div class=\"min-w-0\">\n                                    <div class=\"migration-kicker\">Mode Transisi</div>\n                                    <h3>Deal Lama / Tagihan Berjalan</h3>\n                                    <p>Import data deal sebelum implementasi. Data ini tidak masuk KPI/omzet sampai ada pelunasan atau tambahan biaya baru.</p>\n                                </div>\n                                <div class=\"migration-date-card\">\n                                    <div>\n                                        <span>Total Piutang Aktif</span>\n                                        <strong>".concat(
+
+
+
+
+
+
+
+
+
+
+        formatRp(totalPiutang), "</strong>\n                                        <small>Dari ").concat(
+        activeDeals.filter((d) => d.statusPayment === 'DP').length, " deal DP aktif.</small>\n                                    </div>\n                                </div>\n                            </div>\n\n                            <div class=\"migration-stat-grid\">\n                                <div><span>Deal Aktif</span><strong>").concat(
+
+
+
+
+
+        activeDeals.length, "</strong></div>\n                                <div><span>Masih DP</span><strong>").concat(
+        activeDeals.filter((d) => d.statusPayment === 'DP').length, "</strong></div>\n                                <div><span>Full Payment</span><strong>").concat(
+        activeDeals.filter((d) => d.statusPayment === 'Full Payment').length, "</strong></div>\n                                <div><span>Arsip</span><strong>").concat(
+        archivedDeals.length, "</strong></div>\n                            </div>\n\n                            <div class=\"migration-board\">\n                                <div class=\"migration-board-head\">\n                                    <div>\n                                        <h3>Daftar Deal Lama Aktif</h3>\n                                        <p>Data aktif akan tampil di dashboard CS sebagai tagihan berjalan.</p>\n                                    </div>\n                                    <div class=\"flex flex-wrap gap-2\">\n                                        <button onclick=\"downloadTemplateDealLama()\" type=\"button\"><i class=\"fa-solid fa-file-excel mr-2\"></i>Template Excel</button>\n                                        <button onclick=\"document.getElementById('import_deal_lama_file')?.click()\" type=\"button\"><i class=\"fa-solid fa-upload mr-2\"></i>Import Excel</button>\n                                        <button onclick=\"openFormDealLamaManual()\" type=\"button\"><i class=\"fa-solid fa-plus mr-2\"></i>Input Manual</button>\n                                    </div>\n                                    <input id=\"import_deal_lama_file\" type=\"file\" accept=\".xlsx,.xls\" class=\"hidden\" onchange=\"importDealLamaExcel(event)\">\n                                </div>\n                                <div class=\"overflow-x-auto\">\n                                    <table class=\"w-full text-left\">\n                                        <thead class=\"bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest\">\n                                            <tr>\n                                                <th class=\"px-5 py-3\">Judul</th>\n                                                <th class=\"px-5 py-3\">CS</th>\n                                                <th class=\"px-5 py-3\">Kategori</th>\n                                                <th class=\"px-5 py-3\">Nilai</th>\n                                                <th class=\"px-5 py-3\">Status</th>\n                                                <th class=\"px-5 py-3 text-right\">Aksi</th>\n                                            </tr>\n                                        </thead>\n                                        <tbody class=\"divide-y divide-slate-50 text-sm\">\n                                            ").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        activeDeals.map((d) => {
+          const sisa = d.statusPayment === 'DP' ? Math.max(0, Number(d.nilai || 0) - Number(d.nominalDP || 0)) : 0;
+          return "\n                                                    <tr>\n                                                        <td class=\"px-5 py-4\">\n                                                            <div class=\"font-black text-slate-800\">".concat(
+
+
+            d.judul || '-', "</div>\n                                                            <div class=\"text-[10px] text-slate-400\">").concat(
+            d.penulis || '-', " &bull; ").concat(d.penerbit || '-', " &bull; ").concat(d.paket || '-', "</div>\n                                                        </td>\n                                                        <td class=\"px-5 py-4 font-bold text-slate-600\">").concat(
+
+            d.csName || '-', "</td>\n                                                        <td class=\"px-5 py-4\"><span class=\"px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-[9px] font-black\">").concat(
+            legacyKategori(d), "</span></td>\n                                                        <td class=\"px-5 py-4\">\n                                                            <div class=\"font-black text-slate-800\">").concat(
+
+            formatRp(d.nilai), "</div>\n                                                            <div class=\"text-[10px] text-slate-400\">").concat(
+            d.statusPayment === 'DP' ? 'DP ' + formatRp(d.nominalDP) + ' | Sisa ' + formatRp(sisa) : 'Lunas', "</div>\n                                                        </td>\n                                                        <td class=\"px-5 py-4\">").concat(
+
+            statusBadge(d.statusPayment), "</td>\n                                                        <td class=\"px-5 py-4 text-right\">\n                                                            ").concat(
+
+            d.statusPayment === 'Full Payment' ? "<button onclick=\"arsipkanDealSelesai('".concat(
+              d.id, "')\" class=\"px-3 py-2 bg-slate-100 hover:bg-slate-700 hover:text-white text-slate-500 rounded-xl text-[10px] font-black transition\">Arsip</button>") :
+            '<span class="text-[10px] font-bold text-slate-300">Menunggu lunas</span>', "\n                                                        </td>\n                                                    </tr>");
+
+
+        }).join(''), "\n                                            ").concat(
+        activeDeals.length === 0 ? '<tr><td colspan="6" class="p-12 text-center text-slate-300 italic">Belum ada deal lama aktif.</td></tr>' : '', "\n                                        </tbody>\n                                    </table>\n                                </div>\n                            </div>\n                        </div>");
+
+
+
+
+
+    }).getDealArchiveData();
+  }).getDealData();
+}
+function downloadTemplateDealLama() {
+  if (typeof XLSX === 'undefined') {
+    Swal.fire('Gagal', 'Library Excel belum siap. Reload halaman lalu coba lagi.', 'error');
+    return;
+  }
+  gas.withSuccessHandler((resUsers) => {
+    const csNames = (resUsers?.data || []).filter((u) => u.role === 'cs').map((u) => u.nama).filter(Boolean);
+    const wb = XLSX.utils.book_new();
+    const rows = [{
+      'CS': csNames[0] || 'Nama CS',
+      'Kategori': 'Terbit',
+      'Penulis': 'Nama Penulis',
+      'Judul': 'Contoh Judul Buku',
+      'Penerbit': 'Nasmedia',
+      'Paket': 'Express',
+      'Nilai Deal': 4000000,
+      'Nominal DP': 2000000,
+      'Status Pembayaran': 'DP',
+      'Tanggal Deal': '2026-05-15',
+      'Deadline': '2026-06-30',
+      'Estimasi Halaman': 150,
+      'Estimasi Kata': 25000,
+      'Ukuran': 'A5',
+      'Catatan': 'Opsional'
+    }];
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [
+    { wch: 24 }, { wch: 12 }, { wch: 22 }, { wch: 30 }, { wch: 16 },
+    { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 14 },
+    { wch: 14 }, { wch: 18 }, { wch: 16 }, { wch: 10 }, { wch: 28 }];
+
+    if (csNames.length) {
+      ws['!dataValidation'] = [{
+        sqref: 'A2:A1000',
+        type: 'list',
+        allowBlank: false,
+        formula1: '"' + csNames.join(',') + '"'
+      }];
+    }
+    ws['!dataValidation'] = [
+    ...(ws['!dataValidation'] || []),
+    { sqref: 'B2:B1000', type: 'list', allowBlank: false, formula1: '"Terbit,Cetak,Lainnya"' }];
+
+    const refRows = [['Nama CS'], ...csNames.map((n) => [n])];
+    const ref = XLSX.utils.aoa_to_sheet(refRows);
+    ref['!cols'] = [{ wch: 28 }];
+    XLSX.utils.book_append_sheet(wb, ws, 'Template Deal Lama');
+    XLSX.utils.book_append_sheet(wb, ref, 'Referensi CS');
+    XLSX.writeFile(wb, 'Template_Deal_Lama.xlsx');
+  }).getUsersData();
+}
+function openFormDealLamaManual() {
+  gas.withSuccessHandler((resUsers) => {
+    const csNames = (resUsers?.data || []).filter((u) => u.role === 'cs').map((u) => u.nama).filter(Boolean);
+    const today = new Date().toISOString().split('T')[0];
+    Swal.fire({
+      title: 'Input Deal Lama',
+      width: '48rem',
+      html: "\n                        <div class=\"text-left grid grid-cols-1 md:grid-cols-2 gap-3\">\n                            <label class=\"md:col-span-1\"><span class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">CS *</span>\n                                <select id=\"legacy_cs\" class=\"swal2-input !mt-1 !mx-0 !w-full\">\n                                    <option value=\"\">Pilih CS</option>\n                                    ".concat(
+
+
+
+
+        csNames.map((n) => "<option value=\"".concat(n, "\">").concat(n, "</option>")).join(''), "\n                                </select>\n                            </label>\n                            <label><span class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">Kategori *</span>\n                                <select id=\"legacy_kategori\" class=\"swal2-input !mt-1 !mx-0 !w-full\">\n                                    <option value=\"Terbit\">Terbit</option>\n                                    <option value=\"Cetak\">Cetak</option>\n                                    <option value=\"Lainnya\">Lainnya</option>\n                                </select>\n                            </label>\n                            <label><span class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">Status *</span>\n                                <select id=\"legacy_status\" onchange=\"document.getElementById('legacy_dp_wrap').style.display=this.value==='DP'?'block':'none'\" class=\"swal2-input !mt-1 !mx-0 !w-full\">\n                                    <option value=\"DP\">DP</option>\n                                    <option value=\"Full Payment\">Full Payment</option>\n                                </select>\n                            </label>\n                            <label><span class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">Penulis *</span><input id=\"legacy_penulis\" class=\"swal2-input !mt-1 !mx-0 !w-full\"></label>\n                            <label><span class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">Judul *</span><input id=\"legacy_judul\" class=\"swal2-input !mt-1 !mx-0 !w-full\"></label>\n                            <label><span class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">Penerbit</span><input id=\"legacy_penerbit\" class=\"swal2-input !mt-1 !mx-0 !w-full\"></label>\n                            <label><span class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">Paket</span><input id=\"legacy_paket\" class=\"swal2-input !mt-1 !mx-0 !w-full\"></label>\n                            <label><span class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">Nilai Deal *</span><input type=\"number\" id=\"legacy_nilai\" class=\"swal2-input !mt-1 !mx-0 !w-full\"></label>\n                            <label id=\"legacy_dp_wrap\"><span class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">Nominal DP</span><input type=\"number\" id=\"legacy_dp\" class=\"swal2-input !mt-1 !mx-0 !w-full\"></label>\n                            <label><span class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">Tanggal Deal</span><input type=\"date\" id=\"legacy_tanggal\" value=\"").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        today, "\" class=\"swal2-input !mt-1 !mx-0 !w-full\"></label>\n                            <label><span class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">Deadline</span><input type=\"date\" id=\"legacy_deadline\" class=\"swal2-input !mt-1 !mx-0 !w-full\"></label>\n                            <label><span class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">Estimasi Halaman</span><input type=\"number\" id=\"legacy_halaman\" class=\"swal2-input !mt-1 !mx-0 !w-full\"></label>\n                            <label><span class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">Estimasi Kata</span><input type=\"number\" id=\"legacy_kata\" class=\"swal2-input !mt-1 !mx-0 !w-full\"></label>\n                            <label><span class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">Ukuran</span><input id=\"legacy_ukuran\" value=\"A5\" class=\"swal2-input !mt-1 !mx-0 !w-full\"></label>\n                            <label class=\"md:col-span-2\"><span class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">Catatan</span><textarea id=\"legacy_catatan\" class=\"swal2-textarea !mt-1 !mx-0 !w-full\" rows=\"2\"></textarea></label>\n                        </div>\n                    "),
+
+
+
+
+
+
+
+      showCancelButton: true,
+      confirmButtonText: 'Simpan Deal Lama',
+      cancelButtonText: 'Batal',
+      confirmButtonColor: '#4763FD',
+      preConfirm: () => {
+        const payload = {
+          id: '',
+          csName: document.getElementById('legacy_cs').value,
+          kategori: document.getElementById('legacy_kategori').value,
+          penulis: document.getElementById('legacy_penulis').value.trim(),
+          judul: document.getElementById('legacy_judul').value.trim(),
+          penerbit: document.getElementById('legacy_penerbit').value.trim(),
+          paket: document.getElementById('legacy_paket').value.trim(),
+          nilai: Number(document.getElementById('legacy_nilai').value || 0),
+          nominalDP: document.getElementById('legacy_status').value === 'DP' ? Number(document.getElementById('legacy_dp').value || 0) : 0,
+          statusPayment: document.getElementById('legacy_status').value,
+          deadline: document.getElementById('legacy_deadline').value,
+          estimasiHalaman: Number(document.getElementById('legacy_halaman').value || 0),
+          estimasiKata: Number(document.getElementById('legacy_kata').value || 0),
+          ukuran: document.getElementById('legacy_ukuran').value.trim(),
+          catatan: document.getElementById('legacy_catatan').value.trim(),
+          tanggal: document.getElementById('legacy_tanggal').value || today,
+          statusProses: 'Tagihan Berjalan',
+          source: 'legacy',
+          importedAt: today,
+          butuhProofreading: '1'
+        };
+        if (!payload.csName || !payload.penulis || !payload.judul || payload.nilai <= 0) {
+          Swal.showValidationMessage('CS, penulis, judul, dan nilai deal wajib diisi.');
+          return false;
+        }
+        if (payload.statusPayment === 'DP' && payload.nominalDP <= 0) {
+          Swal.showValidationMessage('Nominal DP wajib diisi untuk status DP.');
+          return false;
+        }
+        if (payload.statusPayment === 'DP' && payload.nominalDP >= payload.nilai) {
+          Swal.showValidationMessage('Nominal DP harus lebih kecil dari nilai deal.');
+          return false;
+        }
+        return payload;
+      }
+    }).then((result) => {
+      if (!result.isConfirmed || !result.value) return;
+      gas.withSuccessHandler((res) => {
+        if (!res || res.success === false) {
+          Swal.fire('Gagal', res && (res.message || res.error) || 'Deal lama gagal disimpan.', 'error');
+          return;
+        }
+        loadDealLama();
+        Swal.fire('Tersimpan', 'Deal lama berhasil ditambahkan tanpa membuat KPI/omzet otomatis.', 'success');
+      }).saveLegacyDealData(result.value);
+    });
+  }).getUsersData();
+}
+function normalizeLegacyDealCategory(value) {
+  const text = String(value || '').trim().toLowerCase();
+  if (text.includes('cetak')) return 'Cetak';
+  if (text.includes('lain')) return 'Lainnya';
+  return 'Terbit';
+}
+function importDealLamaExcel(event) {
+  const input = event.target;
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (typeof XLSX === 'undefined') {
+    Swal.fire('Gagal', 'Library Excel belum siap. Reload halaman lalu coba lagi.', 'error');
+    input.value = '';
+    return;
+  }
+  gas.withSuccessHandler((resUsers) => {
+    const csNames = (resUsers?.data || []).filter((u) => u.role === 'cs').map((u) => u.nama);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        if (!rows.length) {
+          Swal.fire('File Kosong', 'Tidak ada baris data yang bisa diimport.', 'warning');
+          return;
+        }
+        const payloads = rows.map((row, idx) => {
+          const get = (...keys) => {
+            for (const key of keys) if (row[key] !== undefined && row[key] !== '') return row[key];
+            return '';
+          };
+          const csName = String(get('CS', 'Nama CS') || '').trim();
+          const judul = String(get('Judul', 'Judul Buku') || '').trim();
+          const penulis = String(get('Penulis') || '').trim();
+          if (!csName || !judul || !penulis) throw new Error("Baris ".concat(idx + 2, ": CS, Judul, dan Penulis wajib diisi."));
+          if (csNames.length && !csNames.includes(csName)) throw new Error("Baris ".concat(idx + 2, ": Nama CS \"").concat(csName, "\" tidak ada di data user role CS."));
+          const statusPayment = normalizeLegacyPaymentStatus(get('Status Pembayaran', 'Status'));
+          return {
+            id: '',
+            csName,
+            kategori: normalizeLegacyDealCategory(get('Kategori', 'Jenis', 'Tipe')),
+            penulis,
+            judul,
+            penerbit: String(get('Penerbit') || '').trim(),
+            paket: String(get('Paket') || '').trim(),
+            nilai: Number(get('Nilai Deal', 'Nilai') || 0),
+            nominalDP: statusPayment === 'DP' ? Number(get('Nominal DP', 'DP') || 0) : 0,
+            statusPayment,
+            deadline: normalizeImportDate(get('Deadline')),
+            estimasiHalaman: Number(get('Estimasi Halaman', 'Halaman') || 0),
+            estimasiKata: Number(get('Estimasi Kata', 'Kata') || 0),
+            ukuran: String(get('Ukuran') || '').trim(),
+            catatan: String(get('Catatan', 'Keterangan') || '').trim(),
+            tanggal: normalizeImportDate(get('Tanggal Deal', 'Tanggal')) || new Date().toISOString().split('T')[0],
+            statusProses: 'Tagihan Berjalan',
+            source: 'legacy',
+            importedAt: new Date().toISOString().split('T')[0],
+            butuhProofreading: '1'
+          };
+        });
+        const saveOne = (payload) => new Promise((resolve, reject) => {
+          gas.withSuccessHandler((res) => {
+            if (res && res.success === false) reject(new Error(res.message || res.error || 'Gagal menyimpan data.'));else
+            resolve(res);
+          }).withFailureHandler(reject).saveLegacyDealData(payload);
+        });
+        for (const payload of payloads) await saveOne(payload);
+        input.value = '';
+        loadDealLama();
+        Swal.fire('Import Berhasil', "".concat(payloads.length, " deal lama berhasil diupload tanpa masuk KPI/omzet bulan berjalan."), 'success');
+      } catch (error) {
+        input.value = '';
+        Swal.fire('Import Gagal', String(error && error.message ? error.message : error), 'error');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }).getUsersData();
+}
+
+[
+'tambahDpDeal',
+'lunasiDeal',
+'tambahBiayaDeal',
+'updatePembayaranDealCS',
+'arsipkanDealSelesai',
+'loadDetailCapaianSaya',
+'loadDetailDealCS',
+'loadKelolaDeal',
+'setDealPaymentFieldsLocked',
+'ensureDealPhoneField',
+'isDealPackageSelected',
+'setDealAcceleration',
+'toggleDealAcceleration',
+'updateDealAccelerationVisibility',
+'openFormDeal',
+'authorizeDealAction',
+'loadPengaturanDeal',
+'handleSaveDealPasswordCS',
+'copyDealPassword',
+'updateDealDeadlineFromPackage',
+'editDealCS',
+'openEditDealCS',
+'hapusDealCS',
+'handleSaveDealCS',
+'chooseCssForDealBeforeSave',
+'loadDealLama',
+'downloadTemplateDealLama',
+'openFormDealLamaManual',
+'normalizeLegacyDealCategory',
+'importDealLamaExcel'].
+forEach((name) => {
+  try {
+    const fn = eval(name);
+    if (typeof fn === 'function') window[name] = fn;
+  } catch (error) {}
+});
+window.handleSaveDeal = window.handleSaveDealCS;
+</script>

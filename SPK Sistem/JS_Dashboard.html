@@ -1,0 +1,640 @@
+<script>
+
+
+
+// --- DASHBOARD FUNCTIONS ---
+function loadDashboardData() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return; // Safeguard
+    const data = (res?.data || []).filter((n) => {
+      const nUser = String(n.assignedCssUsername || '').trim().toLowerCase();
+      const nName = String(n.assignedCssName || '').trim().toLowerCase();
+      const uUser = String(state.user.username || '').trim().toLowerCase();
+      const uName = String(state.user.nama || '').trim().toLowerCase();
+      const matchesCssAssignment = state.user.role !== 'css' ||
+      nUser === uUser || nUser === uName && uName || nName === uUser || nName === uName && uName;
+      return matchesCssAssignment && (n.statusProses === 'Siap Proses' || !n.statusProses) && !isNaskahCancelled(n) && (String(n.source || '').toLowerCase() !== 'cs' || String(n.intakeStatus || '').toLowerCase() === 'production_started');
+    });
+    const stats = {
+      total: data.length,
+      active: data.filter((n) => n.timeline !== 'Distribusi').length,
+      done: data.filter((n) => n.timeline === 'Distribusi').length,
+      pending: data.filter((n) => n.timeline === 'Administrasi').length
+    };
+
+    const timelineStats = timelineSteps.map((step) => ({
+      step,
+      count: data.filter((n) => n.timeline === step).length
+    }));
+
+    const maxCount = Math.max(...timelineStats.map((s) => s.count), 1);
+
+    const content = document.getElementById('contentArea');
+    if (!content) return; // Safeguard DOM
+
+    content.innerHTML = "\n                    ".concat(
+      state.user.role === 'css' ? "\n                    <div class=\"mb-6 p-4 bg-blue-50 text-blue-700 rounded-2xl border border-blue-100 flex items-start gap-3\">\n                        <i class=\"fa-solid fa-eye mt-0.5 text-lg\"></i>\n                        <div><b>Mode Pemantauan (CCO)</b><br><span class=\"text-sm\">Anda hanya dapat <b>memantau progres</b> naskah. Penugasan editor/layouter dikelola oleh PIC Editor &amp; PIC Layouter.</span></div>\n                    </div>" :
+
+
+
+      state.user.role === 'pic_editor' ? "\n                    <div class=\"mb-6 p-4 bg-violet-50 text-violet-700 rounded-2xl border border-violet-100 flex items-start gap-3\">\n                        <i class=\"fa-solid fa-user-tie mt-0.5 text-lg\"></i>\n                        <div><b>Dashboard PIC Editor</b><br><span class=\"text-sm\">Anda dapat menugaskan tim editor melalui menu <b>Database Naskah</b>. Deadline mengikuti pengaturan paket otomatis.</span></div>\n                    </div>" :
+
+
+
+      state.user.role === 'pic_layouter' ? "\n                    <div class=\"mb-6 p-4 bg-teal-50 text-teal-700 rounded-2xl border border-teal-100 flex items-start gap-3\">\n                        <i class=\"fa-solid fa-user-tie mt-0.5 text-lg\"></i>\n                        <div><b>Dashboard PIC Layouter</b><br><span class=\"text-sm\">Anda dapat menugaskan tim layouter melalui menu <b>Database Naskah</b>. Deadline mengikuti pengaturan paket otomatis.</span></div>\n                    </div>" :
+
+
+
+      '', "\n                    <div class=\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10\">\n                        ").concat(
+
+      renderStatCard('Total Naskah', stats.total, 'fa-book', 'bg-blue-50 text-blue-600'), "\n                        ").concat(
+      renderStatCard('Dalam Progres', stats.active, 'fa-spinner fa-spin', 'bg-amber-50 text-amber-600'), "\n                        ").concat(
+      renderStatCard('Administrasi', stats.pending, 'fa-clock', 'bg-indigo-50 text-indigo-600'), "\n                        ").concat(
+      renderStatCard('Selesai Terbit', stats.done, 'fa-circle-check', 'bg-emerald-50 text-emerald-600'), "\n                    </div>\n\n                    <div class=\"grid grid-cols-1 lg:grid-cols-3 gap-8\">\n                        <div class=\"lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm\">\n                            <h3 class=\"font-bold text-slate-800 mb-6 flex items-center gap-2\">\n                                <i class=\"fa-solid fa-chart-simple text-accent-600\"></i> Sebaran Status Naskah\n                            </h3>\n                            <div class=\"flex items-end justify-between h-64 px-4 gap-4\">\n                                ").concat(
+
+
+
+
+
+
+
+
+      timelineStats.map((s) => "\n                                    <div class=\"flex flex-col items-center flex-1\">\n                                        <div class=\"relative w-full group\">\n                                            <div class=\"chart-bar bg-accent-100 group-hover:bg-accent-600 rounded-t-xl w-full flex items-end justify-center transition-all\" style=\"height: ".concat(
+
+
+        s.count / maxCount * 100, "%\">\n                                                <span class=\"text-[10px] font-black mb-2 ").concat(
+        s.count > 0 ? 'text-accent-600 group-hover:text-white' : 'hidden', "\">").concat(s.count, "</span>\n                                            </div>\n                                            <div class=\"absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap\">\n                                                ").concat(
+
+
+        s.count, " Naskah\n                                            </div>\n                                        </div>\n                                        <div class=\"mt-4 text-[9px] font-bold text-slate-400 text-center leading-tight uppercase h-10 flex items-center\">\n                                            ").concat(
+
+
+
+        s.step.replace(' ', '<br>'), "\n                                        </div>\n                                    </div>\n                                ")
+
+
+      ).join(''), "\n                            </div>\n                        </div>\n\n                        <div class=\"bg-white p-8 rounded-3xl border border-slate-100 shadow-sm\">\n                            <h3 class=\"font-bold text-slate-800 mb-6\">Aktivitas Terkini</h3>\n                            <div class=\"space-y-4\">\n                                ").concat(
+
+
+
+
+
+
+      data.slice(-5).reverse().map((n) => "\n                                    <div class=\"flex gap-4 items-start p-3 rounded-2xl hover:bg-slate-50 transition-colors\">\n                                        <div class=\"w-10 h-10 rounded-xl bg-slate-100 flex shrink-0 items-center justify-center text-slate-400\">\n                                            <i class=\"fa-solid fa-file\"></i>\n                                        </div>\n                                        <div class=\"overflow-hidden\">\n                                            <p class=\"text-xs font-bold text-slate-800 truncate\">".concat(
+
+
+
+
+
+        n.judul, "</p>\n                                            <p class=\"text-[10px] text-slate-400\">").concat(
+        n.penerbit, " &bull; ").concat(n.timeline, "</p>\n                                        </div>\n                                    </div>\n                                ")
+
+
+      ).join(''), "\n                                ").concat(
+      data.length === 0 ? '<p class="text-center text-slate-300 py-10 italic">Belum ada aktivitas</p>' : '', "\n                            </div>\n                        </div>\n                    </div>\n                ");
+
+
+
+
+  }).getNaskahData();
+}
+
+function loadDashboardLayouter() {
+  loadDashboardData();
+}
+
+function getCsKpiSummary(userName, target, dealRows, kpiRows, currentMonth) {
+  const isCurrentMonth = (dateValue) => String(dateValue || '').startsWith(currentMonth);
+  const normalizeTx = (value) => {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string' && value.trim()) {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (err) {
+        return [];
+      }
+    }
+    return [];
+  };
+  const isTambahDpTx = (tx) => String(tx?.tipe || '').toLowerCase() === 'tambah dp';
+  const getDealOriginalPaymentAmount = (deal) => {
+    const tx = normalizeTx(deal.transaksiTambahan);
+    const addedDp = tx.filter(isTambahDpTx).reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+    const addedCost = tx.filter((item) => !isTambahDpTx(item)).reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+    const hasPelunasan = Number(deal.nominalPelunasan || 0) > 0;
+    if (deal.statusPayment === 'DP' || hasPelunasan) return Math.max(0, Number(deal.nominalDP || 0) - addedDp);
+    return Math.max(0, Number(deal.nilai || 0) - addedCost);
+  };
+  const getInitialPaymentAmount = (item, totalField) => {
+    const hasPelunasan = Number(item.nominalPelunasan || 0) > 0;
+    if (item.statusPayment === 'DP' || hasPelunasan) return Number(item.nominalDP || 0);
+    return Number(item[totalField] || 0);
+  };
+  const getKpiOriginalPaymentAmount = (item) => {
+    const tx = normalizeTx(item.transaksiTambahan);
+    const addedDp = tx.filter(isTambahDpTx).reduce((sum, row) => sum + Number(row.nominal || 0), 0);
+    const hasPelunasan = Number(item.nominalPelunasan || 0) > 0;
+    if (item.statusPayment === 'DP' || hasPelunasan) return Math.max(0, Number(item.nominalDP || 0) - addedDp);
+    return Number(item.nominal || 0);
+  };
+  const getPelunasanAmount = (item) => isCurrentMonth(item.tanggalPelunasan) ? Number(item.nominalPelunasan || 0) : 0;
+  const userDeals = (dealRows || []).filter((d) => d.csName === userName);
+  const userKpi = (kpiRows || []).filter((k) => k.picName === userName);
+  const currentDeals = userDeals.filter((d) => d.source !== 'legacy' && isCurrentMonth(d.tanggal || d.deadline));
+  let omzet = 0;
+  userDeals.forEach((d) => {
+    if (d.source !== 'legacy' && isCurrentMonth(d.tanggal || d.deadline)) omzet += getDealOriginalPaymentAmount(d);
+    omzet += getPelunasanAmount(d);
+    const extraTx = normalizeTx(d.transaksiTambahan);
+    extraTx.forEach((tx) => {
+      if (isCurrentMonth(tx.tanggal)) omzet += Number(tx.nominal || 0);
+    });
+  });
+  userKpi.filter((k) => k.jenis === 'Cetak' || k.jenis === 'Lainnya').forEach((k) => {
+    if (isCurrentMonth(k.tanggal)) omzet += getKpiOriginalPaymentAmount(k);
+    omzet += getPelunasanAmount(k);
+    normalizeTx(k.transaksiTambahan).forEach((tx) => {
+      if (isCurrentMonth(tx.tanggal)) omzet += Number(tx.nominal || 0);
+    });
+  });
+  const cetak = userKpi.
+  filter((k) => k.jenis === 'Cetak' && isCurrentMonth(k.tanggal)).
+  reduce((sum, k) => sum + Number(k.jumlahKinerja || 0), 0);
+  const targetOmzet = Number(target?.targetOmzet || 0);
+  const targetTerbit = Number(target?.targetTerbit || 0);
+  const targetCetak = Number(target?.targetCetak || 0);
+  const pctOmzet = targetOmzet > 0 ? clampPercent(Math.round(omzet / targetOmzet * 100)) : 0;
+  const pctDeal = targetTerbit > 0 ? clampPercent(Math.round(currentDeals.length / targetTerbit * 100)) : 0;
+  const pctCetak = targetCetak > 0 ? clampPercent(Math.round(cetak / targetCetak * 100)) : 0;
+  const activeScores = [
+  targetOmzet > 0 ? pctOmzet : null,
+  targetTerbit > 0 ? pctDeal : null].
+  filter((v) => v !== null);
+  const score = activeScores.length ? Math.round(activeScores.reduce((a, b) => a + b, 0) / activeScores.length) : 0;
+  return { omzet, dealCount: currentDeals.length, cetak, pctOmzet, pctDeal, pctCetak, score };
+}
+function getPicLayouterQcEvalSummary(picName, kpiRows, users = [], targets = []) {
+  const source = (kpiRows || []).filter((k) => !picName || k.picName === picName);
+  const qcRows = source.filter((k) => k.jenis === 'Quality Control');
+  const qcTotal = qcRows.length;
+  const qcErrors = qcRows.reduce((sum, k) => sum + Number(k.qcErrorCount || 0), 0);
+  const qcScore = clampPercent(100 - qcErrors * 0.1);
+
+  const evalRows = source.filter((k) => k.jenis === 'Evaluasi Tim');
+  const layouterUsers = (users || []).filter((u) => normalizeRole(u.role) === 'layouter' && u.nama);
+  const evaluatedNames = [...new Set(evalRows.map((k) => k.evalLayouter).filter(Boolean))];
+  const targetRows = targets || [];
+  const targetFor = (user) => targetRows.find((t) => t.username === user.username) || {};
+  const rowsForRealtime = layouterUsers.
+  map((user) => {
+    const targetHalaman = Number(targetFor(user).targetHalaman || 0);
+    const capaianHalaman = (kpiRows || []).
+    filter((k) => k.picName === user.nama && (k.jenis === 'Layout' || !['Quality Control', 'Evaluasi Tim', 'Lainnya'].includes(k.jenis) && !isRevisiKPI(k))).
+    reduce((sum, k) => sum + Number(k.jumlahHalaman || 0), 0);
+    return {
+      nama: user.nama,
+      targetHalaman,
+      capaianHalaman,
+      evaluated: evaluatedNames.includes(user.nama)
+    };
+  });
+
+  let evalMet = 0;
+  let evalTotal = rowsForRealtime.length;
+  if (evalTotal > 0) {
+    // Only count as 'met' if they have a target and they reached it.
+    evalMet = rowsForRealtime.filter((row) => row.targetHalaman > 0 && row.capaianHalaman >= row.targetHalaman).length;
+  }
+  const evalScore = evalTotal > 0 ? clampPercent(Math.round(evalMet / evalTotal * 100)) : null;
+  const activeScores = [qcScore, evalScore].filter((score) => score !== null);
+  const score = activeScores.length ? Math.round(activeScores.reduce((sum, score) => sum + Number(score), 0) / activeScores.length) : 0;
+  return {
+    score,
+    qcScore,
+    evalScore: evalScore === null ? 0 : evalScore,
+    qcTotal,
+    qcErrors,
+    evalMet,
+    evalTotal,
+    hasQc: true,
+    hasEval: evalScore !== null,
+    evalMode: rowsForRealtime.length ? 'realtime' : 'snapshot'
+  };
+}
+// --- VIEWS MANAJEMEN EKSISTING ---
+function loadDashboardManajemen() {
+  gas.withSuccessHandler((resInit) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+
+    const d = resInit?.data || {};
+    const resNaskah = { data: d.naskah };
+    const resUsers = { data: d.users };
+    const resTarget = { data: d.target };
+    const resKPI = { data: d.kpi };
+    const resDeal = { data: [...(d.deal || []), ...(d.dealArchive || [])] };
+    const resKendala = { data: d.kendala };
+    const resPenjualan = { data: d.penjualan };
+
+    const formatRp = (angka) => 'Rp ' + Number(angka).toLocaleString('id-ID');
+    const dataNaskah = (resNaskah?.data || []).filter((n) => !isNaskahCancelled(n));
+    const dataKendala = resKendala?.data || [];
+
+    // 1. Naskah On Process
+    const naskahOnProcess = dataNaskah.filter((n) => n.timeline !== 'Distribusi');
+
+    // 2. Data Omzet 6 Bulan Terakhir
+    let globalRoyalti = 10;
+    (d.settings || []).forEach((g) => {if (g.key === 'royaltiGlobal') globalRoyalti = parseFloat(g.value);});
+
+    const monthlyOmzet = {};
+    for (let i = 5; i >= 0; i--) {
+      const dt = new Date();
+      dt.setMonth(dt.getMonth() - i);
+      const m = dt.toISOString().slice(0, 7);
+      monthlyOmzet[m] = { label: dt.toLocaleString('id-ID', { month: 'short', year: '2-digit' }), omzetPenerbitan: 0, omzetPenjualan: 0, labaBersih: 0 };
+    }
+
+    const dealData = resDeal?.data || [];
+    const penjualanData = resPenjualan?.data || [];
+    const normalizeDashboardDealTransactions = (value) => {
+      if (Array.isArray(value)) return value;
+      if (typeof value === 'string' && value.trim()) {
+        try {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (err) {
+          return [];
+        }
+      }
+      return [];
+    };
+    const isTambahDpDashboardTx = (tx) => String(tx?.tipe || '').toLowerCase() === 'tambah dp';
+    const getOriginalDashboardDealNominal = (deal) => {
+      const tx = normalizeDashboardDealTransactions(deal.transaksiTambahan);
+      const addedDp = tx.filter(isTambahDpDashboardTx).reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+      const addedCost = tx.filter((item) => !isTambahDpDashboardTx(item)).reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+      const hasPelunasan = Number(deal.nominalPelunasan || 0) > 0;
+      if (deal.statusPayment === 'DP' || hasPelunasan) return Math.max(0, Number(deal.nominalDP || 0) - addedDp);
+      return Math.max(0, Number(deal.nilai || 0) - addedCost);
+    };
+    const getOriginalDashboardKpiNominal = (k) => {
+      const tx = normalizeDashboardDealTransactions(k.transaksiTambahan);
+      const addedDp = tx.filter(isTambahDpDashboardTx).reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+      const hasPelunasan = Number(k.nominalPelunasan || 0) > 0;
+      if (k.statusPayment === 'DP' || hasPelunasan) return Math.max(0, Number(k.nominalDP || 0) - addedDp);
+      return Number(k.nominal || 0);
+    };
+
+    dealData.forEach((d) => {
+      const m = d.tanggal ? d.tanggal.slice(0, 7) : d.deadline ? d.deadline.slice(0, 7) : null;
+      if (m && monthlyOmzet[m]) {
+        monthlyOmzet[m].omzetPenerbitan += getOriginalDashboardDealNominal(d);
+      }
+      const mPelunasan = d.tanggalPelunasan ? d.tanggalPelunasan.slice(0, 7) : null;
+      if (mPelunasan && monthlyOmzet[mPelunasan]) {
+        monthlyOmzet[mPelunasan].omzetPenerbitan += Number(d.nominalPelunasan || 0);
+      }
+      normalizeDashboardDealTransactions(d.transaksiTambahan).forEach((tx) => {
+        const mTx = tx.tanggal ? String(tx.tanggal).slice(0, 7) : null;
+        if (mTx && monthlyOmzet[mTx]) monthlyOmzet[mTx].omzetPenerbitan += Number(tx.nominal || 0);
+      });
+    });
+
+    penjualanData.forEach((p) => {
+      const m = p.tanggal ? p.tanggal.slice(0, 7) : null;
+      if (m && monthlyOmzet[m]) {
+        let totalPenj = Number(p.qty || 0) * Number(p.hargaJual || 0);
+        let roy = totalPenj * (globalRoyalti / 100);
+        monthlyOmzet[m].omzetPenjualan += totalPenj;
+        monthlyOmzet[m].labaBersih += totalPenj - roy;
+      }
+    });
+
+    const kpiData = resKPI?.data || [];
+    kpiData.filter((k) => k.jenis === 'Cetak' || k.jenis === 'Lainnya').forEach((k) => {
+      const m = k.tanggal ? k.tanggal.slice(0, 7) : null;
+      if (m && monthlyOmzet[m]) {
+        monthlyOmzet[m].omzetPenerbitan += getOriginalDashboardKpiNominal(k);
+      }
+      const mPelunasan = k.tanggalPelunasan ? k.tanggalPelunasan.slice(0, 7) : null;
+      if (mPelunasan && monthlyOmzet[mPelunasan]) {
+        monthlyOmzet[mPelunasan].omzetPenerbitan += Number(k.nominalPelunasan || 0);
+      }
+      normalizeDashboardDealTransactions(k.transaksiTambahan).forEach((tx) => {
+        const mTx = tx.tanggal ? String(tx.tanggal).slice(0, 7) : null;
+        if (mTx && monthlyOmzet[mTx]) monthlyOmzet[mTx].omzetPenerbitan += Number(tx.nominal || 0);
+      });
+    });
+
+    const chartData = Object.values(monthlyOmzet);
+    const maxOmzet = Math.max(...chartData.map((c) => c.omzetPenerbitan + c.omzetPenjualan), 100000);
+    const totalOmzetPenerbitan6Bulan = chartData.reduce((acc, curr) => acc + curr.omzetPenerbitan, 0);
+    const totalOmzetPenjualan6Bulan = chartData.reduce((acc, curr) => acc + curr.omzetPenjualan, 0);
+    const totalLabaBersih6Bulan = chartData.reduce((acc, curr) => acc + curr.labaBersih, 0);
+
+    // 3. Pantauan KPI
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const kpiUsers = (resUsers?.data || []).filter((u) => ['cs', 'editor', 'layouter', 'admin', 'css', 'admin_marketplace', 'campaign', 'pic_editor', 'pic_layouter'].includes(u.role));
+    const targets = resTarget?.data || [];
+    const allKpiRows = resKPI?.data || [];
+    const allDealRows = resDeal?.data || [];
+    const kpiDataBulanIni = allKpiRows.filter((k) => String(k.tanggal || '').startsWith(currentMonth));
+
+    // Reuse the same logic as loadTargetKPI to build window._targetKPIData
+    const usersData = kpiUsers.map((usr) => {
+      const t = targets.find((x) => x.username === usr.username) || { targetTerbit: 0, targetCetak: 0, targetOmzet: 0, targetKata: 0, targetHalaman: 0 };
+      const myKPI = kpiDataBulanIni.filter((k) => k.picName === usr.nama);
+      let mainValue = 0,mainTarget = 0,mainLabel = '',mainUnit = '';
+      let detailRows = [];
+
+      if (usr.role === 'cs') {
+        const csSummary = getCsKpiSummary(usr.nama, t, allDealRows, allKpiRows, currentMonth);
+        mainValue = csSummary.score;mainTarget = 100;mainLabel = 'Rata-rata KPI';mainUnit = '%';
+        detailRows.push({ label: 'Target Naskah/Deal', value: t.targetTerbit + ' Item' });
+        detailRows.push({ label: 'Target Omzet', value: formatRp(t.targetOmzet) });
+        detailRows.push({ label: 'Capaian Deal', value: csSummary.dealCount + ' / ' + (t.targetTerbit || 0) + ' (' + csSummary.pctDeal + '%)' });
+        detailRows.push({ label: 'Capaian Cetak', value: csSummary.cetak + ' Poin tercatat (tidak dihitung ke skor)' });
+        detailRows.push({ label: 'Capaian Omzet', value: formatRp(csSummary.omzet) + ' / ' + formatRp(t.targetOmzet || 0) + ' (' + csSummary.pctOmzet + '%)' });
+      } else if (usr.role === 'editor' || usr.role === 'pic_editor') {
+        const mainKPI = myKPI.filter((k) => !isRevisiKPI(k));
+        const totalKata = mainKPI.reduce((a, b) => a + Number(b.jumlahKata || 0), 0);
+        mainValue = totalKata;mainTarget = t.targetKata || 0;mainLabel = 'Kata';mainUnit = 'Kata';
+        detailRows.push({ label: 'Target Kata', value: (t.targetKata || 0).toLocaleString('id-ID') + ' Kata' });
+        detailRows.push({ label: 'Capaian Kata', value: totalKata.toLocaleString('id-ID') + ' Kata' });
+        detailRows.push({ label: 'Judul Selesai', value: mainKPI.length + ' Judul' });
+        const revisi = myKPI.filter(isRevisiKPI);
+        if (revisi.length > 0) detailRows.push({ label: 'Revisi', value: revisi.length + ' naskah' });
+      } else if (usr.role === 'layouter') {
+        const mainKPI = myKPI.filter((k) => !isRevisiKPI(k));
+        const totalHal = mainKPI.reduce((a, b) => a + Number(b.jumlahHalaman || 0), 0);
+        mainValue = totalHal;mainTarget = t.targetHalaman || 0;mainLabel = 'Halaman';mainUnit = 'Hal';
+        detailRows.push({ label: 'Target Halaman', value: (t.targetHalaman || 0).toLocaleString('id-ID') + ' Hal' });
+        detailRows.push({ label: 'Capaian Halaman', value: totalHal.toLocaleString('id-ID') + ' Hal' });
+        detailRows.push({ label: 'Judul Selesai', value: mainKPI.length + ' Judul' });
+        const revisi = myKPI.filter(isRevisiKPI);
+        if (revisi.length > 0) detailRows.push({ label: 'Revisi', value: revisi.length + ' naskah' });
+      } else if (usr.role === 'pic_layouter') {
+        // 1. Layout KPI (Halaman) - tercatat sebagai detail, bukan persentase utama PIC Layouter
+        const layoutKPI = myKPI.filter((k) => k.jenis === 'Layout');
+        const totalHal = layoutKPI.reduce((a, b) => a + Number(b.jumlahHalaman || 0), 0);
+        const targetHal = Number(t.targetHalaman || 0);
+        const persenLayout = targetHal > 0 ? Math.min(Math.round(totalHal / targetHal * 100), 100) : 0;
+        const picScore = getPicLayouterQcEvalSummary(usr.nama, kpiDataBulanIni, resUsers?.data || [], targets);
+        const pctAverage = picScore.score;
+        mainValue = pctAverage;mainTarget = 100;mainLabel = 'Persentase';mainUnit = '%';
+
+        detailRows.push({ label: 'Capaian Utama', value: pctAverage + '% (QC + Evaluasi Tim)' });
+        detailRows.push({ label: 'Quality Control (QC)', value: picScore.qcScore + '% (' + picScore.qcTotal + ' Naskah di-QC)' });
+        detailRows.push({ label: 'Evaluasi Tim', value: picScore.evalScore + '% (' + picScore.evalMet + '/' + picScore.evalTotal + ' Layouter)' });
+        detailRows.push({ label: 'Layout Halaman', value: totalHal.toLocaleString('id-ID') + ' / ' + targetHal.toLocaleString('id-ID') + ' Hal (' + persenLayout + '% tercatat)' });
+      } else if (['admin', 'css', 'admin_marketplace', 'campaign'].includes(usr.role)) {
+        const perJenis = t.targetPerJenis || {};
+        const jenisKeys = Object.keys(perJenis).filter((jenis) => Number(perJenis[jenis] || 0) > 0);
+        if (jenisKeys.length > 0) {
+          let totalAchieved = 0,totalTgt = 0;
+          jenisKeys.forEach((jenis) => {
+            const tgtVal = perJenis[jenis] || 0;
+            const achieved = myKPI.filter((k) => k.jenis === jenis).reduce((a, b) => a + Number(b.jumlahKinerja || 0), 0);
+            totalAchieved += achieved;totalTgt += tgtVal;
+            const pct = tgtVal > 0 ? Math.min(Math.round(achieved / tgtVal * 100), 100) : 0;
+            detailRows.push({ label: jenis, value: achieved + ' / ' + tgtVal + ' (' + pct + '%)' });
+          });
+          mainValue = totalAchieved;mainTarget = totalTgt;mainLabel = 'Total Nilai';mainUnit = 'Nilai';
+        } else {
+          const totalKinerja = myKPI.reduce((a, b) => a + Number(b.jumlahKinerja || 0), 0);
+          mainValue = totalKinerja;mainTarget = t.targetTerbit || 0;mainLabel = 'Nilai';mainUnit = 'Nilai';
+          detailRows.push({ label: 'Total KPI', value: totalKinerja + ' Nilai' });
+          detailRows.push({ label: 'Entri KPI', value: myKPI.length + ' Item' });
+        }
+      }
+
+      const pct = mainTarget > 0 ? Math.min(Math.round(mainValue / mainTarget * 100), 100) : 0;
+      const pctColor = pct >= 100 ? 'emerald' : pct >= 50 ? 'amber' : 'red';
+      return { usr, t, pct, pctColor, mainValue, mainTarget, mainUnit, detailRows };
+    });
+
+    // Store for detail modal so it can be re-used!
+    window._targetKPIData = usersData;
+
+    let kpiHtml = usersData.map((d, idx) => "\n                    <div class=\"bg-white rounded-xl border border-slate-100 shadow-sm p-4 hover:shadow-md hover:border-accent-200 transition-all cursor-pointer group\" onclick=\"showDetailTarget(".concat(
+      idx, ")\">\n                        <div class=\"flex items-center justify-between mb-3\">\n                            <div class=\"flex items-center gap-3\">\n                                <div class=\"w-10 h-10 rounded-xl bg-").concat(
+
+
+      d.pctColor, "-50 text-").concat(d.pctColor, "-600 flex items-center justify-center text-sm font-black shrink-0\">").concat(d.usr.nama.charAt(0), "</div>\n                                <div>\n                                    <h4 class=\"font-bold text-slate-800 text-sm leading-tight\">").concat(
+
+      d.usr.nama, "</h4>\n                                    <span class=\"text-[9px] font-bold uppercase tracking-wider text-slate-400\">").concat(
+      getRoleLabel(d.usr.role), "</span>\n                                </div>\n                            </div>\n                            <div class=\"text-right\">\n                                <div class=\"text-2xl font-black text-").concat(
+
+
+
+      d.pctColor, "-600 leading-none\">").concat(d.pct, "%</div>\n                            </div>\n                        </div>\n                        <div class=\"w-full bg-slate-100 rounded-full h-1.5 mb-2\">\n                            <div class=\"bg-").concat(
+
+
+
+      d.pctColor, "-500 h-1.5 rounded-full\" style=\"width: ").concat(d.pct, "%\"></div>\n                        </div>\n                        <div class=\"flex justify-between items-center mt-2\">\n                            <span class=\"text-[10px] text-slate-400 font-bold uppercase\">Capaian: <span class=\"text-slate-700\">").concat(
+
+
+      d.mainValue.toLocaleString('id-ID'), " ").concat(d.mainUnit, "</span></span>\n                            <span class=\"text-[10px] text-accent-600 font-bold uppercase group-hover:text-accent-700 transition\">Lihat Detail <i class=\"fa-solid fa-arrow-right\"></i></span>\n                        </div>\n                    </div>\n                ")
+
+
+
+    ).join('');
+
+    const executiveMonthlyItems = chartData.map((m) => ({
+      label: m.label,
+      value: m.omzetPenerbitan + m.omzetPenjualan,
+      tooltip: 'Penerbitan: ' + formatRp(m.omzetPenerbitan) + ' | Penjualan: ' + formatRp(m.omzetPenjualan)
+    }));
+    const executiveKpiItems = usersData.slice(0, 10).map((d) => ({
+      label: d.usr.nama,
+      percent: d.pct,
+      detail: getRoleLabel(d.usr.role) + ' - ' + d.mainValue.toLocaleString('id-ID') + ' / ' + d.mainTarget.toLocaleString('id-ID') + ' ' + d.mainUnit,
+      color: d.pct >= 100 ? '#10b981' : d.pct >= 50 ? '#f59e0b' : '#ef4444'
+    }));
+    const managementKpiTotal = usersData.length;
+    const managementKpiMet = usersData.filter((d) => d.pct >= 100).length;
+    const managementKpiPct = managementKpiTotal > 0 ? Math.round(managementKpiMet / managementKpiTotal * 100) : 0;
+    const managementKpiColor = managementKpiPct >= 100 ? '#10b981' : managementKpiPct >= 50 ? '#f59e0b' : '#ef4444';
+
+    content.innerHTML = "\n                                            <div class=\"analytics-board mb-8\">\n                                                <div class=\"flex justify-between items-center mb-8\">\n                                                    <h3 class=\"font-black text-slate-900 tracking-tight\">Dashboard Eksekutif</h3>\n                                                    <span class=\"text-xs font-black text-accent-600\">PUBLISH INC</span>\n                                                </div>\n                                                <div class=\"bg-white border border-slate-100 rounded-3xl p-5 shadow-sm mb-8\">\n                                                    <div class=\"grid grid-cols-1 lg:grid-cols-[18rem_1fr] gap-6 items-center\">\n                                                        ".concat(
+
+
+
+
+
+
+
+      renderAnalyticsGauge('Capaian KPI Manajemen', managementKpiPct, managementKpiMet + ' / ' + managementKpiTotal + ' Tim', 'Otomatis dari target KPI semua akun tim', managementKpiColor, 'fa-users-line'), "\n                                                        <div>\n                                                            <div class=\"flex items-center justify-between gap-4 mb-3\">\n                                                                <div>\n                                                                    <h4 class=\"font-black text-slate-900\">Capaian KPI Manajemen</h4>\n                                                                    <p class=\"text-xs text-slate-400 mt-1\">Persentase naik otomatis saat semakin banyak tim memenuhi target KPI masing-masing.</p>\n                                                                </div>\n                                                                <span class=\"px-3 py-1 rounded-full text-[10px] font-black ").concat(
+
+
+
+
+
+
+      managementKpiPct >= 100 ? 'bg-emerald-50 text-emerald-600' : managementKpiPct >= 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-500', "\">").concat(managementKpiPct, "%</span>\n                                                            </div>\n                                                            <div class=\"w-full bg-slate-100 rounded-full h-3 overflow-hidden\">\n                                                                <div class=\"h-full rounded-full transition-all\" style=\"width:").concat(
+
+
+      managementKpiPct, "%;background:").concat(managementKpiColor, ";\"></div>\n                                                            </div>\n                                                            <div class=\"grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4\">\n                                                                <div class=\"p-3 rounded-xl bg-slate-50 border border-slate-100\">\n                                                                    <div class=\"text-[10px] font-black text-slate-400 uppercase\">Tim Dipantau</div>\n                                                                    <div class=\"text-lg font-black text-slate-800\">").concat(
+
+
+
+
+      managementKpiTotal, "</div>\n                                                                </div>\n                                                                <div class=\"p-3 rounded-xl bg-emerald-50 border border-emerald-100\">\n                                                                    <div class=\"text-[10px] font-black text-emerald-600 uppercase\">Memenuhi Target</div>\n                                                                    <div class=\"text-lg font-black text-emerald-700\">").concat(
+
+
+
+      managementKpiMet, "</div>\n                                                                </div>\n                                                                <div class=\"p-3 rounded-xl bg-red-50 border border-red-100\">\n                                                                    <div class=\"text-[10px] font-black text-red-500 uppercase\">Belum Memenuhi</div>\n                                                                    <div class=\"text-lg font-black text-red-600\">").concat(
+
+
+
+      Math.max(0, managementKpiTotal - managementKpiMet), "</div>\n                                                                </div>\n                                                            </div>\n                                                        </div>\n                                                    </div>\n                                                </div>\n                                                <div class=\"grid grid-cols-1 lg:grid-cols-2 gap-8\">\n                                                    ").concat(
+
+
+
+
+
+
+      renderAnalyticsBarCard('Capaian Omzet', executiveMonthlyItems, '#FF6B35', 'fa-chart-column'), "\n                                                    ").concat(
+      renderAnalyticsProgressList('Capaian KPI', executiveKpiItems.length ? executiveKpiItems : [{ label: 'Belum ada data', percent: 0, detail: '-' }], '#10b981', 'fa-ranking-star'), "\n                                                </div>\n                                            </div>\n                                        ");
+
+
+
+    return;
+
+    content.innerHTML = "\n                                            <div class=\"analytics-board mb-8\">\n                                                <div class=\"flex justify-between items-center mb-8\">\n                                                    <h3 class=\"font-black text-slate-900 tracking-tight\">Dashboard Eksekutif</h3>\n                                                    <span class=\"text-xs font-black text-accent-600\">PUBLISH INC</span>\n                                                </div>\n                                                <div class=\"grid grid-cols-1 lg:grid-cols-2 gap-8\">\n                                                    ".concat(
+
+
+
+
+
+
+      renderAnalyticsBarCard('Capaian Omzet', executiveMonthlyItems, '#FF6B35', 'fa-chart-column'), "\n                                                    ").concat(
+      renderAnalyticsProgressList('Capaian KPI', executiveKpiItems.length ? executiveKpiItems : [{ label: 'Belum ada data', percent: 0, detail: '-' }], '#10b981', 'fa-ranking-star'), "\n                                                </div>\n                                            </div>\n\n                                            <!-- 1. Grafik Total Omzet 6 Bulan Terakhir -->\n                                            <div class=\"bg-white p-8 rounded-3xl border border-slate-100 shadow-sm mb-8 flex flex-col lg:flex-row gap-8 items-center\">\n                                                <div class=\"w-full lg:w-1/3 flex flex-col justify-center\">\n                                                    <h3 class=\"font-bold text-slate-800 mb-2 flex items-center gap-2\">\n                                                        <i class=\"fa-solid fa-chart-simple text-emerald-600\"></i> Total Omzet Terakhir\n                                                    </h3>\n                                                    <p class=\"text-xs text-slate-500 mb-4\">Akumulasi 6 bulan ke belakang.</p>\n                                                    <div class=\"space-y-4\">\n                                                        <div>\n                                                            <div class=\"text-[10px] font-bold text-slate-400 uppercase\">Omzet Penerbitan</div>\n                                                            <div class=\"text-2xl font-black text-emerald-600\">").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+      formatRp(totalOmzetPenerbitan6Bulan), "</div>\n                                                        </div>\n                                                        <div>\n                                                            <div class=\"text-[10px] font-bold text-slate-400 uppercase\">Omzet Penjualan (Mp)</div>\n                                                            <div class=\"text-2xl font-black text-blue-600\">").concat(
+
+
+
+      formatRp(totalOmzetPenjualan6Bulan), "</div>\n                                                        </div>\n                                                        <div class=\"p-3 bg-amber-50 rounded-xl border border-amber-100\">\n                                                            <div class=\"text-[10px] font-bold text-amber-600 uppercase\">Laba Bersih Penjualan</div>\n                                                            <div class=\"text-lg font-black text-amber-700\">").concat(
+
+
+
+      formatRp(totalLabaBersih6Bulan), "</div>\n                                                            <div class=\"text-[9px] font-normal italic text-amber-600 mt-1\">*Setelah potong royalti global ").concat(
+      globalRoyalti, "%</div>\n                                                        </div>\n                                                    </div>\n                                                </div>\n                                                <div class=\"w-full lg:w-2/3 flex items-end justify-between h-64 gap-3 border-b border-slate-100 pb-2\">\n                                                    ").concat(
+
+
+
+
+      chartData.map((m) => "\n                                                        <div class=\"flex flex-col items-center flex-1 group h-full justify-end relative\">\n                                                            <div class=\"w-full relative flex flex-col justify-end gap-1\" style=\"height: 100%;\">\n                                                                <div class=\"w-full bg-blue-400 rounded-t-sm transition-all duration-700 hover:bg-blue-300 cursor-pointer\" style=\"height: ".concat(
+
+
+        Math.max(2, m.omzetPenjualan / maxOmzet * 100), "%;\" title=\"Penjualan: ").concat(formatRp(m.omzetPenjualan), "\"></div>\n                                                                <div class=\"w-full bg-emerald-500 rounded-t-sm transition-all duration-700 hover:bg-emerald-400 cursor-pointer\" style=\"height: ").concat(
+        Math.max(2, m.omzetPenerbitan / maxOmzet * 100), "%;\" title=\"Penerbitan: ").concat(formatRp(m.omzetPenerbitan), "\"></div>\n                                                                \n                                                                <div class=\"opacity-0 group-hover:opacity-100 absolute -top-16 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] py-1.5 px-3 rounded-lg whitespace-nowrap z-10 transition shadow-lg pointer-events-none font-mono flex flex-col gap-1\">\n                                                                    <span>Penerbitan: ").concat(
+
+
+        formatRp(m.omzetPenerbitan), "</span>\n                                                                    <span class=\"text-blue-300\">Penjualan: ").concat(
+        formatRp(m.omzetPenjualan), "</span>\n                                                                    <span class=\"text-amber-300\">Laba: ").concat(
+        formatRp(m.labaBersih), "</span>\n                                                                </div>\n                                                            </div>\n                                                            <div class=\"text-[10px] text-slate-400 mt-2 font-bold uppercase tracking-wider\">").concat(
+
+
+        m.label, "</div>\n                                                        </div>\n                                                    ")
+
+      ).join(''), "\n                                                </div>\n                                            </div>\n                                            \n                                            <!-- 2. Pantauan KPI Pegawai -->\n                                            <div class=\"bg-white p-8 rounded-3xl border border-slate-100 shadow-sm mb-8\">\n                                                <div class=\"flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6\">\n                                                    <h3 class=\"font-bold text-slate-800 flex items-center gap-2\">\n                                                        <i class=\"fa-solid fa-ranking-star text-accent-600\"></i> Pantauan KPI Pegawai\n                                                    </h3>\n                                                    <span class=\"text-xs px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full font-bold border border-emerald-100\">Bulan: ").concat(
+
+
+
+
+
+
+
+
+
+      new Date().toLocaleString('id-ID', { month: 'long', year: 'numeric' }), "</span>\n                                                </div>\n                                                <div class=\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6\">\n                                                    ").concat(
+
+
+      kpiHtml, "\n                                                </div>\n                                                ").concat(
+
+      kpiUsers.length === 0 ? '<p class="text-sm text-slate-400 italic">Belum ada data pegawai untuk dipantau.</p>' : '', "\n                                            </div>\n\n                                            <div class=\"grid grid-cols-1 lg:grid-cols-2 gap-8\">\n                                                <!-- 3. Naskah On Process -->\n                                                <div class=\"bg-white p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col\">\n                                                    <h3 class=\"font-bold text-slate-800 mb-6 flex items-center justify-between\">\n                                                        <div class=\"flex items-center gap-2\"><i class=\"fa-solid fa-spinner text-amber-500\"></i> Naskah On Process</div>\n                                                        <span class=\"text-[10px] bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full\">").concat(
+
+
+
+
+
+
+
+      naskahOnProcess.length, " Naskah</span>\n                                                    </h3>\n                                                    <div class=\"space-y-4 flex-grow overflow-y-auto max-h-96 custom-scroll pr-2\">\n                                                        ").concat(
+
+
+      naskahOnProcess.map((n) => "\n                                                            <div class=\"flex gap-4 items-start p-4 rounded-2xl bg-amber-50/30 border border-amber-100/50 hover:bg-amber-50 transition\">\n                                                                <div class=\"w-10 h-10 rounded-xl bg-white border border-amber-100 flex shrink-0 items-center justify-center text-amber-600 shadow-sm\">\n                                                                    <i class=\"fa-solid fa-book-open\"></i>\n                                                                </div>\n                                                                <div class=\"overflow-hidden flex-grow\">\n                                                                    <p class=\"text-sm font-bold text-slate-800 truncate\">".concat(
+
+
+
+
+
+        n.judul, "</p>\n                                                                    <p class=\"text-[10px] text-slate-500 mb-2\">Penerbit: ").concat(
+        n.penerbit, " (").concat(n.paket || '-', ")</p>\n                                                                    <div class=\"inline-block px-2 py-1 bg-amber-100 text-amber-700 text-[9px] font-bold rounded-lg uppercase tracking-wider\">\n                                                                        Tahap: ").concat(
+
+        n.timeline, "\n                                                                    </div>\n                                                                </div>\n                                                            </div>\n                                                        ")
+
+
+
+      ).join(''), "\n                                                        ").concat(
+      naskahOnProcess.length === 0 ? '<p class="text-center text-slate-300 italic text-sm py-4">Semua naskah telah selesai didistribusikan.</p>' : '', "\n                                                    </div>\n                                                </div>\n\n                                                <!-- 4. Log Isu & Kendala Produksi -->\n                                                <div class=\"bg-white p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col\">\n                                                    <h3 class=\"font-bold text-slate-800 mb-6 flex items-center justify-between\">\n                                                        <div class=\"flex items-center gap-2\"><i class=\"fa-solid fa-triangle-exclamation text-red-500\"></i> Log Kendala Produksi</div>\n                                                        <span class=\"text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full\">").concat(
+
+
+
+
+
+
+
+      dataKendala.length, " Isu</span>\n                                                    </h3>\n                                                    <div class=\"space-y-4 flex-grow overflow-y-auto max-h-96 custom-scroll pr-2\">\n                                                        ").concat(
+
+
+      dataKendala.slice().reverse().map((k) => "\n                                                            <div class=\"flex gap-4 items-start p-4 rounded-2xl bg-red-50/50 border border-red-100 hover:bg-red-50 transition\">\n                                                                <div class=\"w-10 h-10 rounded-xl bg-white flex shrink-0 items-center justify-center text-red-500 shadow-sm\">\n                                                                    <i class=\"fa-solid ".concat(
+
+
+        k.jenis.includes('ISBN') ? 'fa-barcode' : 'fa-rotate-left', "\"></i>\n                                                                </div>\n                                                                <div class=\"overflow-hidden flex-grow\">\n                                                                    <p class=\"text-[10px] font-bold text-red-600 uppercase tracking-wider mb-0.5\">").concat(
+
+
+        k.jenis, " &bull; ").concat(k.tanggal, "</p>\n                                                                    <p class=\"text-sm font-bold text-slate-800 truncate leading-tight\">").concat(
+        k.judul, "</p>\n                                                                    <p class=\"text-xs text-slate-600 mt-1\">").concat(
+        k.keterangan, "</p>\n                                                                </div>\n                                                            </div>\n                                                        ")
+
+
+      ).join(''), "\n                                                        ").concat(
+      dataKendala.length === 0 ? '<p class="text-center text-slate-300 italic text-sm py-4">Tidak ada isu produksi yang tercatat.</p>' : '', "\n                                                    </div>\n                                                </div>\n                                            </div>\n                                        ");
+
+
+
+
+  }).getInitialData();
+}
+
+[
+'loadDashboardData',
+'loadDashboardLayouter',
+'getCsKpiSummary',
+'getPicLayouterQcEvalSummary',
+'loadDashboardManajemen'].
+forEach((name) => {
+  try {
+    const fn = eval(name);
+    if (typeof fn === 'function') window[name] = fn;
+  } catch (error) {}
+});
+</script>

@@ -1,0 +1,109 @@
+<script>
+
+
+
+// --- MODUL PENERBIT / IMPRINT ---
+
+function loadKelolaPenerbit() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const settings = res?.data || { penerbit: [] };
+
+    content.innerHTML = "\n                    <div class=\"bg-white rounded-3xl shadow-sm border border-slate-100 overflow-x-auto\">\n                        <table class=\"w-full text-left\">\n                            <thead class=\"bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest\">\n                                <tr>\n                                    <th class=\"px-8 py-4\">Nama Penerbit</th>\n                                    <th class=\"px-8 py-4\">Daftar Paket / Layanan</th>\n                                    <th class=\"px-8 py-4 text-center\">Aksi</th>\n                                </tr>\n                            </thead>\n                            <tbody class=\"divide-y divide-slate-50 text-[13px]\">\n                                ".concat(
+
+
+
+
+
+
+
+
+
+
+      settings.penerbit.map((p) => "\n                                    <tr class=\"hover:bg-slate-50 transition-colors\">\n                                        <td class=\"px-8 py-4 font-bold text-slate-800\">".concat(
+
+        p.nama, "</td>\n                                        <td class=\"px-8 py-4\">\n                                            <div class=\"flex flex-wrap gap-1\">\n                                                ").concat(
+
+
+        p.paket.map((pkt) => "<span class=\"px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-bold\">".concat(pkt, "</span>")).join(''), "\n                                            </div>\n                                        </td>\n                                        <td class=\"px-8 py-4 text-center\">\n                                            <button onclick=\"editPenerbit('").concat(
+
+
+
+        p.id, "')\" class=\"p-2 text-blue-500 hover:bg-blue-50 rounded-lg\"><i class=\"fa-solid fa-edit\"></i></button>\n                                            <button onclick=\"deletePenerbit('").concat(
+        p.id, "')\" class=\"p-2 text-red-500 hover:bg-red-50 rounded-lg ml-1\"><i class=\"fa-solid fa-trash\"></i></button>\n                                        </td>\n                                    </tr>")
+
+      ).join(''), "\n                                ").concat(
+      settings.penerbit.length === 0 ? '<tr><td colspan="3" class="p-16 text-center text-slate-300 italic">Belum ada data penerbit.</td></tr>' : '', "\n                            </tbody>\n                        </table>\n                    </div>\n                ");
+
+
+
+
+  }).getSettingsData();
+}
+
+
+function openFormPenerbit() {
+  document.getElementById('penerbitModalTitle').innerText = "Tambah Penerbit Baru";
+  document.getElementById('pub_id').value = '';
+  document.getElementById('pub_nama').value = '';
+  document.getElementById('pub_paket').value = '';
+  openModal('modalPenerbit');
+}
+
+
+function editPenerbit(id) {
+  gas.withSuccessHandler((res) => {
+    const p = (res?.data?.penerbit || []).find((x) => x.id === id);
+    if (p) {
+      document.getElementById('penerbitModalTitle').innerText = "Edit Penerbit";
+      document.getElementById('pub_id').value = p.id;
+      document.getElementById('pub_nama').value = p.nama;
+      document.getElementById('pub_paket').value = p.paket.join(', ');
+      openModal('modalPenerbit');
+    }
+  }).getSettingsData();
+}
+
+
+function deletePenerbit(id) {
+  Swal.fire({ title: 'Hapus Penerbit?', text: 'Data penerbit akan hilang dari pilihan form.', icon: 'warning', showCancelButton: true }).then((r) => {
+    if (r.isConfirmed) gas.withSuccessHandler(() => loadKelolaPenerbit()).deletePenerbitData(id);
+  });
+}
+
+
+function handleSavePenerbit(e) {
+  e.preventDefault();
+  const paketStr = document.getElementById('pub_paket').value;
+  const paketArr = paketStr.split(',').map((s) => s.trim()).filter((s) => s !== '');
+
+  const payload = {
+    id: document.getElementById('pub_id').value,
+    nama: document.getElementById('pub_nama').value,
+    paket: paketArr
+  };
+  Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => {Swal.showLoading();} });
+  gas.withSuccessHandler(() => {
+    closeModal('modalPenerbit');
+    loadKelolaPenerbit();
+    Swal.fire('Tersimpan!', 'Data penerbit dan paket berhasil diperbarui.', 'success');
+  }).savePenerbitData(payload);
+}
+
+// --- HANDLER JENIS KPI ---
+
+[
+'loadKelolaPenerbit',
+'openFormPenerbit',
+'editPenerbit',
+'deletePenerbit',
+'handleSavePenerbit'].
+forEach((name) => {
+  try {
+    const fn = eval(name);
+    if (typeof fn === 'function') window[name] = fn;
+  } catch (error) {}
+});
+</script>

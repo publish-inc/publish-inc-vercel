@@ -1,0 +1,360 @@
+<script>
+
+
+
+function renderStatCard(title, val, icon, colorClass) {
+  return "\n                <div class=\"bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-5\">\n                    <div class=\"w-12 h-12 rounded-2xl ".concat(
+
+    colorClass, " flex items-center justify-center text-lg\">\n                        <i class=\"fa-solid ").concat(
+    icon, "\"></i>\n                    </div>\n                    <div>\n                        <p class=\"text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1\">").concat(
+
+
+    title, "</p>\n                        <h4 class=\"text-2xl font-black text-slate-900 leading-none\">").concat(
+    val, "</h4>\n                    </div>\n                </div>\n            ");
+
+
+
+}
+function clampPercent(value) {
+  return Math.max(0, Math.min(100, Number(value) || 0));
+}
+function renderAnalyticsGauge(title, percent, valueText, targetText, color, icon) {
+  const pct = clampPercent(percent);
+  const rawPct = Number(percent || 0);
+  const overPct = rawPct > 100 ? Math.round(rawPct - 100) : 0;
+  const gaugeColor = color || '#4763FD';
+  return "\n                <div class=\"analytics-panel p-4 flex flex-col items-center text-center\">\n                    <div class=\"analytics-title-pill -mt-7 mb-4\"><i class=\"fa-solid ".concat(
+
+    icon || 'fa-chart-pie', "\"></i>").concat(title, "</div>\n                    <div class=\"analytics-gauge mb-2\" style=\"background: conic-gradient(from 270deg at 50% 100%, ").concat(
+    gaugeColor, " 0deg, ").concat(gaugeColor, " ").concat(pct * 1.8, "deg, #edf2f7 ").concat(pct * 1.8, "deg, #edf2f7 180deg);\"></div>\n                    <div class=\"text-2xl font-black text-slate-900 leading-none\">").concat(
+    pct, "%</div>\n                    ").concat(
+    overPct ? "<div class=\"mt-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-black\">+".concat(overPct, "% over</div>") : '', "\n                    <div class=\"font-bold text-slate-700 text-xs mt-2\">").concat(
+    valueText || '-', "</div>\n                    <div class=\"text-[10px] text-slate-400 mt-1\">").concat(
+    targetText || '', "</div>\n                </div>\n            ");
+
+
+}
+function renderAnalyticsBarCard(title, items, color, icon) {
+  const maxVal = Math.max(...items.map((i) => Number(i.value || 0)), 1);
+  const barColor = color || '#4763FD';
+  return "\n                <div class=\"analytics-panel p-4\">\n                    <div class=\"text-center -mt-7 mb-5\"><span class=\"analytics-title-pill\"><i class=\"fa-solid ".concat(
+
+    icon || 'fa-chart-column', "\"></i>").concat(title, "</span></div>\n                    <div class=\"h-44 flex items-end justify-between gap-3 border-b border-slate-100 px-2\">\n                        ").concat(
+
+    items.map((i) => {
+      const h = Math.max(5, Number(i.value || 0) / maxVal * 100);
+      return "\n                            <div class=\"flex-1 h-full flex flex-col justify-end items-center gap-2 group\">\n                                <div class=\"analytics-bar w-full max-w-12 rounded-t-lg\" style=\"height:".concat(
+
+        h, "%; background:").concat(barColor, ";\" title=\"").concat(i.tooltip || i.label, "\"></div>\n                                <div class=\"text-[10px] font-bold text-slate-500 text-center\">").concat(
+        i.label, "</div>\n                            </div>");
+
+    }).join(''), "\n                    </div>\n                </div>\n            ");
+
+
+
+}
+function renderAnalyticsProgressList(title, items, color, icon) {
+  const barColor = color || '#4763FD';
+  return "\n                <div class=\"analytics-panel p-4\">\n                    <div class=\"text-center -mt-7 mb-5\"><span class=\"analytics-title-pill\"><i class=\"fa-solid ".concat(
+
+    icon || 'fa-list-check', "\"></i>").concat(title, "</span></div>\n                    <div class=\"space-y-3 max-h-[360px] overflow-y-auto custom-scroll pr-1\">\n                        ").concat(
+
+    items.map((i) => {
+      const targetless = i.targetless === true || i.percent === null || i.percent === undefined;
+      if (targetless) {
+        return "\n                            <div class=\"rounded-2xl bg-slate-50 border border-slate-100 p-3\">\n                                <div class=\"flex justify-between items-start gap-3\">\n                                    <span class=\"text-xs font-bold text-slate-700 truncate pr-2\">".concat(
+
+
+          i.label, "</span>\n                                    <span class=\"px-2 py-0.5 rounded-full bg-slate-200 text-slate-500 text-[9px] font-black whitespace-nowrap\">Tanpa target</span>\n                                </div>\n                                <div class=\"text-lg font-black text-slate-900 mt-1\">").concat(
+
+
+          i.valueText || i.value || '', "</div>\n                                <div class=\"text-[10px] text-slate-400 mt-1\">").concat(
+          i.detail || 'Tercatat, tidak dihitung ke skor utama', "</div>\n                            </div>");
+
+      }
+      const rawPct = Number(i.percent || 0);
+      const pct = clampPercent(rawPct);
+      const overPct = rawPct > 100 ? Math.round(rawPct - 100) : 0;
+      return "\n                            <div>\n                                <div class=\"flex justify-between items-center mb-1\">\n                                    <span class=\"text-xs font-bold text-slate-700 truncate pr-2\">".concat(
+
+
+        i.label, "</span>\n                                    <span class=\"text-xs font-black text-slate-900\">").concat(
+        pct, "%").concat(overPct ? " <b class=\"text-emerald-600\">+".concat(overPct, "%</b>") : '', "</span>\n                                </div>\n                                <div class=\"w-full h-2 rounded-full bg-slate-100 overflow-hidden\">\n                                    <div class=\"analytics-bar h-full rounded-full\" style=\"width:").concat(
+
+
+        pct, "%; background:").concat(i.color || barColor, ";\"></div>\n                                </div>\n                                <div class=\"text-[10px] text-slate-400 mt-1\">").concat(
+
+        i.detail || '').concat(i.overText ? " <span class=\"font-black text-emerald-600\">".concat(i.overText, "</span>") : '', "</div>\n                            </div>");
+
+    }).join(''), "\n                    </div>\n                </div>\n            ");
+
+
+
+}
+// --- CORE FUNCTIONS ---
+function switchTab(t) {
+  if (t.startsWith('payroll_hrd') && typeof normalizeRole === 'function' && normalizeRole(state.user && state.user.role) !== 'hrd') {
+    t = typeof getDefaultTabForRole === 'function' ? getDefaultTabForRole(state.user && state.user.role) : 'dashboard_kpi';
+  }
+  state.activeTab = t;
+  if (typeof savePortalSession === 'function') savePortalSession();
+  render();
+}
+function openModal(id) {document.getElementById(id).style.display = 'flex';}
+function closeModal(id) {document.getElementById(id).style.display = 'none';}
+function showServerError(title, error) {
+  Swal.fire(title || 'Gagal', error && error.message || String(error || 'Server tidak merespons.'), 'error');
+}
+function confirmLogout() {
+  Swal.fire({
+    title: 'Keluar dari portal?',
+    text: 'Sesi Anda akan ditutup.',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Ya, Keluar',
+    cancelButtonText: 'Batal',
+    confirmButtonColor: '#ef4444'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      if (window._reportInterval) clearInterval(window._reportInterval);
+      if (window._reportRefreshInterval) clearInterval(window._reportRefreshInterval);
+      if (window._reportScrollInterval) clearInterval(window._reportScrollInterval);
+      if (window._reportScrollRaf) cancelAnimationFrame(window._reportScrollRaf);
+      if (typeof clearPortalSession === 'function') clearPortalSession();
+      state.user = null;
+      render();
+    }
+  });
+}
+function handleLogin(e) {
+  e.preventDefault();
+  const u = document.getElementById('login_u').value.trim();
+  const p = document.getElementById('login_p').value;
+  gas.withSuccessHandler((res) => {
+    try {
+      if (!res || !res.success) {
+        Swal.fire('Gagal Login', res && res.message || 'Respons login tidak valid.', 'error');
+        return;
+      }
+      res.data.role = normalizeRole(res.data.role);
+      if (['manajemen', 'pimpinan', 'report', 'hrd'].includes(res.data.role)) {
+        res.data.needsProfileSetup = false;
+      }
+      state.user = res.data;
+      if (res.data.role === 'css') state.activeTab = 'dashboard';else
+      if (res.data.role === 'manajemen') state.activeTab = 'dashboard_manajemen';else
+      if (res.data.role === 'pimpinan') state.activeTab = 'laporan';else
+      if (res.data.role === 'report') state.activeTab = 'report_home';else
+      if (res.data.role === 'cs' || res.data.role === 'editor' || res.data.role === 'layouter' || res.data.role === 'admin' || res.data.role === 'pic_editor' || res.data.role === 'pic_layouter') state.activeTab = 'dashboard_kpi';else
+      if (res.data.role === 'admin_marketplace') state.activeTab = 'dashboard_marketplace';else
+      if (res.data.role === 'campaign') state.activeTab = 'dashboard_campaign';else
+      if (res.data.role === 'hrd') state.activeTab = 'payroll_hrd_dashboard';else
+      state.activeTab = 'dashboard_kpi';
+      if (typeof savePortalSession === 'function') savePortalSession();
+      render();
+    } catch (error) {
+      console.error(error);
+      renderRuntimeError(error);
+    }
+  }).withFailureHandler((error) => {
+    Swal.fire('Gagal Login', error && error.message || String(error || 'Server tidak merespons.'), 'error');
+  }).loginAuth(u, p);
+}
+function handleForgotPassword() {
+  Swal.fire({
+    title: 'Lupa Password',
+    html: "\n                    <div class=\"text-left\">\n                        <label class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">Username</label>\n                        <input id=\"forgot_username\" class=\"swal2-input\" placeholder=\"Masukkan username akun\">\n                        <p class=\"text-xs text-slate-400 mt-2\">Permintaan akan muncul di akun Manajemen untuk dibuatkan password reset oleh sistem.</p>\n                    </div>\n                ",
+
+
+
+
+
+
+    showCancelButton: true,
+    confirmButtonText: 'Kirim Permintaan',
+    cancelButtonText: 'Batal',
+    confirmButtonColor: '#4763FD',
+    preConfirm: () => {
+      const username = document.getElementById('forgot_username').value.trim();
+      if (!username) {
+        Swal.showValidationMessage('Username wajib diisi.');
+        return false;
+      }
+      return username;
+    }
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+    gas.withSuccessHandler((res) => {
+      if (!res || !res.success) {
+        Swal.fire('Gagal', res && res.message || 'Permintaan reset gagal dikirim.', 'error');
+        return;
+      }
+      Swal.fire('Terkirim', res.message || 'Permintaan reset password berhasil dikirim ke Manajemen.', 'success');
+    }).withFailureHandler((error) => {
+      Swal.fire('Gagal', error && error.message || String(error || 'Server tidak merespons.'), 'error');
+    }).requestPasswordReset(result.value);
+  });
+}
+function openChangePasswordDialog() {
+  if (!state.user || !state.user.username) {
+    Swal.fire('Sesi Tidak Valid', 'Silakan login kembali.', 'warning');
+    return;
+  }
+  Swal.fire({
+    title: 'Ubah Password',
+    html: "\n                    <div class=\"text-left space-y-3\">\n                        <div>\n                            <label class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">Password Lama</label>\n                            <input id=\"change_old_password\" type=\"password\" class=\"swal2-input\" placeholder=\"Masukkan password lama\">\n                        </div>\n                        <div>\n                            <label class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">Password Baru</label>\n                            <input id=\"change_new_password\" type=\"password\" class=\"swal2-input\" placeholder=\"Minimal 6 karakter\">\n                        </div>\n                        <div>\n                            <label class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">Konfirmasi Password Baru</label>\n                            <input id=\"change_confirm_password\" type=\"password\" class=\"swal2-input\" placeholder=\"Ulangi password baru\">\n                        </div>\n                        <p class=\"text-xs text-slate-400 mt-2\">Password baru wajib mengandung huruf besar, huruf kecil, dan angka.</p>\n                    </div>\n                ",
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    showCancelButton: true,
+    confirmButtonText: 'Simpan Password',
+    cancelButtonText: 'Batal',
+    confirmButtonColor: '#4763FD',
+    preConfirm: () => {
+      const oldPassword = document.getElementById('change_old_password').value;
+      const newPassword = document.getElementById('change_new_password').value;
+      const confirmPassword = document.getElementById('change_confirm_password').value;
+      if (!oldPassword || !newPassword || !confirmPassword) {
+        Swal.showValidationMessage('Semua kolom password wajib diisi.');
+        return false;
+      }
+      if (newPassword !== confirmPassword) {
+        Swal.showValidationMessage('Konfirmasi password baru tidak sama.');
+        return false;
+      }
+      if (!validateStrongPassword(newPassword)) {
+        Swal.showValidationMessage('Password baru wajib minimal 6 karakter, huruf besar, huruf kecil, dan angka.');
+        return false;
+      }
+      if (oldPassword === newPassword) {
+        Swal.showValidationMessage('Password baru tidak boleh sama dengan password lama.');
+        return false;
+      }
+      return { oldPassword, newPassword };
+    }
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+    gas.withSuccessHandler((res) => {
+      if (!res || !res.success) {
+        Swal.fire('Gagal Mengubah Password', res && res.message || 'Password gagal diperbarui.', 'error');
+        return;
+      }
+      Swal.fire('Berhasil', 'Password berhasil diperbarui. Gunakan password baru pada login berikutnya.', 'success');
+    }).withFailureHandler((error) => {
+      Swal.fire('Gagal Mengubah Password', error && error.message || String(error || 'Server tidak merespons.'), 'error');
+    }).changeOwnPassword(state.user.username, result.value.oldPassword, result.value.newPassword);
+  });
+}
+function renderStatusBadge(status) {
+  if (status === 'Proses' || status === 'On Process') return "<span class=\"px-2 py-0.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-full text-[10px] font-bold\">Proses</span>";
+  if (status === 'Done') return "<span class=\"px-2 py-0.5 bg-teal-50 text-teal-600 border border-teal-100 rounded-full text-[10px] font-bold\">Done</span>";
+  if (status === 'Selesai' || status === 'Complete') return "<span class=\"px-2 py-0.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full text-[10px] font-bold\">Selesai</span>";
+  if (status === 'Revisi') return "<span class=\"px-2 py-0.5 bg-amber-50 text-amber-600 border border-amber-100 rounded-full text-[10px] font-bold\">Revisi</span>";
+  return "<span class=\"px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-full text-[10px] font-bold\">Menunggu</span>";
+}
+
+function checkBankDetails() {
+  return;
+  if (!state.user || state.user.role === 'report' || state.user.role === 'manajemen' || state.user.role === 'pimpinan' || state.user.role === 'hrd') return;
+  if (sessionStorage.getItem('skip_bank_prompt')) return;
+  
+  const hasBankDetails = state.user.bankName && state.user.bankAccountNumber && state.user.bankAccountName;
+  if (!hasBankDetails) {
+    promptBankDetails();
+  }
+}
+
+function promptBankDetails() {
+  Swal.fire({
+    title: 'Lengkapi Data Rekening',
+    html: `
+      <div class="text-left space-y-3">
+        <p class="text-xs text-slate-500 mb-4">Mohon lengkapi data rekening Anda untuk keperluan penggajian.</p>
+        <div>
+          <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Bank</label>
+          <input id="bank_name" class="swal2-input" placeholder="Contoh: BCA, BNI, Mandiri">
+        </div>
+        <div>
+          <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nomor Rekening</label>
+          <input id="bank_acc_num" class="swal2-input" placeholder="Masukkan nomor rekening">
+        </div>
+        <div>
+          <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Pemilik Rekening</label>
+          <input id="bank_acc_name" class="swal2-input" placeholder="Sesuai buku tabungan">
+        </div>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: 'Simpan Rekening',
+    cancelButtonText: 'Nanti Saja',
+    confirmButtonColor: '#10b981',
+    cancelButtonColor: '#94a3b8',
+    allowOutsideClick: false,
+    preConfirm: () => {
+      const bankName = document.getElementById('bank_name').value.trim();
+      const bankAccountNumber = document.getElementById('bank_acc_num').value.trim();
+      const bankAccountName = document.getElementById('bank_acc_name').value.trim();
+      
+      if (!bankName || !bankAccountNumber || !bankAccountName) {
+        Swal.showValidationMessage('Semua kolom rekening wajib diisi.');
+        return false;
+      }
+      return { username: state.user.username, bankName, bankAccountNumber, bankAccountName };
+    }
+  }).then((result) => {
+    if (result.isDismissed) {
+      sessionStorage.setItem('skip_bank_prompt', '1');
+    } else if (result.isConfirmed) {
+      Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+      gas.withSuccessHandler((res) => {
+        if (!res || !res.success) {
+          Swal.fire('Gagal', res?.message || 'Gagal menyimpan data rekening.', 'error');
+        } else {
+          state.user = res.data;
+          if (typeof savePortalSession === 'function') savePortalSession();
+          Swal.fire('Tersimpan', 'Terima kasih, data rekening berhasil disimpan!', 'success');
+        }
+      }).withFailureHandler((error) => {
+        Swal.fire('Gagal', error?.message || String(error || 'Server tidak merespons.'), 'error');
+      }).saveBankDetails(result.value);
+    }
+  });
+}
+
+[
+'renderStatCard',
+'clampPercent',
+'renderAnalyticsGauge',
+'renderAnalyticsBarCard',
+'renderAnalyticsProgressList',
+'switchTab',
+'openModal',
+'closeModal',
+'showServerError',
+'confirmLogout',
+'handleLogin',
+'handleForgotPassword',
+'openChangePasswordDialog',
+'renderStatusBadge',
+'checkBankDetails',
+'promptBankDetails'].
+forEach((name) => {
+  try {
+    const fn = eval(name);
+    if (typeof fn === 'function') window[name] = fn;
+  } catch (error) {}
+});
+</script>

@@ -1,0 +1,540 @@
+<script>
+
+
+
+// --- MODUL PENGGUNA / USERS ---
+
+function loadPengguna() {
+  gas.withSuccessHandler((res) => {
+    if (!state.user) return;
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const data = (res?.data || []).filter((u) => u.role !== 'report');
+    const resetRequests = data.filter((u) => String(u.resetRequested || '') === '1');
+    window._employeeData = data;
+    const initials = (name) => String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase() || '?';
+    const roleTone = (role) => role === 'pimpinan' ? 'bg-slate-900 text-white' :
+    role === 'manajemen' ? 'bg-emerald-50 text-emerald-600' :
+    role === 'campaign' ? 'bg-orange-50 text-orange-600' :
+    role === 'admin_marketplace' ? 'bg-cyan-50 text-cyan-600' :
+    role === 'css' ? 'bg-indigo-50 text-indigo-600' :
+    role === 'admin' ? 'bg-purple-50 text-purple-600' :
+    role === 'karyawan' ? 'bg-slate-100 text-slate-500' :
+    'bg-blue-50 text-blue-600';
+
+    window.downloadExcelPengguna = function () {
+      const dataExcel = data.map((u) => ({
+        "ID Karyawan": u.employeeId || '-',
+        "Username": u.username,
+        "Nama Lengkap": u.nama,
+        "Role / Posisi": getRoleLabel(u.role),
+        "Email": u.email || '-',
+        "No Telpon": u.telepon || '-',
+        "Status Karyawan": u.statusKaryawan || 'Karyawan Kontrak',
+        "Bank": u.bankName || '-',
+        "No Rekening": u.bankAccountNumber || '-',
+        "Atas Nama Rekening": u.bankAccountName || '-',
+        "Tanggal Lahir": u.tanggalLahir || '-',
+        "Jenis Kelamin": u.jenisKelamin === 'L' ? 'Laki-laki' : (u.jenisKelamin === 'P' ? 'Perempuan' : '-'),
+        "Alamat": u.alamat || '-',
+        "Departemen": u.departemen || '-',
+        "Jabatan": u.jabatan || '-'
+      }));
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(dataExcel);
+      XLSX.utils.book_append_sheet(wb, ws, "Data Karyawan");
+      XLSX.writeFile(wb, "Data_Karyawan_PortaDok_" + new Date().toISOString().split('T')[0] + ".xlsx");
+    };
+    window.showDetailKaryawan = function (username) {
+      const u = (window._employeeData || []).find((x) => x.username === username);
+      if (!u) return;
+      Swal.fire({
+        title: null,
+        html: "\n                            <div class=\"text-left\">\n                                <div class=\"flex items-center gap-4 mb-5\">\n                                    <div class=\"w-14 h-14 rounded-2xl ".concat(
+
+
+          roleTone(u.role), " flex items-center justify-center font-black text-lg shrink-0\">").concat(initials(u.nama), "</div>\n                                    <div class=\"min-w-0\">\n                                        <div class=\"text-lg font-black text-slate-800\">").concat(
+
+          u.nama || '-', "</div>\n                                        <div class=\"text-xs font-bold text-slate-400\">").concat(
+          getRoleLabel(u.role), " &bull; ").concat(u.employeeId || '-', "</div>\n                                    </div>\n                                </div>\n                                <div class=\"grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm\">\n                                    <div class=\"bg-slate-50 p-3 rounded-xl\"><div class=\"text-[10px] font-black text-slate-400 uppercase\">Username</div><div class=\"font-bold text-slate-700\">").concat(
+          u.role === 'karyawan' ? '-' : u.username, "</div></div>\n                                    <div class=\"bg-slate-50 p-3 rounded-xl\"><div class=\"text-[10px] font-black text-slate-400 uppercase\">Email</div><div class=\"font-bold text-slate-700 break-all\">").concat(
+          u.email || '-', "</div></div>\n                                    <div class=\"bg-slate-50 p-3 rounded-xl\"><div class=\"text-[10px] font-black text-slate-400 uppercase\">No Telpon</div><div class=\"font-bold text-slate-700\">").concat(
+          u.telepon || '-', "</div></div>\n                                    <div class=\"bg-slate-50 p-3 rounded-xl\"><div class=\"text-[10px] font-black text-slate-400 uppercase\">Tanggal Lahir</div><div class=\"font-bold text-slate-700\">").concat(
+          u.tanggalLahir || '-', "</div></div>\n                                    <div class=\"bg-slate-50 p-3 rounded-xl\"><div class=\"text-[10px] font-black text-slate-400 uppercase\">Jenis Kelamin</div><div class=\"font-bold text-slate-700\">").concat(
+          (u.jenisKelamin === 'L' ? 'Laki-laki' : (u.jenisKelamin === 'P' ? 'Perempuan' : '-')), "</div></div>\n                                    <div class=\"sm:col-span-2 bg-slate-50 p-3 rounded-xl\"><div class=\"text-[10px] font-black text-slate-400 uppercase\">Alamat</div><div class=\"font-bold text-slate-700\">").concat(
+          u.alamat || '-', "</div></div>\n                                    <div class=\"bg-slate-50 p-3 rounded-xl\"><div class=\"text-[10px] font-black text-slate-400 uppercase\">Departemen</div><div class=\"font-bold text-slate-700\">").concat(
+          u.departemen || '-', "</div></div>\n                                    <div class=\"bg-slate-50 p-3 rounded-xl\"><div class=\"text-[10px] font-black text-slate-400 uppercase\">Jabatan</div><div class=\"font-bold text-slate-700\">").concat(
+          u.jabatan || '-', "</div></div>\n                                    <div class=\"sm:col-span-2 bg-slate-50 p-3 rounded-xl\"><div class=\"text-[10px] font-black text-slate-400 uppercase\">Status Karyawan</div><div class=\"font-bold text-slate-700\">").concat(
+          u.statusKaryawan || 'Karyawan Kontrak', "</div></div>\n                                    <div class=\"bg-slate-50 p-3 rounded-xl\"><div class=\"text-[10px] font-black text-slate-400 uppercase\">Bank</div><div class=\"font-bold text-slate-700\">").concat(
+          u.bankName || '-', "</div></div>\n                                    <div class=\"bg-slate-50 p-3 rounded-xl\"><div class=\"text-[10px] font-black text-slate-400 uppercase\">No Rekening</div><div class=\"font-bold text-slate-700\">").concat(
+          u.bankAccountNumber || '-', "</div></div>\n                                    <div class=\"sm:col-span-2 bg-slate-50 p-3 rounded-xl\"><div class=\"text-[10px] font-black text-slate-400 uppercase\">Atas Nama Rekening</div><div class=\"font-bold text-slate-700\">").concat(
+          u.bankAccountName || '-', "</div></div>\n                                </div>\n                            </div>\n                        "),
+
+        showCancelButton: true,
+        showDenyButton: u.username !== state.user.username,
+        confirmButtonText: '<i class="fa-solid fa-edit mr-1"></i> Edit',
+        denyButtonText: '<i class="fa-solid fa-trash mr-1"></i> Hapus',
+        cancelButtonText: 'Tutup',
+        confirmButtonColor: '#4763FD',
+        denyButtonColor: '#ef4444',
+        width: '36em'
+      }).then((result) => {
+        if (result.isConfirmed) editPengguna(u.username);
+        if (result.isDenied) deletePengguna(u.username);
+      });
+    };
+    window.generateResetPasswordForUser = function (username) {
+      const user = (window._employeeData || []).find((x) => x.username === username);
+      Swal.fire({
+        title: 'Reset Password?',
+        text: 'Sistem akan membuat password sementara untuk ' + (user && user.nama || username) + '.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Buat Password',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#4763FD'
+      }).then((result) => {
+        if (!result.isConfirmed) return;
+        gas.withSuccessHandler((res) => {
+          if (!res || !res.success) {
+            Swal.fire('Gagal Reset', res && res.message || 'Password gagal dibuat.', 'error');
+            return;
+          }
+          const password = res.data.password;
+          Swal.fire({
+            title: 'Password Baru',
+            html: "\n                                    <div class=\"text-left\">\n                                        <p class=\"text-sm text-slate-500 mb-3\">Berikan password sementara ini kepada user terkait.</p>\n                                        <label class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">Username</label>\n                                        <input class=\"swal2-input\" readonly value=\"".concat(
+
+
+
+              res.data.username, "\">\n                                        <label class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest\">Password Reset</label>\n                                        <input id=\"generated_reset_password\" class=\"swal2-input font-mono\" readonly value=\"").concat(
+
+              password, "\">\n                                    </div>\n                                "),
+
+
+            showCancelButton: true,
+            confirmButtonText: 'Copy Password',
+            cancelButtonText: 'Tutup',
+            confirmButtonColor: '#4763FD',
+            didOpen: () => {
+              const input = document.getElementById('generated_reset_password');
+              if (input) input.select();
+            }
+          }).then((copyResult) => {
+            if (copyResult.isConfirmed) {
+              const input = document.getElementById('generated_reset_password');
+              const value = input ? input.value : password;
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(value).then(() => Swal.fire('Tersalin', 'Password reset berhasil disalin.', 'success'));
+              } else {
+                Swal.fire('Salin Manual', 'Password reset: ' + value, 'info');
+              }
+            }
+            loadPengguna();
+          });
+        }).generateResetPassword(username);
+      });
+    };
+    content.innerHTML = "\n                    <div class=\"mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3\">\n                        <div>\n                            <h3 class=\"text-lg font-black text-slate-800\">Manajemen Karyawan</h3>\n                            <p class=\"text-sm text-slate-400\">Kelola data akses dan profil karyawan Nasmedia.</p>\n                        </div>\n                        <button onclick=\"downloadExcelPengguna()\" class=\"px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow hover:bg-emerald-500 transition\"><i class=\"fa-solid fa-file-excel mr-2\"></i>Unduh Excel</button>\n                    </div>\n                    ".concat(
+
+
+
+
+
+
+
+      resetRequests.length ? "\n                        <div class=\"mb-6 bg-blue-50 border border-blue-100 p-5\">\n                            <div class=\"flex items-start justify-between gap-4 mb-4\">\n                                <div>\n                                    <h4 class=\"font-black text-slate-800\"><i class=\"fa-solid fa-key text-accent-600 mr-2\"></i>Permintaan Reset Password</h4>\n                                    <p class=\"text-xs text-slate-500 mt-1\">".concat(
+
+
+
+
+        resetRequests.length, " akun meminta password reset.</p>\n                                </div>\n                            </div>\n                            <div class=\"grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3\">\n                                ").concat(
+
+
+
+        resetRequests.map((u) => "\n                                    <div class=\"bg-white border border-blue-100 p-4 flex items-center justify-between gap-3\">\n                                        <div class=\"min-w-0\">\n                                            <div class=\"font-black text-sm text-slate-800 truncate\">".concat(
+
+
+          u.nama || u.username, "</div>\n                                            <div class=\"text-[10px] font-bold text-slate-400 truncate\">").concat(
+          u.username, " &bull; ").concat(getRoleLabel(u.role), "</div>\n                                            <div class=\"text-[10px] text-slate-400 mt-1\">").concat(
+          u.resetRequestedAt || 'Waktu tidak tercatat', "</div>\n                                        </div>\n                                        <button onclick=\"generateResetPasswordForUser('").concat(
+
+          u.username, "')\" class=\"px-3 py-2 bg-accent-600 hover:bg-accent-700 text-white text-xs font-black shrink-0\">\n                                            Reset\n                                        </button>\n                                    </div>\n                                ")
+
+
+
+        ).join(''), "\n                            </div>\n                        </div>\n                    ") :
+
+
+      '', "\n                    <div class=\"grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4\">\n                        ").concat(
+
+      data.map((u) => "\n                            <button onclick=\"showDetailKaryawan('".concat(
+        u.username, "')\" class=\"bg-white border border-slate-100 shadow-sm hover:shadow-md hover:border-accent-100 transition p-4 text-left rounded-xl flex items-center gap-4 min-w-0 group\">\n                                <div class=\"w-12 h-12 rounded-2xl ").concat(
+        roleTone(u.role), " flex items-center justify-center font-black shrink-0\">").concat(initials(u.nama), "</div>\n                                <div class=\"min-w-0 flex-1\">\n                                    <div class=\"font-black text-slate-800 text-sm truncate\">").concat(
+
+        u.nama || '-', "</div>\n                                    <div class=\"text-[10px] font-bold text-slate-400 truncate\">").concat(
+        u.employeeId || '-', " &bull; ").concat(u.email || 'email belum diisi', "</div>\n                                    <div class=\"text-[10px] font-black text-slate-500 mt-1 truncate\">").concat(
+        getRoleLabel(u.role), "</div>\n                                </div>\n                                <span class=\"w-8 h-8 rounded-lg text-slate-300 group-hover:text-accent-600 group-hover:bg-accent-50 flex items-center justify-center shrink-0\"><i class=\"fa-solid fa-ellipsis-vertical\"></i></span>\n                            </button>\n                        ")
+
+
+
+      ).join(''), "\n                        ").concat(
+      data.length === 0 ? '<div class="col-span-full p-16 text-center text-slate-300 italic bg-white border border-slate-100 rounded-2xl">Belum ada data karyawan.</div>' : '', "\n                    </div>");
+
+  }).getUsersData();
+}
+
+
+
+
+function openFormPengguna() {
+  document.getElementById('penggunaModalTitle').innerText = "Tambah Pengguna Baru";
+  document.getElementById('u_old_username').value = '';
+  document.getElementById('u_profile_complete').value = '';
+  document.getElementById('u_employee_id').value = '';
+  document.getElementById('u_username').value = '';
+  document.getElementById('u_password').value = '';
+  document.getElementById('u_nama').value = '';
+  document.getElementById('u_role').value = '';
+  document.getElementById('u_alamat').value = '';
+  document.getElementById('u_telepon').value = '';
+  document.getElementById('u_tanggal_lahir').value = '';
+  document.getElementById('u_jenis_kelamin').value = '';
+  document.getElementById('u_email').value = '';
+  document.getElementById('u_bank_name').value = '';
+  document.getElementById('u_bank_account_number').value = '';
+  document.getElementById('u_bank_account_name').value = '';
+  document.getElementById('u_departemen').value = '';
+  document.getElementById('u_jabatan').value = '';
+  document.getElementById('u_status_karyawan').value = 'Karyawan Kontrak';
+  toggleUserRoleFields();
+  gas.withSuccessHandler((res) => {
+    const existing = res?.data || [];
+    const next = getNextEmployeeId(existing);
+    const field = document.getElementById('u_employee_id');
+    if (field && !field.value) field.value = next;
+  }).getUsersData();
+  openModal('modalPengguna');
+}
+
+
+function getNextEmployeeId(users) {
+  const maxNo = (users || []).reduce((max, u) => {
+    const match = String(u.employeeId || '').match(/(\d+)$/);
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 0);
+  return 'EMP-' + String(maxNo + 1).padStart(3, '0');
+}
+
+
+function toggleUserRoleFields() {
+  const role = document.getElementById('u_role')?.value;
+  const isAttendanceOnly = role === 'karyawan';
+  const loginFields = document.getElementById('user_login_fields');
+  const username = document.getElementById('u_username');
+  const password = document.getElementById('u_password');
+  const alamat = document.getElementById('u_alamat');
+  const telepon = document.getElementById('u_telepon');
+  const tanggalLahir = document.getElementById('u_tanggal_lahir');
+  const jenisKelamin = document.getElementById('u_jenis_kelamin');
+  const email = document.getElementById('u_email');
+
+  if (loginFields) loginFields.classList.toggle('hidden', isAttendanceOnly);
+  if (username) username.required = !isAttendanceOnly;
+  if (password) password.required = !isAttendanceOnly;
+  [alamat, telepon, tanggalLahir, jenisKelamin, email].forEach((el) => {
+    if (el) el.required = isAttendanceOnly;
+  });
+}
+
+
+function editPengguna(username) {
+  gas.withSuccessHandler((res) => {
+    const u = (res?.data || []).find((x) => x.username === username);
+    if (u) {
+      document.getElementById('penggunaModalTitle').innerText = "Edit Data Pengguna";
+      document.getElementById('u_old_username').value = u.username;
+      document.getElementById('u_profile_complete').value = u.profileComplete || '';
+      document.getElementById('u_employee_id').value = u.employeeId || '';
+      document.getElementById('u_username').value = u.username;
+      document.getElementById('u_password').value = u.password;
+      document.getElementById('u_nama').value = u.nama;
+      document.getElementById('u_role').value = u.role;
+      document.getElementById('u_alamat').value = u.alamat || '';
+      document.getElementById('u_telepon').value = u.telepon || '';
+      document.getElementById('u_tanggal_lahir').value = u.tanggalLahir || '';
+      document.getElementById('u_jenis_kelamin').value = u.jenisKelamin || '';
+      document.getElementById('u_email').value = u.email || '';
+      document.getElementById('u_bank_name').value = u.bankName || '';
+      document.getElementById('u_bank_account_number').value = u.bankAccountNumber || '';
+      document.getElementById('u_bank_account_name').value = u.bankAccountName || '';
+      document.getElementById('u_departemen').value = u.departemen || '';
+      document.getElementById('u_jabatan').value = u.jabatan || '';
+      document.getElementById('u_status_karyawan').value = u.statusKaryawan || 'Karyawan Kontrak';
+      toggleUserRoleFields();
+      openModal('modalPengguna');
+    }
+  }).getUsersData();
+}
+
+
+function deletePengguna(username) {
+  Swal.fire({ title: 'Hapus Pengguna?', text: 'Akses login pengguna ini akan dicabut!', icon: 'warning', showCancelButton: true }).then((r) => {
+    if (r.isConfirmed) gas.withSuccessHandler(() => loadPengguna()).deleteUser(username);
+  });
+}
+
+function loadManagementHrdAccount() {
+  gas.withSuccessHandler((res) => {
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const rows = (res?.data || []).filter((u) => normalizeRole(u.role) === 'hrd');
+    const safeText = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+    window._managementHrdUsers = rows;
+    content.innerHTML = `
+      <div class="space-y-5">
+        <div class="bg-white border border-slate-100 rounded-2xl shadow-sm p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-50 text-accent-700 text-[10px] font-black uppercase tracking-widest mb-3"><i class="fa-solid fa-user-shield"></i> Supervisor</div>
+            <h3 class="text-xl font-black text-slate-900">Akun HRD</h3>
+            <p class="text-sm text-slate-500 mt-1">Akses khusus untuk membuat atau memperbarui akun login HRD saja.</p>
+          </div>
+          <button onclick="openManagementHrdForm()" class="btn-gradient text-white px-5 py-3 rounded-xl font-black text-sm shadow-lg"><i class="fa-solid fa-plus mr-2"></i>Buat Akun HRD</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          ${rows.map((u) => `
+            <div class="bg-white border border-slate-100 rounded-2xl shadow-sm p-5">
+              <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black">${safeText(String(u.nama || 'H').charAt(0).toUpperCase())}</div>
+                <div class="min-w-0 flex-1">
+                  <div class="font-black text-slate-900 truncate">${safeText(u.nama || 'HRD')}</div>
+                  <div class="text-[10px] font-bold text-slate-400 truncate">${safeText(u.username || '-')} &bull; ${safeText(u.employeeId || '-')}</div>
+                </div>
+              </div>
+              <div class="mt-4 grid grid-cols-2 gap-2 text-xs">
+                <div class="rounded-xl bg-slate-50 p-3"><div class="text-[10px] font-black uppercase text-slate-400">Departemen</div><div class="font-bold text-slate-700">${safeText(u.departemen || 'HRD')}</div></div>
+                <div class="rounded-xl bg-slate-50 p-3"><div class="text-[10px] font-black uppercase text-slate-400">Jabatan</div><div class="font-bold text-slate-700">${safeText(u.jabatan || 'HRD')}</div></div>
+              </div>
+              <button onclick="openManagementHrdForm('${safeText(u.username || '')}')" class="mt-4 w-full px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-accent-700 text-white text-xs font-black transition"><i class="fa-solid fa-pen mr-2"></i>Edit Akun HRD</button>
+            </div>
+          `).join('') || '<div class="col-span-full bg-white border border-slate-100 rounded-2xl p-10 text-center text-slate-400 font-bold">Belum ada akun HRD. Klik Buat Akun HRD.</div>'}
+        </div>
+      </div>`;
+  }).getUsersData();
+}
+
+function openManagementHrdForm(username = '') {
+  const existing = (window._managementHrdUsers || []).find((u) => String(u.username || '') === String(username || '')) || {};
+  const isEdit = !!existing.username;
+  Swal.fire({
+    title: isEdit ? 'Edit Akun HRD' : 'Buat Akun HRD',
+    width: 620,
+    html: `
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-left">
+        <input type="hidden" id="hrd_old_username" value="${existing.username || ''}">
+        <label class="text-[10px] font-black text-slate-400 uppercase">ID Karyawan *
+          <input id="hrd_employee_id" class="swal2-input !mx-0 !mt-1 !w-full" value="${existing.employeeId || 'EMP-HRD'}">
+        </label>
+        <label class="text-[10px] font-black text-slate-400 uppercase">Nama HRD *
+          <input id="hrd_nama" class="swal2-input !mx-0 !mt-1 !w-full" value="${existing.nama || 'HRD'}">
+        </label>
+        <label class="text-[10px] font-black text-slate-400 uppercase">Username *
+          <input id="hrd_username" class="swal2-input !mx-0 !mt-1 !w-full" value="${existing.username || 'hrd'}">
+        </label>
+        <label class="text-[10px] font-black text-slate-400 uppercase">Password ${isEdit ? 'Baru / Saat Ini' : '*'}
+          <input id="hrd_password" class="swal2-input !mx-0 !mt-1 !w-full" value="${existing.password || 'Hrd12345'}">
+        </label>
+        <label class="text-[10px] font-black text-slate-400 uppercase">Departemen
+          <input id="hrd_departemen" class="swal2-input !mx-0 !mt-1 !w-full" value="${existing.departemen || 'HRD'}">
+        </label>
+        <label class="text-[10px] font-black text-slate-400 uppercase">Jabatan
+          <input id="hrd_jabatan" class="swal2-input !mx-0 !mt-1 !w-full" value="${existing.jabatan || 'HRD'}">
+        </label>
+      </div>
+      <p class="text-left text-[11px] text-slate-400 mt-3">Password minimal 6 karakter serta mengandung huruf besar, huruf kecil, dan angka.</p>
+    `,
+    showCancelButton: true,
+    confirmButtonText: 'Simpan Akun HRD',
+    cancelButtonText: 'Batal',
+    confirmButtonColor: '#4763FD',
+    preConfirm: () => {
+      const payload = {
+        old_username: document.getElementById('hrd_old_username').value.trim(),
+        employeeId: document.getElementById('hrd_employee_id').value.trim(),
+        nama: document.getElementById('hrd_nama').value.trim(),
+        username: document.getElementById('hrd_username').value.trim(),
+        password: document.getElementById('hrd_password').value,
+        departemen: document.getElementById('hrd_departemen').value.trim(),
+        jabatan: document.getElementById('hrd_jabatan').value.trim()
+      };
+      if (!payload.employeeId || !payload.nama || !payload.username || !payload.password) return Swal.showValidationMessage('ID, nama, username, dan password wajib diisi.');
+      if (!validateStrongPassword(payload.password)) return Swal.showValidationMessage('Password wajib minimal 6 karakter serta mengandung huruf besar, huruf kecil, dan angka.');
+      return payload;
+    }
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+    Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    gas.withSuccessHandler((res) => {
+      if (!res || res.success === false) {
+        Swal.fire('Gagal Menyimpan', res?.message || 'Akun HRD gagal disimpan.', 'error');
+        return;
+      }
+      Swal.fire('Tersimpan', 'Akun HRD berhasil disimpan.', 'success');
+      loadManagementHrdAccount();
+    }).withFailureHandler((error) => showServerError('Gagal Menyimpan Akun HRD', error)).saveHrdUserFromManagement(result.value);
+  });
+}
+
+
+function validateEmployeeIdentityFields(payload, options = {}) {
+  const phone = String(payload.telepon || '').trim();
+  const email = String(payload.email || '').trim();
+  const birthDate = String(payload.tanggalLahir || '').trim();
+  const phoneRequired = !!options.phoneRequired;
+  const emailRequired = !!options.emailRequired;
+  const birthDateRequired = !!options.birthDateRequired;
+
+  if ((phoneRequired || phone) && !/^[0-9]{5,18}$/.test(phone)) {
+    return 'Nomor HP hanya boleh berisi angka, panjang 5-18 digit.';
+  }
+  if ((emailRequired || email) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return 'Format email belum valid.';
+  }
+  if ((birthDateRequired || birthDate) && !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
+    return 'Tanggal lahir belum valid.';
+  }
+  if (birthDate) {
+    const parsed = new Date(birthDate + 'T00:00:00');
+    const today = new Date();
+    if (Number.isNaN(parsed.getTime()) || parsed > today) return 'Tanggal lahir tidak boleh melebihi hari ini.';
+  }
+  return '';
+}
+
+
+function validateStrongPassword(password) {
+  return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/.test(String(password || ''));
+}
+
+
+function handleSavePengguna(e) {
+  e.preventDefault();
+  const role = document.getElementById('u_role').value;
+  const employeeId = document.getElementById('u_employee_id').value.trim();
+  const payload = {
+    old_username: document.getElementById('u_old_username').value,
+    username: role === 'karyawan' ? employeeId : document.getElementById('u_username').value,
+    password: role === 'karyawan' ? '' : document.getElementById('u_password').value,
+    employeeId: employeeId,
+    nama: document.getElementById('u_nama').value,
+    role: role,
+    alamat: document.getElementById('u_alamat').value,
+    telepon: document.getElementById('u_telepon').value,
+    tanggalLahir: document.getElementById('u_tanggal_lahir').value,
+    jenisKelamin: document.getElementById('u_jenis_kelamin').value,
+    email: document.getElementById('u_email').value,
+    bankName: document.getElementById('u_bank_name').value,
+    bankAccountNumber: document.getElementById('u_bank_account_number').value,
+    bankAccountName: document.getElementById('u_bank_account_name').value,
+    departemen: document.getElementById('u_departemen').value,
+    jabatan: document.getElementById('u_jabatan').value,
+    statusKaryawan: document.getElementById('u_status_karyawan').value,
+    profileComplete: document.getElementById('u_profile_complete').value
+  };
+  if (role === 'karyawan') payload.profileComplete = '1';
+  if (role === 'karyawan' && (!payload.alamat || !payload.telepon || !payload.tanggalLahir || !payload.email)) {
+    Swal.fire('Data Belum Lengkap', 'Karyawan non-role harus dilengkapi alamat, nomor telpon, tanggal lahir, dan email oleh Manajemen.', 'warning');
+    return;
+  }
+  const validationMessage = validateEmployeeIdentityFields(payload, {
+    phoneRequired: role === 'karyawan',
+    emailRequired: role === 'karyawan',
+    birthDateRequired: role === 'karyawan'
+  });
+  if (validationMessage) {
+    Swal.fire('Format Data Belum Sesuai', validationMessage, 'warning');
+    return;
+  }
+  Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => {Swal.showLoading();} });
+  gas.withSuccessHandler((res) => {
+    if (res && res.success === false) {
+      Swal.fire('Gagal Menyimpan', res.message || 'Data pengguna gagal disimpan.', 'error');
+      return;
+    }
+    closeModal('modalPengguna');
+    loadPengguna();
+    Swal.fire('Tersimpan!', 'Data pengguna berhasil diperbarui.', 'success');
+  }).withFailureHandler((error) => {
+    showServerError('Gagal Menyimpan Pengguna', error);
+  }).saveUserData(payload);
+}
+
+
+function handleCompleteEmployeeProfile(e) {
+  e.preventDefault();
+  const password = document.getElementById('setup_password').value;
+  const confirm = document.getElementById('setup_password_confirm').value;
+  if (password !== confirm) {
+    Swal.fire('Password Tidak Sama', 'Konfirmasi password harus sama dengan password baru.', 'warning');
+    return;
+  }
+  if (!validateStrongPassword(password)) {
+    Swal.fire('Password Belum Aman', 'Password wajib minimal 6 karakter serta mengandung huruf besar, huruf kecil, dan angka.', 'warning');
+    return;
+  }
+  const payload = {
+    username: document.getElementById('setup_username').value,
+    password: password,
+    nama: document.getElementById('setup_nama').value,
+    alamat: document.getElementById('setup_alamat').value,
+    telepon: document.getElementById('setup_telepon').value,
+    tanggalLahir: document.getElementById('setup_tanggal_lahir').value,
+    email: document.getElementById('setup_email').value
+  };
+  const validationMessage = validateEmployeeIdentityFields(payload, { phoneRequired: true, emailRequired: true, birthDateRequired: true });
+  if (validationMessage) {
+    Swal.fire('Format Data Belum Sesuai', validationMessage, 'warning');
+    return;
+  }
+  Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => {Swal.showLoading();} });
+  gas.withSuccessHandler((res) => {
+    if (!res.success) {
+      Swal.fire('Gagal Menyimpan', res.message || 'Data profil gagal disimpan.', 'error');
+      return;
+    }
+    state.user = res.data;
+    if (state.user.role === 'css') state.activeTab = 'dashboard';else
+    if (state.user.role === 'admin_marketplace') state.activeTab = 'dashboard_marketplace';else
+    if (state.user.role === 'campaign') state.activeTab = 'dashboard_campaign';else
+    if (state.user.role === 'pic_editor') state.activeTab = 'dashboard_kpi';else
+    if (state.user.role === 'pic_layouter') state.activeTab = 'naskah';else
+    state.activeTab = 'dashboard_kpi';
+    if (typeof savePortalSession === 'function') savePortalSession();
+    render();
+    Swal.fire('Berhasil!', 'Data karyawan berhasil dilengkapi.', 'success');
+  }).withFailureHandler((error) => {
+    showServerError('Gagal Menyimpan Profil', error);
+  }).completeEmployeeProfile(payload);
+}
+
+
+[
+'loadPengguna',
+'openFormPengguna',
+'getNextEmployeeId',
+'toggleUserRoleFields',
+'editPengguna',
+'deletePengguna',
+'loadManagementHrdAccount',
+'openManagementHrdForm',
+'validateEmployeeIdentityFields',
+'validateStrongPassword',
+'handleSavePengguna',
+'handleCompleteEmployeeProfile'].
+forEach((name) => {
+  try {
+    const fn = eval(name);
+    if (typeof fn === 'function') window[name] = fn;
+  } catch (error) {}
+});
+</script>

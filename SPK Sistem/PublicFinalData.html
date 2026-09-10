@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finalisasi Data Naskah</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 20px; color: #334155; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .container { max-width: 600px; width: 100%; margin: 0 auto; background: white; border-radius: 28px; box-shadow: 0 20px 60px rgba(0,0,0,0.08); overflow: hidden; }
+        .header { background: #0A2540; color: white; padding: 32px 32px 24px; text-align: center; position: relative; border-bottom: 6px solid #ff6333; }
+        .logo-mark { width: 64px; height: 64px; border-radius: 50%; margin: 0 auto 12px; background: #ffffff; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 28px rgba(0,0,0,0.18); border: 4px solid rgba(255,255,255,0.35); overflow: hidden; }
+        .logo-mark img { width: 100%; height: 100%; object-fit: contain; display: block; }
+        .header h1 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+        .header p { margin: 6px 0 0; font-size: 13px; opacity: 0.9; font-weight: 600; }
+        .content { padding: 36px 32px; }
+        .badge { display: inline-flex; align-items: center; justify-content: center; padding: 8px 16px; background: #eff2ff; color: #4763FD; border-radius: 12px; font-size: 13px; font-weight: 800; margin-bottom: 24px; font-family: ui-monospace, monospace; width: 100%; box-sizing: border-box; }
+        h2 { margin: 0 0 8px; font-size: 22px; font-weight: 900; color: #0f172a; letter-spacing: -0.5px; }
+        p.desc { margin: 0 0 28px; font-size: 14px; color: #64748b; line-height: 1.6; }
+        .form-group { margin-bottom: 24px; text-align: left; }
+        label { display: block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 10px; }
+        input, textarea { width: 100%; box-sizing: border-box; padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px; font-size: 15px; font-weight: 600; font-family: inherit; color: #0f172a; transition: all 0.2s; background: #f8fafc; }
+        input:focus, textarea:focus { outline: none; border-color: #4763FD; background: white; box-shadow: 0 0 0 4px rgba(71,99,253,0.1); }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px; }
+        .info-box { background: white; border: 2px solid #f1f5f9; border-radius: 20px; padding: 18px; text-align: left; }
+        .info-box label { margin-bottom: 6px; font-size: 10px; color: #cbd5e1; }
+        .info-box div { font-weight: 800; font-size: 15px; color: #1e293b; line-height: 1.4; }
+        .readonly-summary { background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 22px; padding: 18px; margin-bottom: 24px; text-align: left; }
+        .readonly-summary .summary-item { padding: 12px 0; border-bottom: 1px solid #e2e8f0; }
+        .readonly-summary .summary-item:last-child { border-bottom: 0; }
+        .readonly-summary .summary-label { font-size: 10px; font-weight: 900; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+        .readonly-summary .summary-value { font-size: 15px; font-weight: 800; color: #0f172a; line-height: 1.45; }
+        .party-card { background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 22px; padding: 18px; margin-bottom: 20px; text-align: left; }
+        .party-card h3 { margin: 0 0 12px; color: #0f172a; font-size: 16px; font-weight: 900; }
+        .party-row { display: grid; grid-template-columns: 112px 1fr; gap: 10px; padding: 8px 0; border-top: 1px solid #e2e8f0; font-size: 13px; line-height: 1.45; }
+        .party-row:first-of-type { border-top: 0; }
+        .party-label { color: #94a3b8; font-weight: 900; text-transform: uppercase; font-size: 10px; letter-spacing: 0.8px; }
+        .party-value { color: #0f172a; font-weight: 800; white-space: pre-line; }
+        .agreement-preview { background: #fff7ed; border: 2px solid #fed7aa; border-radius: 22px; padding: 18px; margin: 8px 0 24px; text-align: left; }
+        .agreement-preview h3 { margin: 0 0 12px; color: #0f172a; font-size: 16px; font-weight: 900; }
+        .agreement-scroll { max-height: 320px; overflow-y: auto; background: white; border: 1px solid #fed7aa; border-radius: 16px; padding: 16px; overscroll-behavior: contain; }
+        .pasal-item { border-top: 1px solid #ffedd5; padding-top: 14px; margin-top: 14px; }
+        .pasal-item:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+        .pasal-title { font-size: 12px; font-weight: 900; color: #ea580c; text-transform: uppercase; margin-bottom: 6px; }
+        .pasal-body { font-size: 13px; line-height: 1.65; color: #475569; white-space: pre-line; font-weight: 600; }
+        
+        .author-row, .editor-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; }
+        .author-row input, .editor-row input { flex: 1; margin-bottom: 0; }
+        .remove-author-btn { width: 48px; height: 48px; flex-shrink: 0; padding: 0; display: flex; align-items: center; justify-content: center; background: #fef2f2; color: #ef4444; border-radius: 16px; font-size: 18px; box-shadow: none; border: 2px solid #fee2e2; }
+        .remove-author-btn:hover { background: #fee2e2; transform: none; box-shadow: none; }
+        .add-author-btn { width: auto; padding: 10px 16px; background: #eff2ff; color: #4763FD; border-radius: 12px; font-size: 12px; font-weight: 800; margin-bottom: 8px; box-shadow: none; display: inline-flex; align-items: center; gap: 8px; float: right; margin-top: -38px; }
+        .add-author-btn:hover { background: #e0e7ff; transform: none; box-shadow: none; }
+        .editor-toggle { display: flex; gap: 12px; align-items: flex-start; padding: 16px; background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 20px; cursor: pointer; margin-bottom: 14px; }
+        .editor-toggle input { width: 22px; height: 22px; flex-shrink: 0; margin: 0; padding: 0; cursor: pointer; }
+        .editor-toggle span { display: block; font-size: 14px; font-weight: 800; color: #0f172a; line-height: 1.3; }
+        .editor-toggle small { display: block; font-size: 12px; font-weight: 600; color: #94a3b8; margin-top: 4px; line-height: 1.4; }
+        .editor-section { display: none; margin-top: 12px; }
+        .editor-section.active { display: block; }
+        .remove-editor-btn { width: 48px; height: 48px; flex-shrink: 0; padding: 0; display: flex; align-items: center; justify-content: center; background: #fef2f2; color: #ef4444; border-radius: 16px; font-size: 18px; box-shadow: none; border: 2px solid #fee2e2; }
+        .remove-editor-btn:hover { background: #fee2e2; transform: none; box-shadow: none; }
+        .add-editor-btn { width: auto; padding: 10px 16px; background: #eff2ff; color: #4763FD; border-radius: 12px; font-size: 12px; font-weight: 800; box-shadow: none; display: inline-flex; align-items: center; gap: 8px; border: none; cursor: pointer; }
+        .add-editor-btn:hover { background: #e0e7ff; transform: none; box-shadow: none; }
+        
+        .agreement-box { display: flex; gap: 16px; padding: 18px; background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 20px; margin-bottom: 12px; text-align: left; align-items: flex-start; cursor: pointer; transition: all 0.2s; }
+        .agreement-box:hover { border-color: #cbd5e1; }
+        .agreement-box input[type="checkbox"] { width: 24px; height: 24px; flex-shrink: 0; margin: 0; margin-top: 2px; cursor: pointer; border-radius: 6px; }
+        .agreement-box label { font-size: 13px; color: #475569; font-weight: 600; text-transform: none; letter-spacing: normal; cursor: pointer; margin: 0; line-height: 1.5; }
+        .agreement-box label strong { color: #0f172a; font-weight: 800; }
+        
+        button.main-btn { width: 100%; padding: 18px; background: linear-gradient(135deg, #4763FD, #3b52d9); color: white; border: none; border-radius: 16px; font-size: 16px; font-weight: 800; cursor: pointer; transition: all 0.2s; box-shadow: 0 8px 24px rgba(71,99,253,0.3); }
+        button.main-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(71,99,253,0.4); }
+        button.main-btn:disabled { background: #cbd5e1; cursor: not-allowed; box-shadow: none; transform: none; }
+        
+        .loading-screen, .error-screen, .success-screen { text-align: center; padding: 40px 20px; }
+        .icon { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; font-weight: 900; }
+        .icon.error { background: #fef2f2; color: #ef4444; font-size: 36px; }
+        .icon.success { background: #ecfdf5; color: #10b981; font-size: 32px; }
+        
+        #mainForm { display: none; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo-mark"><img src="<?= getPublishLogoDataUri_() ?>" alt="Publish Inc."></div>
+            <h1>Portal Penulis</h1>
+            <p>Publish Inc. Administrasi Naskah</p>
+        </div>
+        
+        <div class="content">
+            <div id="statusArea" class="loading-screen">
+                <h2 style="color:#94a3b8;">Memuat data...</h2>
+            </div>
+
+            <form id="tokenForm" style="display:none; text-align:center;">
+                <div class="icon" style="background:#eff2ff; color:#4763FD; margin:0 auto 20px; font-size:24px;"><i class="fa-solid fa-key"></i></div>
+                <h2 style="font-size:22px;">Verifikasi Author</h2>
+                <p class="desc">Masukkan token author dan 4 digit terakhir nomor HP penulis untuk membuka formulir data final.</p>
+                <div class="form-group" style="margin-bottom:16px;">
+                    <label style="text-align:left;">Token Author</label>
+                    <input type="text" id="inputToken" placeholder="Masukkan token author" required style="text-align:center; font-family:monospace; font-size:18px; letter-spacing:1px; background:#f8fafc;">
+                </div>
+                <div class="form-group" style="margin-bottom:24px;">
+                    <label style="text-align:left;">4 Digit Terakhir No. HP</label>
+                    <input type="text" id="inputPhone4" placeholder="Contoh: 7890" required inputmode="numeric" maxlength="4" pattern="[0-9]{4}" style="text-align:center; font-family:monospace; font-size:18px; letter-spacing:1px; background:#f8fafc;">
+                </div>
+                <button type="submit" id="btnVerifyToken" class="main-btn">Lanjutkan</button>
+            </form>
+
+            <form id="mainForm" style="display:none;">
+                <div class="badge" id="displayCode"></div>
+                <h2>Input Data Final Penulis</h2>
+                <p class="desc">Pastikan judul, nama penulis, dan editor sudah final sebelum menyetujui surat perjanjian kerja sama.</p>
+
+                <div class="readonly-summary">
+                    <div class="summary-item"><div class="summary-label">Data Awal dari CS</div><div class="summary-value"><span id="displayJudul">-</span><br><span id="displayPenulis">-</span></div></div>
+                    <div class="summary-item"><div class="summary-label">Penerbit / Paket</div><div class="summary-value"><span id="displayPenerbit">-</span> / <span id="displayPaket">-</span></div></div>
+                    <div class="summary-item"><div class="summary-label">Ukuran</div><div class="summary-value" id="displayUkuran">-</div></div>
+                </div>
+
+                <div class="form-group">
+                    <label>Judul Fix *</label>
+                    <input type="text" id="judul" required placeholder="Judul final buku">
+                </div>
+
+                <div class="form-group" style="position: relative;">
+                    <label>Nama Penulis Fix *</label>
+                    <button type="button" id="btnAddAuthor" class="add-author-btn"><i class="fa-solid fa-plus"></i>Tambah Penulis</button>
+                    <div id="authorListContainer"></div>
+                    <p style="font-size:12px; color:#94a3b8; margin-top:12px; margin-bottom:0;">Jika penulis lebih dari satu, isi berurutan sesuai tampilan nama di buku.</p>
+                </div>
+
+                <div class="form-group">
+                    <label>Nama Editor Fix</label>
+                    <div id="editorListContainer"></div>
+                    <button type="button" id="btnAddEditor" class="add-editor-btn"><i class="fa-solid fa-plus"></i>Tambah Editor</button>
+                    <p style="font-size:12px; color:#94a3b8; margin-top:12px; margin-bottom:0;">Opsional. Kosongkan jika naskah tidak memakai editor.</p>
+                </div>
+
+                <div class="form-group">
+                    <label>Pekerjaan Penulis *</label>
+                    <input type="text" id="pekerjaan" required placeholder="Contoh: Dosen, Guru, Wiraswasta">
+                </div>
+
+                <div class="form-group">
+                    <label>NIK / No. KTP *</label>
+                    <input type="text" id="ktp" required inputmode="numeric" maxlength="16" placeholder="16 digit angka">
+                </div>
+
+                <div class="form-group">
+                    <label>Alamat Sesuai KTP *</label>
+                    <textarea id="alamat" rows="4" required placeholder="Tulis alamat lengkap"></textarea>
+                </div>
+
+                <div class="party-card">
+                    <h3>Keterangan Pihak Pertama</h3>
+                    <div class="party-row"><div class="party-label">Atas Nama</div><div class="party-value" id="partyOneName">Publish Inc.</div></div>
+                    <div class="party-row"><div class="party-label">PJ</div><div class="party-value" id="partyOnePj">-</div></div>
+                    <div class="party-row"><div class="party-label">Jabatan</div><div class="party-value" id="partyOneJabatan">-</div></div>
+                </div>
+
+                <div class="party-card">
+                    <h3>Data Pihak Kedua</h3>
+                    <div class="party-row"><div class="party-label">Nama</div><div class="party-value" id="partyTwoName">-</div></div>
+                    <div class="party-row"><div class="party-label">Judul</div><div class="party-value" id="partyTwoTitle">-</div></div>
+                    <div class="party-row"><div class="party-label">Pekerjaan</div><div class="party-value" id="partyTwoJob">-</div></div>
+                    <div class="party-row"><div class="party-label">NIK/KTP</div><div class="party-value" id="partyTwoKtp">-</div></div>
+                    <div class="party-row"><div class="party-label">Alamat</div><div class="party-value" id="partyTwoAddress">-</div></div>
+                </div>
+
+                <div class="agreement-preview">
+                    <h3>Isi Surat Perjanjian Kerja Sama</h3>
+                    <div id="spkAgreementPreview">
+                        <div class="pasal-body">Memuat isi surat perjanjian...</div>
+                    </div>
+                </div>
+
+                <label class="agreement-box">
+                    <input type="checkbox" id="isbnAgreementCheck" required>
+                    <label for="isbnAgreementCheck">Saya memastikan bahwa <strong>nama penulis fix</strong> dan <strong>judul fix</strong> di atas sudah benar untuk diajukan sebagai administrasi ISBN.</label>
+                </label>
+                <label class="agreement-box">
+                    <input type="checkbox" id="digitalAgreementCheck" required>
+                    <label for="digitalAgreementCheck">Saya menyatakan sepakat untuk <strong>menandatangani secara digital</strong> isi surat perjanjian kerja sama ini.</label>
+                </label>
+
+                <button type="submit" id="submitBtn" class="main-btn">Kirim Data Administrasi</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        var code = "<?= publicCode ?>";
+        var token = "<?= publicToken ?>";
+        var form = document.getElementById('mainForm');
+        var tokenForm = document.getElementById('tokenForm');
+        var statusArea = document.getElementById('statusArea');
+        var btn = document.getElementById('submitBtn');
+        var currentNaskahData = {};
+
+        function showError(msg) {
+            form.style.display = 'none';
+            tokenForm.style.display = 'none';
+            statusArea.style.display = 'block';
+            statusArea.className = 'error-screen';
+            statusArea.innerHTML = '<div class="icon error">!</div><h2>Gagal</h2><p class="desc">' + msg + '</p>' +
+            '<button onclick="location.reload()" style="margin-top:20px; max-width:200px; padding:12px;">Coba Lagi</button>';
+        }
+
+        function showSuccess() {
+            form.style.display = 'none';
+            tokenForm.style.display = 'none';
+            statusArea.style.display = 'block';
+            statusArea.className = 'success-screen';
+            statusArea.innerHTML = '<div class="icon success">✓</div><h2>Data Terkirim</h2><p class="desc">Terima kasih. Data final naskah sudah masuk ke sistem dan menunggu administrasi.</p>';
+        }
+
+        function escapeHtml(value) {
+            return String(value == null ? '' : value).replace(/[&<>"']/g, function(ch) {
+                return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
+            });
+        }
+
+        function renderAgreementPreview(settings) {
+            var target = document.getElementById('spkAgreementPreview');
+            if (!target) return;
+            settings = settings || {};
+            var pasals = Array.isArray(settings.pasals) ? settings.pasals : [];
+            var html = '';
+            if (pasals.length) {
+                html += pasals.map(function(pasal, index) {
+                    return '<div class="pasal-item">' +
+                        '<div class="pasal-title">Pasal ' + (index + 1) + (pasal.judul ? ' - ' + escapeHtml(pasal.judul) : '') + '</div>' +
+                        '<div class="pasal-body">' + escapeHtml(pasal.isi || '-') + '</div>' +
+                    '</div>';
+                }).join('');
+            } else {
+                html += '<div class="pasal-item"><div class="pasal-body">Isi pasal SPK belum diatur oleh manajemen.</div></div>';
+            }
+            if (settings.penutup) {
+                html += '<div class="pasal-item"><div class="pasal-title">Penutup</div><div class="pasal-body">' + escapeHtml(settings.penutup) + '</div></div>';
+            }
+            target.innerHTML = '<div class="agreement-scroll">' + html + '</div>';
+            document.getElementById('partyOneName').innerText = settings.atasNama || 'Publish Inc.';
+            document.getElementById('partyOnePj').innerText = settings.penanggungJawab || '-';
+            document.getElementById('partyOneJabatan').innerText = settings.jabatan || '-';
+        }
+
+        function getCurrentAuthorNames() {
+            if (!authorListContainer) return [];
+            return Array.from(authorListContainer.querySelectorAll('input')).map(function(i) { return i.value.trim(); }).filter(Boolean);
+        }
+
+        function updatePartyTwoPreview() {
+            var authors = getCurrentAuthorNames();
+            var title = document.getElementById('judul') ? document.getElementById('judul').value.trim() : '';
+            var pekerjaan = document.getElementById('pekerjaan') ? document.getElementById('pekerjaan').value.trim() : '';
+            var ktp = document.getElementById('ktp') ? document.getElementById('ktp').value.trim() : '';
+            var alamat = document.getElementById('alamat') ? document.getElementById('alamat').value.trim() : '';
+            document.getElementById('partyTwoName').innerText = authors.length ? authors.join(', ') : '-';
+            document.getElementById('partyTwoTitle').innerText = title || '-';
+            document.getElementById('partyTwoJob').innerText = pekerjaan || '-';
+            document.getElementById('partyTwoKtp').innerText = ktp || '-';
+            document.getElementById('partyTwoAddress').innerText = alamat || '-';
+        }
+
+        function bindLivePreviewInputs() {
+            ['judul', 'pekerjaan', 'ktp', 'alamat'].forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el && !el.dataset.previewBound) {
+                    el.addEventListener('input', updatePartyTwoPreview);
+                    el.dataset.previewBound = '1';
+                }
+            });
+        }
+
+        function renderNaskahResponse(res, c, t) {
+            if (!res || !res.success) {
+                showError(res ? res.message : 'Gagal memuat data');
+                return;
+            }
+            if (res.data.submitted) {
+                showSuccess();
+                return;
+            }
+            code = res.data.trackingCode || c;
+            token = t;
+            currentNaskahData = res.data || {};
+
+            statusArea.style.display = 'none';
+            tokenForm.style.display = 'none';
+            form.style.display = 'block';
+
+            document.getElementById('displayCode').innerText = code;
+            document.getElementById('displayJudul').innerText = res.data.judul || '-';
+            document.getElementById('displayPenulis').innerText = (res.data.penulisList && res.data.penulisList.length ? res.data.penulisList.join(', ') : res.data.penulis) || '-';
+            document.getElementById('displayPenerbit').innerText = res.data.penerbit || '-';
+            document.getElementById('displayPaket').innerText = res.data.paket || '-';
+            document.getElementById('displayUkuran').innerText = res.data.ukuran || '-';
+            document.getElementById('judul').value = res.data.judul || '';
+            document.getElementById('pekerjaan').value = res.data.pekerjaan || '';
+            document.getElementById('ktp').value = res.data.ktp || '';
+            document.getElementById('alamat').value = res.data.alamat || '';
+            var authors = res.data.penulisList || [];
+            if (authors.length === 0 && res.data.penulis) authors = [res.data.penulis];
+            renderAuthorInputs(authors.length ? authors : ['']);
+            renderAgreementPreview(res.data.spkSettings || {});
+
+            var editors = res.data.editorList || [];
+            renderEditorInputs(editors.length ? editors : ['']);
+            bindLivePreviewInputs();
+            updatePartyTwoPreview();
+        }
+
+        function verifyAuthorToken(t, phone4) {
+            statusArea.style.display = 'block';
+            statusArea.className = 'loading-screen';
+            statusArea.innerHTML = '<h2 style="color:#94a3b8;">Memverifikasi...</h2>';
+            tokenForm.style.display = 'none';
+            form.style.display = 'none';
+
+            google.script.run
+                .withSuccessHandler(function(res) {
+                    renderNaskahResponse(res, '', t);
+                })
+                .withFailureHandler(function(err) {
+                    showError(err.message || 'Server tidak merespons');
+                })
+                .verifyAuthorAccess(t, phone4);
+        }
+        
+        function loadNaskah(c, t) {
+            statusArea.style.display = 'block';
+            statusArea.className = 'loading-screen';
+            statusArea.innerHTML = '<h2 style="color:#94a3b8;">Memuat data...</h2>';
+            tokenForm.style.display = 'none';
+            form.style.display = 'none';
+            
+            google.script.run
+                .withSuccessHandler(function(res) {
+                    renderNaskahResponse(res, c, t);
+                })
+                .withFailureHandler(function(err) {
+                    showError(err.message || 'Server tidak merespons');
+                })
+                .getNaskahFinalDataForm(c, t);
+        }
+
+        var authorListContainer = document.getElementById('authorListContainer');
+        var btnAddAuthor = document.getElementById('btnAddAuthor');
+        var editorListContainer = document.getElementById('editorListContainer');
+        var btnAddEditor = document.getElementById('btnAddEditor');
+
+        function renderAuthorInputs(authors) {
+            authorListContainer.innerHTML = '';
+            authors.forEach(function(author, index) {
+                var row = document.createElement('div');
+                row.className = 'author-row';
+                
+                var input = document.createElement('input');
+                input.type = 'text';
+                input.value = author;
+                input.placeholder = 'Nama Penulis ' + (index + 1);
+                input.required = index === 0;
+                input.addEventListener('input', updatePartyTwoPreview);
+                
+                row.appendChild(input);
+                
+                if (index > 0) {
+                    var delBtn = document.createElement('button');
+                    delBtn.type = 'button';
+                    delBtn.className = 'remove-author-btn';
+                    delBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                    delBtn.onclick = function() { row.remove(); updatePartyTwoPreview(); };
+                    row.appendChild(delBtn);
+                }
+                
+                authorListContainer.appendChild(row);
+            });
+        }
+        
+        if (btnAddAuthor) btnAddAuthor.onclick = function() {
+            if (!authorListContainer) return;
+            var inputs = authorListContainer.querySelectorAll('input');
+            var currentAuthors = Array.from(inputs).map(function(i) { return i.value; });
+            currentAuthors.push('');
+            renderAuthorInputs(currentAuthors);
+            updatePartyTwoPreview();
+            var newInputs = authorListContainer.querySelectorAll('input');
+            if (newInputs.length > 0) newInputs[newInputs.length - 1].focus();
+        };
+
+        function renderEditorInputs(editors) {
+            editorListContainer.innerHTML = '';
+            editors.forEach(function(editor, index) {
+                var row = document.createElement('div');
+                row.className = 'editor-row';
+
+                var input = document.createElement('input');
+                input.type = 'text';
+                input.value = editor;
+                input.placeholder = 'Nama Editor ' + (index + 1);
+
+                var delBtn = document.createElement('button');
+                delBtn.type = 'button';
+                delBtn.className = 'remove-editor-btn';
+                delBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                delBtn.onclick = function() {
+                    if (editorListContainer.querySelectorAll('.editor-row').length <= 1) {
+                        input.value = '';
+                        return;
+                    }
+                    row.remove();
+                };
+
+                row.appendChild(input);
+                row.appendChild(delBtn);
+                editorListContainer.appendChild(row);
+            });
+        }
+
+        btnAddEditor.onclick = function() {
+            var inputs = editorListContainer.querySelectorAll('input');
+            var currentEditors = Array.from(inputs).map(function(i) { return i.value; });
+            currentEditors.push('');
+            renderEditorInputs(currentEditors);
+            var newInputs = editorListContainer.querySelectorAll('input');
+            if (newInputs.length > 0) newInputs[newInputs.length - 1].focus();
+        };
+
+        if (!code && !token) {
+            statusArea.style.display = 'none';
+            tokenForm.style.display = 'block';
+            
+            tokenForm.onsubmit = function(e) {
+                e.preventDefault();
+                var input = document.getElementById('inputToken').value.trim();
+                var phone4 = document.getElementById('inputPhone4').value.replace(/\D/g, '');
+                if (!input || !/^\d{4}$/.test(phone4)) {
+                    alert('Token author dan 4 digit terakhir nomor HP wajib diisi.');
+                    return;
+                }
+                verifyAuthorToken(input, phone4);
+            };
+        } else {
+            loadNaskah(code, token);
+        }
+
+        form.onsubmit = function(e) {
+            e.preventDefault();
+            if (!document.getElementById('isbnAgreementCheck').checked || !document.getElementById('digitalAgreementCheck').checked) {
+                alert('Anda harus menyetujui dua pernyataan di bawah surat perjanjian sebelum mengirimkan data.');
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.innerText = 'Menyimpan...';
+
+            var editorInputs = editorListContainer.querySelectorAll('input');
+            var authorInputs = authorListContainer.querySelectorAll('input');
+            var payload = {
+                judul: document.getElementById('judul').value,
+                penulisList: Array.from(authorInputs).map(function(i) { return i.value.trim(); }).filter(Boolean),
+                editorList: Array.from(editorInputs).map(function(i) { return i.value.trim(); }).filter(Boolean),
+                pekerjaan: document.getElementById('pekerjaan').value,
+                ktp: document.getElementById('ktp').value,
+                alamat: document.getElementById('alamat').value
+            };
+
+            google.script.run
+                .withSuccessHandler(function(res) {
+                    if (!res || !res.success) {
+                        btn.disabled = false;
+                        btn.innerText = 'Kirim Data Administrasi';
+                        alert('Gagal: ' + (res ? res.message : 'Unknown error'));
+                        return;
+                    }
+                    showSuccess();
+                })
+                .withFailureHandler(function(err) {
+                    btn.disabled = false;
+                    btn.innerText = 'Kirim Data Administrasi';
+                    alert('Gagal: ' + (err.message || 'Server error'));
+                })
+                .submitNaskahFinalData(code, token, payload);
+        };
+    </script>
+</body>
+</html>

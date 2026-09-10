@@ -1,0 +1,936 @@
+<script>
+
+
+
+// --- MODUL MIGRASI NASKAH & ARSIP ---
+
+function loadNaskahMigrasi() {
+  gas.withSuccessHandler((resNaskah) => {
+    gas.withSuccessHandler((resSettings) => {
+      if (!state.user) return;
+      const content = document.getElementById('contentArea');
+      if (!content) return;
+      mockNaskahDB = resNaskah?.data || [];
+      const kpiActiveDate = resSettings?.data?.kpiActiveDate || '';
+      window._kpiActiveDate = kpiActiveDate;
+      const getNaskahRunningSource = (n) => {
+        if (n.source === 'migrasi' || n.cs === 'Migrasi Manajemen') return 'migrasi';
+        if (n.dealId || n.source === 'cs') return 'cs';
+        return 'migrasi';
+      };
+      const sourceLabel = (source) => source === 'cs' ? 'Input CS' : 'Migrasi Manajemen';
+      const data = mockNaskahDB.
+      filter((n) => (n.statusProses === 'Siap Proses' || !n.statusProses || n.source === 'migrasi') && !isNaskahCancelled(n) && (n.source === 'migrasi' || n.dealId || n.source === 'cs' || n.cs === 'Migrasi Manajemen')).
+      sort((a, b) => String(b.tanggal || '').localeCompare(String(a.tanggal || '')));
+      const searchQuery = String(window._naskahMigrasiSearch || '').trim().toLowerCase();
+      const penerbitFilter = window._naskahMigrasiPenerbit || 'semua';
+      const progressFilter = window._naskahMigrasiProgress || 'semua';
+      const sourceFilter = window._naskahMigrasiSource || 'semua';
+      const penerbitOptions = [...new Set(data.map((n) => n.penerbit || 'Tanpa Penerbit'))].sort((a, b) => a.localeCompare(b));
+      const progressOptions = [...new Set(data.map((n) => n.timeline || 'Belum Diatur'))].sort((a, b) => a.localeCompare(b));
+      const filteredData = data.filter((n) => {
+        const currentSource = getNaskahRunningSource(n);
+        const haystack = [n.judul, n.penulis, n.trackingCode, n.penerbit, n.paket, n.picEditor, n.picLayouter, n.assignedCssName, n.assignedCssUsername, n.timeline, sourceLabel(currentSource), n.cs].join(' ').toLowerCase();
+        const matchesSearch = !searchQuery || haystack.includes(searchQuery);
+        const matchesPenerbit = penerbitFilter === 'semua' || (n.penerbit || 'Tanpa Penerbit') === penerbitFilter;
+        const matchesProgress = progressFilter === 'semua' || (n.timeline || 'Belum Diatur') === progressFilter;
+        const matchesSource = sourceFilter === 'semua' || currentSource === sourceFilter;
+        return matchesSearch && matchesPenerbit && matchesProgress && matchesSource;
+      });
+      const pageSize = 10;
+      const currentPage = Math.max(1, Number(window._naskahMigrasiPage || 1));
+      const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
+      const safePage = Math.min(currentPage, totalPages);
+      window._naskahMigrasiPage = safePage;
+      const pagedData = filteredData.slice((safePage - 1) * pageSize, safePage * pageSize);
+      const timelineBadge = (step) => "<span class=\"inline-flex items-center px-2.5 py-1 bg-blue-50 text-accent-600 border border-blue-100 rounded-full text-[10px] font-black\">".concat(step || '-', "</span>");
+      const parseDeadlineMap = (value) => {
+        if (!value) return {};
+        if (typeof value === 'object' && !Array.isArray(value)) return value;
+        try {
+          const parsed = JSON.parse(value);
+          return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+        } catch (error) {
+          return {};
+        }
+      };
+      const getEstimasiSelesai = (n) => {
+        const deadlines = parseDeadlineMap(n?.deadlines);
+        const baseDeadlines = parseDeadlineMap(n?.baseDeadlines);
+        return deadlines.selesai || baseDeadlines.selesai || '-';
+      };
+      const migrationStats = {
+        total: data.length,
+        fromMigration: data.filter((n) => getNaskahRunningSource(n) === 'migrasi').length,
+        fromCs: data.filter((n) => getNaskahRunningSource(n) === 'cs').length,
+        assignedEditor: data.filter((n) => n.picEditor).length,
+        assignedLayouter: data.filter((n) => n.picLayouter).length,
+        activeStages: [...new Set(data.map((n) => n.timeline || 'Belum Diatur'))].length
+      };
+
+      content.innerHTML = "\n                        <div class=\"naskah-migrasi-page space-y-6\">\n                            <div class=\"flex items-center gap-4 text-[11px] font-bold text-slate-300 bg-slate-800 p-3 rounded-2xl border border-slate-700 shadow-sm\"><span class=\"uppercase tracking-wider text-slate-400\"><i class=\"fa-solid fa-palette mr-1\"></i>Penerbit:</span><div class=\"flex items-center gap-1.5\"><span class=\"w-3 h-3 rounded\" style=\"background:#eff6ff;border:1px solid #dbeafe\"></span> Nasmedia</div><div class=\"flex items-center gap-1.5\"><span class=\"w-3 h-3 rounded\" style=\"background:#faf5ff;border:1px solid #f3e8ff\"></span> Idebuku</div></div>\n                            <div class=\"migration-hero\">\n                                <div class=\"min-w-0\">\n                                    <div class=\"migration-kicker\">Mode Transisi</div>\n                                    <h3>Naskah Berjalan</h3>\n                                    <p>Input naskah yang sudah berjalan sebagai data produksi saja. Tidak membuat deal, omzet, atau KPI otomatis.</p>\n                                </div>\n                                <div class=\"migration-date-card\">\n                                    <div>\n                                        <span>Tanggal KPI Mulai Aktif</span>\n                                        <strong>".concat(
+
+
+
+
+
+
+
+
+
+
+        kpiActiveDate || '-', "</strong>\n                                        <small>Sebelum tanggal ini, update naskah hanya menjadi tracking.</small>\n                                    </div>\n                                    <button onclick=\"openKpiActiveDateDialog()\" type=\"button\"><i class=\"fa-solid fa-calendar-days mr-2\"></i>Atur Tanggal</button>\n                                </div>\n                            </div>\n\n                            <div class=\"migration-stat-grid\">\n                                <div><span>Total Naskah</span><strong>").concat(
+
+
+
+
+
+
+
+        migrationStats.total, "</strong></div>\n                                <div><span>Migrasi Manajemen</span><strong>").concat(
+        migrationStats.fromMigration, "</strong></div>\n                                <div><span>Input CS</span><strong>").concat(
+        migrationStats.fromCs, "</strong></div>\n                                <div><span>Tahap Aktif</span><strong>").concat(
+        migrationStats.activeStages, "</strong></div>\n                            </div>\n\n                            <div class=\"migration-board\">\n                                <div class=\"migration-board-head\">\n                                    <div>\n                                        <h3>Daftar Naskah Berjalan</h3>\n                                        <p>Menampilkan ").concat(
+
+
+
+
+
+
+        filteredData.length, " dari ").concat(data.length, " naskah. Klik edit untuk melengkapi tahap, PIC, atau status.</p>\n                                    </div>\n                                    <div class=\"migration-board-actions\">\n                                        <div class=\"relative inline-block text-left\">\n                                            <button type=\"button\" onclick=\"this.nextElementSibling.classList.toggle('hidden')\" class=\"!bg-slate-100 !text-slate-600 hover:!bg-slate-200\">\n                                                <i class=\"fa-solid fa-gear\"></i>Aksi Lainnya <i class=\"fa-solid fa-chevron-down text-[9px] ml-1 opacity-70\"></i>\n                                            </button>\n                                            <div class=\"hidden absolute right-0 z-50 mt-2 w-56 origin-top-right rounded-xl bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none overflow-hidden\">\n                                                <a href=\"javascript:void(0)\" onclick=\"this.parentElement.classList.add('hidden'); downloadTemplateNaskahMigrasi()\" class=\"block w-full text-left px-4 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors\"><i class=\"fa-solid fa-file-excel mr-2 opacity-50\"></i>Template Excel</a>\n                                                <a href=\"javascript:void(0)\" onclick=\"this.parentElement.classList.add('hidden'); document.getElementById('import_naskah_migrasi_file')?.click()\" class=\"block w-full text-left px-4 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors\"><i class=\"fa-solid fa-upload mr-2 opacity-50\"></i>Import Excel</a>\n                                                <div class=\"h-px bg-slate-100\"></div>\n                                                <a href=\"javascript:void(0)\" onclick=\"this.parentElement.classList.add('hidden'); downloadDoubleNaskahExcel()\" class=\"block w-full text-left px-4 py-3 text-xs font-bold text-amber-600 hover:bg-amber-50 transition-colors\"><i class=\"fa-solid fa-clone mr-2 opacity-50\"></i>Download Naskah Double</a>\n                                                <div class=\"h-px bg-slate-100\"></div>\n                                                <a href=\"javascript:void(0)\" onclick=\"this.parentElement.classList.add('hidden'); archiveCancelledNaskahUi()\" class=\"block w-full text-left px-4 py-3 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors\"><i class=\"fa-solid fa-box-archive mr-2 opacity-50\"></i>Arsipkan Naskah Batal</a>\n                                            </div>\n                                        </div>\n                                        <button onclick=\"openFormNaskahMigrasi()\" type=\"button\"><i class=\"fa-solid fa-plus\"></i>Input Naskah</button>\n                                    </div>\n                                    <input id=\"import_naskah_migrasi_file\" type=\"file\" accept=\".xlsx,.xls\" class=\"hidden\" onchange=\"importNaskahMigrasiExcel(event)\">\n                                </div>\n                                <div class=\"px-5 pb-4 grid grid-cols-1 md:grid-cols-4 gap-3\">\n                                    <label class=\"block\">\n                                        <span class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1\">Cari Naskah</span>\n                                        <input value=\"").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+        window._naskahMigrasiSearch || '', "\" oninput=\"window._naskahMigrasiSearch=this.value; window._naskahMigrasiPage=1; loadNaskahMigrasi()\" placeholder=\"Judul, penulis, PIC...\" class=\"w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-accent-400\">\n                                    </label>\n                                    <label class=\"block\">\n                                        <span class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1\">Penerbit</span>\n                                        <select onchange=\"window._naskahMigrasiPenerbit=this.value; window._naskahMigrasiPage=1; loadNaskahMigrasi()\" class=\"w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-accent-400 bg-white\">\n                                            <option value=\"semua\" ").concat(
+
+
+
+
+        penerbitFilter === 'semua' ? 'selected' : '', ">Semua Penerbit</option>\n                                            ").concat(
+        penerbitOptions.map((p) => "<option value=\"".concat(p, "\" ").concat(penerbitFilter === p ? 'selected' : '', ">").concat(p, "</option>")).join(''), "\n                                        </select>\n                                    </label>\n                                    <label class=\"block\">\n                                        <span class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1\">Progress</span>\n                                        <select onchange=\"window._naskahMigrasiProgress=this.value; window._naskahMigrasiPage=1; loadNaskahMigrasi()\" class=\"w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-accent-400 bg-white\">\n                                            <option value=\"semua\" ").concat(
+
+
+
+
+
+        progressFilter === 'semua' ? 'selected' : '', ">Semua Progress</option>\n                                            ").concat(
+        progressOptions.map((p) => "<option value=\"".concat(p, "\" ").concat(progressFilter === p ? 'selected' : '', ">").concat(p, "</option>")).join(''), "\n                                        </select>\n                                    </label>\n                                    <label class=\"block\">\n                                        <span class=\"text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1\">Sumber</span>\n                                        <select onchange=\"window._naskahMigrasiSource=this.value; window._naskahMigrasiPage=1; loadNaskahMigrasi()\" class=\"w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-accent-400 bg-white\">\n                                            <option value=\"semua\" ").concat(
+
+
+
+
+
+        sourceFilter === 'semua' ? 'selected' : '', ">Semua Sumber</option>\n                                            <option value=\"migrasi\" ").concat(
+        sourceFilter === 'migrasi' ? 'selected' : '', ">Migrasi Manajemen</option>\n                                            <option value=\"cs\" ").concat(
+        sourceFilter === 'cs' ? 'selected' : '', ">Input CS</option>\n                                        </select>\n                                    </label>\n                                </div>\n                                <div class=\"migration-list\">\n                                    ").concat(
+
+
+
+
+        pagedData.map((n) => {
+            const isNasmedia = String(n.penerbit || '').toLowerCase().replace(/\s/g, '').includes('nasmedia');
+            const isIdebuku = String(n.penerbit || '').toLowerCase().replace(/\s/g, '').includes('idebuku');
+            const bgClass = ''; const rowStyle = isNasmedia ? 'background-color: #eff6ff !important; border-color: #dbeafe !important;' : isIdebuku ? 'background-color: #faf5ff !important; border-color: #f3e8ff !important;' : '';
+            return "\n                                        <div class=\"migration-item \" style=\"" + rowStyle + "\">\n                                            <div class=\"migration-item-main\">\n                                                <div class=\"migration-title-row flex flex-wrap items-center gap-2\">\n                                                    <h4>".concat(
+          n.judul || '-', "</h4>\n                                                    <div class=\"flex items-center gap-1.5\">").concat(
+          timelineBadge(n.timeline), "<span class=\"inline-flex items-center px-2 py-0.5 rounded-lg ").concat(
+          getNaskahRunningSource(n) === 'cs' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-violet-50 text-violet-600 border border-violet-100', " text-[9px] font-black uppercase\">").concat(sourceLabel(getNaskahRunningSource(n)), "</span></div>\n                                                </div>\n                                                <p class=\"mb-2\">").concat(
+          n.penulis || '-', " &bull; ").concat(n.paket || '-', "</p>\n                                                <div class=\"migration-meta\">\n                                                    <span><i class=\"fa-solid fa-calendar-day\"></i>Masuk ").concat(
+          n.tanggal || '-', "</span>\n                                                    <span><i class=\"fa-solid fa-user\"></i>CS ").concat(
+          n.cs || '-', "</span>\n                                                    <span><i class=\"fa-solid fa-user-shield\"></i>CSS ").concat(
+          n.assignedCssName || n.assignedCssUsername || '-', "</span>\n                                                    <span><i class=\"fa-solid fa-pen-nib\"></i>Editor ").concat(
+          n.picEditor || '-', "</span>\n                                                    <span><i class=\"fa-solid fa-layer-group\"></i>Layouter ").concat(
+          n.picLayouter || '-', "</span>\n                                                    <span><i class=\"fa-solid fa-calendar-check\"></i>Estimasi Selesai ").concat(
+          getEstimasiSelesai(n), "</span>\n                                                </div>\n                                            </div>\n                                            <div class=\"migration-actions\">\n                                                <button onclick=\"openTrackingDelayDialog('").concat(
+
+
+          n.id, "', '").concat(trackingDelayStageFromTimeline(n.timeline), "')\" title=\"Mundur Estimasi\"><i class=\"fa-solid fa-clock\"></i></button>\n                                                <button onclick=\"editNaskahMigrasi('").concat(
+          n.id, "')\" title=\"Edit\"><i class=\"fa-solid fa-pen\"></i></button>\n                                                <button onclick=\"viewDetailNaskah('").concat(
+          n.id, "')\" title=\"Detail\"><i class=\"fa-solid fa-eye\"></i></button>\n                                            </div>\n                                        </div>\n                                    ");
+        }).join(''), "\n                                    ").concat(
+        filteredData.length === 0 ? '<div class="migration-empty">Tidak ada naskah berjalan yang sesuai pencarian/filter.</div>' : '', "\n                                </div>\n                                <div class=\"flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-5 py-4 border-t border-slate-100\">\n                                    <div class=\"text-[10px] font-bold text-slate-400\">Halaman ").concat(
+
+
+        safePage, " dari ").concat(totalPages, " &bull; 10 data per halaman</div>\n                                    <div class=\"flex items-center gap-2\">\n                                        <button onclick=\"window._naskahMigrasiPage=Math.max(1,(window._naskahMigrasiPage||1)-1); loadNaskahMigrasi()\" class=\"px-3 py-2 rounded-lg border border-slate-200 text-xs font-black text-slate-500 hover:border-accent-200 hover:text-accent-600\">Prev</button>\n                                        <span class=\"px-3 py-2 rounded-lg bg-accent-50 text-accent-600 text-xs font-black\">").concat(
+
+
+        safePage, "</span>\n                                        <button onclick=\"window._naskahMigrasiPage=Math.min(").concat(
+        totalPages, ",(window._naskahMigrasiPage||1)+1); loadNaskahMigrasi()\" class=\"px-3 py-2 rounded-lg border border-slate-200 text-xs font-black text-slate-500 hover:border-accent-200 hover:text-accent-600\">Next</button>\n                                    </div>\n                                </div>\n                            </div>\n                        </div>");
+
+
+
+
+      injectDeadlineDownloadAction();
+    }).getKpiTransitionSettings();
+  }).getNaskahData();
+}
+
+function injectDeadlineDownloadAction() {
+  const menu = document.querySelector('.migration-board-actions .relative > div');
+  if (!menu || document.getElementById('download_deadline_naskah_action')) return;
+  const archiveLink = Array.from(menu.querySelectorAll('a')).find((link) => String(link.textContent || '').includes('Arsipkan Naskah Batal'));
+  const link = document.createElement('a');
+  link.id = 'download_deadline_naskah_action';
+  link.href = 'javascript:void(0)';
+  link.className = 'block w-full text-left px-4 py-3 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors';
+  link.innerHTML = '<i class="fa-solid fa-calendar-xmark mr-2 opacity-50"></i>Download Lewat Deadline';
+  link.onclick = function () {
+    if (link.parentElement) link.parentElement.classList.add('hidden');
+    downloadDeadlineNaskahExcel();
+  };
+  if (archiveLink) menu.insertBefore(link, archiveLink);
+  else menu.appendChild(link);
+}
+
+
+function naskahArchiveEscape(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[ch]);
+}
+
+
+function archiveCancelledNaskahUi() {
+  Swal.fire({
+    title: 'Arsipkan Naskah Batal?',
+    text: 'Semua naskah yang sudah dibatalkan/disetujui batal akan dipindahkan dari sheet aktif ke NaskahArchive.',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Arsipkan',
+    cancelButtonText: 'Batal',
+    confirmButtonColor: '#4763FD'
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+    gas.withSuccessHandler((res) => {
+      const count = Number(res?.data?.count || 0);
+      if (!res || res.success === false) {
+        const errors = (res?.data?.errors || []).slice(0, 3).join('\n');
+        Swal.fire('Sebagian Gagal', (res?.message || res?.error || 'Ada naskah yang gagal diarsipkan.') + (errors ? '\n\n' + errors : ''), 'warning');
+      } else {
+        Swal.fire('Diarsipkan', "".concat(count, " naskah batal berhasil dipindahkan ke arsip."), 'success');
+      }
+      loadNaskahMigrasi();
+    }).withFailureHandler((error) => showServerError('Gagal Mengarsipkan Naskah', error)).archiveCancelledNaskah(state.user?.nama || 'Manajemen');
+  });
+}
+window.archiveCancelledNaskahUi = archiveCancelledNaskahUi;
+
+
+function loadNaskahArchive() {
+  gas.withSuccessHandler((res) => {
+    const content = document.getElementById('contentArea');
+    if (!content) return;
+    const rows = (res?.data || []).sort((a, b) => String(b.archivedAt || b.cancelApprovedAt || '').localeCompare(String(a.archivedAt || a.cancelApprovedAt || '')));
+    const search = String(window._naskahArchiveSearch || '').trim().toLowerCase();
+    const filtered = rows.filter((n) => {
+      const hay = [n.judul, n.penulis, n.trackingCode, n.penerbit, n.paket, n.timeline, n.cancelReason, n.archivedBy].join(' ').toLowerCase();
+      return !search || hay.includes(search);
+    });
+    const pageSize = 10;
+    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    const page = Math.min(Math.max(1, Number(window._naskahArchivePage || 1)), totalPages);
+    window._naskahArchivePage = page;
+    const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
+    content.innerHTML = "\n                <div class=\"space-y-5\">\n                    <div class=\"bg-white border border-slate-100 rounded-3xl p-6 shadow-sm\">\n                        <div class=\"flex flex-col md:flex-row md:items-center md:justify-between gap-4\">\n                            <div>\n                                <h3 class=\"text-2xl font-black text-slate-900\">Arsip Naskah</h3>\n                                <p class=\"text-sm text-slate-400 font-bold mt-1\">View only untuk naskah yang sudah dibatalkan dan keluar dari flow aktif.</p>\n                            </div>\n                            <div class=\"px-4 py-2 rounded-2xl bg-slate-50 text-slate-500 text-xs font-black\">".concat(
+
+
+
+
+
+
+
+      filtered.length, " Arsip</div>\n                        </div>\n                        <div class=\"mt-5\">\n                            <input value=\"").concat(
+
+
+      naskahArchiveEscape(window._naskahArchiveSearch || ''), "\" oninput=\"window._naskahArchiveSearch=this.value; window._naskahArchivePage=1; loadNaskahArchive()\" placeholder=\"Cari judul, penulis, kode tracking, alasan...\" class=\"w-full md:max-w-xl px-4 py-3 rounded-2xl border border-slate-200 text-sm font-bold outline-none focus:border-accent-400\">\n                        </div>\n                    </div>\n                    <div class=\"bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm\">\n                        <div class=\"overflow-x-auto\">\n                            <table class=\"w-full text-left min-w-[980px]\">\n                                <thead class=\"bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400 font-black\">\n                                    <tr>\n                                        <th class=\"px-5 py-4\">Tanggal Arsip</th>\n                                        <th class=\"px-5 py-4\">Judul</th>\n                                        <th class=\"px-5 py-4\">Penulis</th>\n                                        <th class=\"px-5 py-4\">Penerbit / Paket</th>\n                                        <th class=\"px-5 py-4\">Tahap Terakhir</th>\n                                        <th class=\"px-5 py-4\">Alasan Batal</th>\n                                        <th class=\"px-5 py-4\">Disetujui</th>\n                                    </tr>\n                                </thead>\n                                <tbody class=\"divide-y divide-slate-100 text-sm\">\n                                    ").concat(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      paged.map((n) => "\n                                        <tr class=\"hover:bg-slate-50\">\n                                            <td class=\"px-5 py-4 font-bold text-slate-500\">".concat(
+
+        naskahArchiveEscape(n.archivedAt || n.cancelApprovedAt), "</td>\n                                            <td class=\"px-5 py-4\">\n                                                <div class=\"font-black text-slate-900\">").concat(
+
+        naskahArchiveEscape(n.judul), "</div>\n                                                <div class=\"text-[10px] font-mono text-slate-400\">").concat(
+        naskahArchiveEscape(n.trackingCode), "</div>\n                                            </td>\n                                            <td class=\"px-5 py-4 font-bold text-slate-600\">").concat(
+
+        naskahArchiveEscape(n.penulis), "</td>\n                                            <td class=\"px-5 py-4 font-bold text-slate-600\">").concat(
+        naskahArchiveEscape(n.penerbit), " / ").concat(naskahArchiveEscape(n.paket), "</td>\n                                            <td class=\"px-5 py-4\"><span class=\"px-2 py-1 rounded-lg bg-blue-50 text-accent-600 text-[10px] font-black\">").concat(
+        naskahArchiveEscape(n.timeline), "</span></td>\n                                            <td class=\"px-5 py-4 text-slate-500 max-w-xs\">").concat(
+        naskahArchiveEscape(n.archiveReason || n.cancelReason), "</td>\n                                            <td class=\"px-5 py-4\">\n                                                <div class=\"font-bold text-slate-600\">").concat(
+
+        naskahArchiveEscape(n.archivedBy || 'Manajemen'), "</div>\n                                                <div class=\"text-[10px] text-slate-400\">").concat(
+        naskahArchiveEscape(n.cancelApprovedAt), "</div>\n                                            </td>\n                                        </tr>\n                                    ")
+
+
+      ).join('') || '<tr><td colspan="7" class="p-12 text-center text-slate-300 font-bold">Belum ada arsip naskah.</td></tr>', "\n                                </tbody>\n                            </table>\n                        </div>\n                        <div class=\"flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-5 py-4 border-t border-slate-100\">\n                            <div class=\"text-[10px] font-bold text-slate-400\">Halaman ").concat(
+
+
+
+
+      page, " dari ").concat(totalPages, " &bull; 10 data per halaman</div>\n                            <div class=\"flex items-center gap-2\">\n                                <button onclick=\"window._naskahArchivePage=Math.max(1,(window._naskahArchivePage||1)-1); loadNaskahArchive()\" class=\"px-3 py-2 rounded-lg border border-slate-200 text-xs font-black text-slate-500 hover:border-accent-200 hover:text-accent-600\">Prev</button>\n                                <span class=\"px-3 py-2 rounded-lg bg-accent-50 text-accent-600 text-xs font-black\">").concat(
+
+
+      page, "</span>\n                                <button onclick=\"window._naskahArchivePage=Math.min(").concat(
+      totalPages, ",(window._naskahArchivePage||1)+1); loadNaskahArchive()\" class=\"px-3 py-2 rounded-lg border border-slate-200 text-xs font-black text-slate-500 hover:border-accent-200 hover:text-accent-600\">Next</button>\n                            </div>\n                        </div>\n                    </div>\n                </div>\n            ");
+
+
+
+
+
+  }).withFailureHandler((error) => showServerError('Gagal Memuat Arsip Naskah', error)).getNaskahArchiveData();
+}
+window.loadNaskahArchive = loadNaskahArchive;
+
+
+
+
+
+function normalizeLegacyPaymentStatus(value) {
+  const text = String(value || '').trim().toLowerCase();
+  return text.includes('dp') ? 'DP' : 'Full Payment';
+}
+
+
+
+
+function populateMigrationNaskahFormUsers(selectedEditor = '', selectedLayouter = '', selectedCssUsername = '') {
+  gas.withSuccessHandler((res) => {
+    const users = res?.data || [];
+    const cssSelect = document.getElementById('mig_assigned_css');
+    const editorSelect = document.getElementById('mig_pic_editor');
+    const layouterSelect = document.getElementById('mig_pic_layouter');
+    if (cssSelect) {
+      const cssUsers = users.filter((u) => normalizeRole(u.role) === 'css');
+      cssSelect.innerHTML = '<option value="">Pilih CSS</option>';
+      cssUsers.forEach((u) => {
+        cssSelect.innerHTML += "<option value=\"".concat(u.username, "\" ").concat(String(u.username || '') === String(selectedCssUsername || '') ? 'selected' : '', ">").concat(u.nama || u.username, "</option>");
+      });
+    }
+    if (editorSelect) {
+      const knownEditors = users.filter((u) => u.role === 'editor' || u.role === 'pic_editor').map((u) => u.nama);
+      editorSelect.innerHTML = '<option value="">Belum ditentukan</option>';
+      knownEditors.forEach((nama) => {
+        editorSelect.innerHTML += "<option value=\"".concat(nama, "\" ").concat(nama === selectedEditor ? 'selected' : '', ">").concat(nama, "</option>");
+      });
+      editorSelect.innerHTML += "<option value=\"__manual__\">Lainnya / Freelance</option>";
+      if (selectedEditor && !knownEditors.includes(selectedEditor)) {
+        editorSelect.value = '__manual__';
+        const manual = document.getElementById('mig_pic_editor_manual');
+        if (manual) manual.value = selectedEditor;
+      }
+      toggleManualAssignee('mig_pic_editor', 'mig_pic_editor_manual');
+    }
+    if (layouterSelect) {
+      const knownLayouters = users.filter((u) => u.role === 'layouter' || u.role === 'pic_layouter').map((u) => u.nama);
+      layouterSelect.innerHTML = '<option value="">Belum ditentukan</option>';
+      knownLayouters.forEach((nama) => {
+        layouterSelect.innerHTML += "<option value=\"".concat(nama, "\" ").concat(nama === selectedLayouter ? 'selected' : '', ">").concat(nama, "</option>");
+      });
+      layouterSelect.innerHTML += "<option value=\"__manual__\">Lainnya / Freelance</option>";
+      if (selectedLayouter && !knownLayouters.includes(selectedLayouter)) {
+        layouterSelect.value = '__manual__';
+        const manual = document.getElementById('mig_pic_layouter_manual');
+        if (manual) manual.value = selectedLayouter;
+      }
+      toggleManualAssignee('mig_pic_layouter', 'mig_pic_layouter_manual');
+    }
+  }).getUsersData();
+}
+
+
+function downloadTemplateNaskahMigrasi() {
+  if (typeof XLSX === 'undefined') {
+    Swal.fire('Gagal', 'Library Excel belum siap. Reload halaman lalu coba lagi.', 'error');
+    return;
+  }
+  const rows = [{
+    'Kode Tracking': 'NSM-202606-XXXX',
+    'Judul Naskah': 'Contoh Judul Buku',
+    'Penulis': 'Nama Penulis',
+    'No HP Penulis': '081234567890',
+    'Penerbit': 'Nasmedia',
+    'Paket': 'Express',
+    'Ukuran': 'A5',
+    'Tanggal Masuk': new Date().toISOString().split('T')[0],
+    'Tahap Saat Ini': 'Desain Cover & Layout',
+    'Tahap Proofreading': 'Langsung Layout',
+    'Estimasi Halaman': 150,
+    'Estimasi Kata': 25000,
+    'PIC Editor': '',
+    'PIC Layouter': '',
+    'Catatan': 'Opsional'
+  }];
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [
+  { wch: 22 }, { wch: 28 }, { wch: 22 }, { wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 12 },
+  { wch: 14 }, { wch: 24 }, { wch: 20 }, { wch: 18 }, { wch: 16 },
+  { wch: 22 }, { wch: 22 }, { wch: 28 }];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Template Naskah Berjalan');
+  XLSX.writeFile(wb, 'Template_Naskah_Berjalan.xlsx');
+}
+
+
+function normalizeImportDate(value) {
+  if (!value) return '';
+  if (value instanceof Date) return value.toISOString().split('T')[0];
+  if (typeof value === 'number' && typeof XLSX !== 'undefined') {
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if (parsed) {
+      const month = String(parsed.m).padStart(2, '0');
+      const day = String(parsed.d).padStart(2, '0');
+      return "".concat(parsed.y, "-").concat(month, "-").concat(day);
+    }
+  }
+  const text = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  const parsedDate = new Date(text);
+  if (!Number.isNaN(parsedDate.getTime())) return parsedDate.toISOString().split('T')[0];
+  return text;
+}
+
+
+function normalizeMigrationProofValue(value) {
+  const text = String(value || 'Perlu Proofreading').trim().toLowerCase();
+  return text.includes('langsung') || text.includes('tidak') || text === '0' ? '0' : '1';
+}
+
+
+function importNaskahMigrasiExcel(event) {
+  const input = event.target;
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (typeof XLSX === 'undefined') {
+    Swal.fire('Gagal', 'Library Excel belum siap. Reload halaman lalu coba lagi.', 'error');
+    input.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      if (!rows.length) {
+        Swal.fire('File Kosong', 'Tidak ada baris data yang bisa diimport.', 'warning');
+        return;
+      }
+
+      const activeDate = window._kpiActiveDate || '';
+      const payloads = rows.map((row, idx) => {
+        const get = (...keys) => {
+          for (const key of keys) {
+            if (row[key] !== undefined && row[key] !== '') return row[key];
+          }
+          return '';
+        };
+        const butuhProofreading = normalizeMigrationProofValue(get('Tahap Proofreading', 'Proofreading', 'Butuh Proofreading'));
+        const skipProofreading = butuhProofreading === '0';
+        const selectedTimeline = String(get('Tahap Saat Ini', 'Timeline', 'Tahap') || (skipProofreading ? 'Desain Cover & Layout' : 'Administrasi')).trim();
+        const timeline = skipProofreading && (selectedTimeline === 'Administrasi' || selectedTimeline === 'Proofreading') ?
+        'Desain Cover & Layout' :
+        selectedTimeline;
+        const judul = String(get('Judul Naskah', 'Judul') || '').trim();
+        const penulis = String(get('Penulis') || '').trim();
+        if (!judul || !penulis) throw new Error("Baris ".concat(idx + 2, ": Judul Naskah dan Penulis wajib diisi."));
+        return {
+          id: '',
+          dealId: '',
+          importMode: true,
+          trackingCode: String(get('Kode Tracking', 'Tracking Code', 'Kode Naskah') || '').trim(),
+          judul,
+          penulis,
+          noHpPenulis: String(get('No HP Penulis', 'Nomor HP Penulis', 'No HP', 'Telepon') || '').trim(),
+          cs: 'Migrasi Manajemen',
+          penerbit: String(get('Penerbit') || '').trim(),
+          paket: String(get('Paket') || '').trim(),
+          ukuran: String(get('Ukuran') || '').trim(),
+          estimasiHalaman: Number(get('Estimasi Halaman', 'Halaman') || 0),
+          estimasiKata: Number(get('Estimasi Kata', 'Kata') || 0),
+          tanggal: normalizeImportDate(get('Tanggal Masuk', 'Tanggal')) || new Date().toISOString().split('T')[0],
+          timeline,
+          lengkap: false,
+          batasRevisiProofreading: 0,
+          batasRevisiLayout: 0,
+          revisiProofreading: 0,
+          revisiLayout: 0,
+          statusIsbn: 'Menunggu',
+          tindakanIsbn: '',
+          picEditor: skipProofreading ? '' : String(get('PIC Editor', 'Editor') || '').trim(),
+          picLayouter: String(get('PIC Layouter', 'Layouter') || '').trim(),
+          statusEditor: skipProofreading ? 'Complete' : 'Menunggu',
+          statusLayouter: 'Menunggu',
+          deadlines: null,
+          catatanCS: String(get('Catatan', 'Keterangan') || '').trim(),
+          statusProses: 'Siap Proses',
+          source: 'migrasi',
+          kpiEligibleFrom: activeDate,
+          butuhProofreading
+        };
+      });
+
+      const saveOne = (payload) => new Promise((resolve, reject) => {
+        gas.withSuccessHandler((res) => {
+          if (res && res.success === false) reject(new Error(res.message || res.error || 'Gagal menyimpan data.'));else
+          resolve(res);
+        }).withFailureHandler(reject).saveNaskahData(payload);
+      });
+      const importResults = [];
+      for (const payload of payloads) {
+        importResults.push(await saveOne(payload));
+      }
+      input.value = '';
+      loadNaskahMigrasi();
+      const updatedCount = importResults.filter((result) => result?.data?.action === 'updated').length;
+      const createdCount = importResults.length - updatedCount;
+      Swal.fire('Import Berhasil', "".concat(createdCount, " naskah baru dan ").concat(updatedCount, " naskah diperbarui tanpa membuat KPI otomatis."), 'success');
+    } catch (error) {
+      input.value = '';
+      Swal.fire('Import Gagal', String(error && error.message ? error.message : error), 'error');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+
+function fillMigrationTimelineOptions(selected = 'Administrasi') {
+  const select = document.getElementById('mig_timeline');
+  if (!select) return;
+  select.innerHTML = timelineSteps.map((step) => "<option value=\"".concat(step, "\" ").concat(step === selected ? 'selected' : '', ">").concat(step, "</option>")).join('');
+}
+
+
+function ensureMigrationPhoneField() {
+  if (document.getElementById('mig_no_hp_penulis')) return;
+  const penulisInput = document.getElementById('mig_penulis');
+  const anchor = penulisInput?.closest('.migration-form-grid');
+  if (!anchor) return;
+  const label = document.createElement('label');
+  label.innerHTML = '<span>No HP Penulis *</span><input type="tel" id="mig_no_hp_penulis" inputmode="numeric" pattern="[0-9]{5,18}" required placeholder="081234567890">';
+  anchor.appendChild(label);
+}
+
+
+function openFormNaskahMigrasi() {
+  ensureMigrationPhoneField();
+  const today = new Date().toISOString().split('T')[0];
+  ['mig_id', 'mig_judul', 'mig_penulis', 'mig_no_hp_penulis', 'mig_ukuran', 'mig_estimasi_halaman', 'mig_estimasi_kata', 'mig_catatan'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  ['mig_pic_editor_manual', 'mig_pic_layouter_manual'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('mig_tanggal').value = today;
+  fillMigrationTimelineOptions('Administrasi');
+  const proofSelect = document.getElementById('mig_butuh_proofreading');
+  if (proofSelect) proofSelect.value = '1';
+  const statusProses = document.getElementById('mig_status_proses');
+  if (statusProses) statusProses.value = 'Siap Proses';
+  const statusEditor = document.getElementById('mig_status_editor');
+  if (statusEditor) statusEditor.value = 'Menunggu';
+  const statusLayouter = document.getElementById('mig_status_layouter');
+  if (statusLayouter) statusLayouter.value = 'Menunggu';
+  const statusIsbn = document.getElementById('mig_status_isbn');
+  if (statusIsbn) statusIsbn.value = 'Menunggu';
+  populatePenerbitDropdown('mig_penerbit', '', () => updatePaketDropdown('mig_penerbit', 'mig_paket'));
+  populateMigrationNaskahFormUsers();
+  toggleMigrationProofreading('1');
+  openModal('modalNaskahMigrasi');
+}
+
+
+function editNaskahMigrasi(id) {
+  ensureMigrationPhoneField();
+  const n = mockNaskahDB.find((x) => x.id === id);
+  if (!n) return;
+  document.getElementById('mig_id').value = n.id || '';
+  document.getElementById('mig_judul').value = n.judul || '';
+  document.getElementById('mig_penulis').value = n.penulis || '';
+  document.getElementById('mig_no_hp_penulis').value = n.noHpPenulis || '';
+  document.getElementById('mig_ukuran').value = n.ukuran || '';
+  document.getElementById('mig_tanggal').value = n.tanggal || new Date().toISOString().split('T')[0];
+  document.getElementById('mig_estimasi_halaman').value = n.estimasiHalaman || '';
+  document.getElementById('mig_estimasi_kata').value = n.estimasiKata || '';
+  document.getElementById('mig_catatan').value = n.catatanCS || '';
+  fillMigrationTimelineOptions(n.timeline || 'Administrasi');
+  const proofValue = naskahNeedsProofreading(n) ? '1' : '0';
+  const proofSelect = document.getElementById('mig_butuh_proofreading');
+  if (proofSelect) proofSelect.value = proofValue;
+  const statusProses = document.getElementById('mig_status_proses');
+  if (statusProses) statusProses.value = n.statusProses || 'Siap Proses';
+  const statusEditor = document.getElementById('mig_status_editor');
+  if (statusEditor) statusEditor.value = n.statusEditor || 'Menunggu';
+  const statusLayouter = document.getElementById('mig_status_layouter');
+  if (statusLayouter) statusLayouter.value = n.statusLayouter || 'Menunggu';
+  const statusIsbn = document.getElementById('mig_status_isbn');
+  if (statusIsbn) statusIsbn.value = n.statusIsbn || 'Menunggu';
+  populatePenerbitDropdown('mig_penerbit', n.penerbit || '', () => updatePaketDropdown('mig_penerbit', 'mig_paket', n.paket || ''));
+  populateMigrationNaskahFormUsers(n.picEditor || '', n.picLayouter || '', n.assignedCssUsername || '');
+  setTimeout(() => toggleMigrationProofreading(proofValue), 0);
+  openModal('modalNaskahMigrasi');
+}
+
+
+function handleSaveNaskahMigrasi(e) {
+  e.preventDefault();
+  ensureMigrationPhoneField();
+  const activeDate = window._kpiActiveDate || document.getElementById('kpi_active_date_input')?.value || '';
+  const id = document.getElementById('mig_id').value;
+  const existing = id ? mockNaskahDB.find((n) => n.id === id) || {} : {};
+  const noHpPenulis = (document.getElementById('mig_no_hp_penulis')?.value || '').replace(/\D+/g, '');
+  const butuhProofreading = document.getElementById('mig_butuh_proofreading')?.value || '1';
+  const skipProofreading = butuhProofreading === '0';
+  const selectedTimeline = document.getElementById('mig_timeline').value;
+  const timeline = skipProofreading && (selectedTimeline === 'Administrasi' || selectedTimeline === 'Proofreading') ?
+  'Desain Cover & Layout' :
+  selectedTimeline;
+  const preservedDeadlines = existing.deadlines ? { ...existing.deadlines } : null;
+  if (skipProofreading && preservedDeadlines) preservedDeadlines.proofreading = '';
+  const payload = {
+    ...existing,
+    id,
+    dealId: existing.dealId || '',
+    judul: document.getElementById('mig_judul').value.trim(),
+    penulis: document.getElementById('mig_penulis').value.trim(),
+    noHpPenulis,
+    cs: existing.cs || 'Migrasi Manajemen',
+    penerbit: document.getElementById('mig_penerbit').value,
+    paket: document.getElementById('mig_paket').value,
+    ukuran: document.getElementById('mig_ukuran').value.trim(),
+    estimasiHalaman: Number(document.getElementById('mig_estimasi_halaman').value || 0),
+    estimasiKata: Number(document.getElementById('mig_estimasi_kata').value || 0),
+    tanggal: document.getElementById('mig_tanggal').value,
+    timeline,
+    lengkap: false,
+    batasRevisiProofreading: Number(existing.batasRevisiProofreading || 0),
+    batasRevisiLayout: Number(existing.batasRevisiLayout || 0),
+    revisiProofreading: Number(existing.revisiProofreading || 0),
+    revisiLayout: Number(existing.revisiLayout || 0),
+    statusIsbn: document.getElementById('mig_status_isbn')?.value || existing.statusIsbn || 'Menunggu',
+    tindakanIsbn: existing.tindakanIsbn || '',
+    assignedCssUsername: document.getElementById('mig_assigned_css')?.value || existing.assignedCssUsername || '',
+    assignedCssName: '',
+    picEditor: skipProofreading ? '' : getAssigneeValue('mig_pic_editor', 'mig_pic_editor_manual'),
+    picLayouter: getAssigneeValue('mig_pic_layouter', 'mig_pic_layouter_manual'),
+    statusEditor: skipProofreading ? 'Complete' : document.getElementById('mig_status_editor')?.value || (String(existing.butuhProofreading ?? '1') === '0' ? 'Menunggu' : existing.statusEditor || 'Menunggu'),
+    statusLayouter: document.getElementById('mig_status_layouter')?.value || existing.statusLayouter || 'Menunggu',
+    deadlines: preservedDeadlines,
+    catatanCS: document.getElementById('mig_catatan').value.trim(),
+    statusProses: document.getElementById('mig_status_proses')?.value || 'Siap Proses',
+    source: existing.source || (existing.dealId ? 'cs' : 'migrasi'),
+    kpiEligibleFrom: activeDate,
+    butuhProofreading
+  };
+  if (!payload.judul || !payload.penulis || !payload.tanggal || !payload.timeline) {
+    Swal.fire('Data Belum Lengkap', 'Judul, penulis, tanggal masuk, dan tahap saat ini wajib diisi.', 'warning');
+    return;
+  }
+  if (!/^\d{5,18}$/.test(payload.noHpPenulis)) {
+    Swal.fire('Format No HP', 'Nomor HP penulis wajib angka 5-18 digit.', 'warning');
+    return;
+  }
+  Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => {Swal.showLoading();} });
+  gas.withSuccessHandler((res) => {
+    if (res && res.success === false) {
+      Swal.fire('Gagal', res.message || 'Naskah migrasi gagal disimpan.', 'error');
+      return;
+    }
+    closeModal('modalNaskahMigrasi');
+    loadNaskahMigrasi();
+    Swal.fire('Tersimpan', 'Naskah berjalan berhasil disimpan sebagai data migrasi tanpa membuat KPI.', 'success');
+  }).saveNaskahData(payload);
+}
+
+
+function toggleMigrationProofreading(val) {
+  const needsProof = String(val || '1') !== '0';
+  const editor = document.getElementById('mig_pic_editor');
+  const timeline = document.getElementById('mig_timeline');
+  if (editor) {
+    editor.disabled = !needsProof;
+    if (!needsProof) editor.value = '';
+  }
+  if (!needsProof && timeline && (timeline.value === 'Administrasi' || timeline.value === 'Proofreading')) {
+    timeline.value = 'Desain Cover & Layout';
+  }
+}
+
+function downloadDeadlineNaskahExcel() {
+  if (typeof XLSX === 'undefined') {
+    Swal.fire('Gagal', 'Library Excel belum siap. Reload halaman lalu coba lagi.', 'error');
+    return;
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  const parseMap = (value) => {
+    if (!value) return {};
+    if (typeof value === 'object' && !Array.isArray(value)) return value;
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch (error) {
+      return {};
+    }
+  };
+  const stageLabel = {
+    administrasi: 'Administrasi',
+    proofreading: 'Proofreading',
+    layout: 'Desain Cover & Layout',
+    isbn: 'ISBN',
+    produksi: 'Produksi',
+    distribusi: 'Distribusi',
+    selesai: 'Selesai'
+  };
+  const stageKeyFromTimeline = (timeline) => {
+    const text = String(timeline || '').toLowerCase();
+    if (text.includes('proof')) return 'proofreading';
+    if (text.includes('layout') || text.includes('cover')) return 'layout';
+    if (text.includes('isbn')) return 'isbn';
+    if (text.includes('produksi') || text.includes('cetak')) return 'produksi';
+    if (text.includes('distribusi')) return 'distribusi';
+    if (text.includes('selesai')) return 'selesai';
+    return 'administrasi';
+  };
+  const statusDone = (status) => ['done', 'complete', 'selesai', 'terbit'].includes(String(status || '').trim().toLowerCase());
+  const statusStarted = (status) => {
+    const normalized = String(status || '').trim().toLowerCase();
+    return normalized && normalized !== 'menunggu';
+  };
+  const isbnDone = (status) => {
+    const normalized = String(status || '').trim().toLowerCase();
+    return statusDone(normalized) || normalized === 'diterima' || normalized === 'qrsbn';
+  };
+  const currentStageKey = (n) => {
+    const order = ['administrasi', 'proofreading', 'layout', 'isbn', 'produksi', 'distribusi', 'selesai'];
+    let idx = Math.max(0, order.indexOf(stageKeyFromTimeline(n.timeline)));
+    const moveTo = (stage) => {
+      const nextIdx = order.indexOf(stage);
+      if (nextIdx > idx) idx = nextIdx;
+    };
+    if (String(n.butuhProofreading ?? '1') === '0' || statusDone(n.statusEditor)) moveTo('layout');
+    if (statusStarted(n.statusLayouter)) moveTo('layout');
+    if (statusDone(n.statusLayouter)) moveTo('isbn');
+    if (statusStarted(n.statusIsbn)) moveTo('isbn');
+    if (isbnDone(n.statusIsbn)) moveTo('produksi');
+    if (statusStarted(n.statusProduksi)) moveTo('produksi');
+    if (statusDone(n.statusProduksi)) moveTo('distribusi');
+    if (statusStarted(n.statusDistribusi)) moveTo('distribusi');
+    if (statusDone(n.statusDistribusi)) moveTo('selesai');
+    return order[idx] || 'administrasi';
+  };
+  const nextDeadlineStage = (stage) => ({
+    administrasi: 'proofreading',
+    proofreading: 'layout',
+    layout: 'isbn',
+    isbn: 'produksi',
+    produksi: 'distribusi',
+    distribusi: 'selesai'
+  })[stage] || '';
+  const activeRows = (mockNaskahDB || []).filter((n) => {
+    if (!n) return false;
+    if (typeof isNaskahCancelled === 'function' && isNaskahCancelled(n)) return false;
+    return n.statusProses === 'Siap Proses' || !n.statusProses || n.source === 'migrasi';
+  });
+
+  const exportData = activeRows.map((n) => {
+    const deadlines = parseMap(n.deadlines);
+    const baseDeadlines = parseMap(n.baseDeadlines);
+    const merged = { ...baseDeadlines, ...deadlines };
+    const currentStage = currentStageKey(n);
+    const deadlineStage = nextDeadlineStage(currentStage);
+    const deadline = String((deadlineStage && merged[deadlineStage]) || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(deadline) || deadline >= today) return null;
+    return {
+      'Kode Tracking': n.trackingCode || '',
+      'ID Naskah': n.id || '',
+      'Judul Naskah': n.judul || '',
+      'Penulis': n.penulis || '',
+      'Penerbit': n.penerbit || '',
+      'Paket': n.paket || '',
+      'Sumber': n.source === 'cs' || n.dealId ? 'Input CS' : 'Migrasi Manajemen',
+      'Timeline Tersimpan': n.timeline || '',
+      'Tahap Saat Ini': stageLabel[currentStage] || currentStage,
+      'Tahap Deadline': stageLabel[deadlineStage] || deadlineStage,
+      'Deadline': deadline,
+      'Tanggal Cek': today,
+      'Status Editor': n.statusEditor || '',
+      'Status Layouter': n.statusLayouter || '',
+      'Status ISBN': n.statusIsbn || '',
+      'Status Produksi': n.statusProduksi || '',
+      'Status Distribusi': n.statusDistribusi || ''
+    };
+  }).filter(Boolean);
+
+  if (!exportData.length) {
+    Swal.fire('Tidak Ada Data', 'Tidak ada naskah berjalan yang melewati deadline aktif.', 'info');
+    return;
+  }
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(exportData);
+  ws['!cols'] = [
+    { wch: 22 }, { wch: 18 }, { wch: 42 }, { wch: 24 }, { wch: 16 }, { wch: 16 },
+    { wch: 18 }, { wch: 22 }, { wch: 22 }, { wch: 18 }, { wch: 14 }, { wch: 14 },
+    { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }
+  ];
+  XLSX.utils.book_append_sheet(wb, ws, 'Naskah Lewat Deadline');
+  XLSX.writeFile(wb, 'Naskah_Lewat_Deadline_' + today + '.xlsx');
+  Swal.fire('Berhasil', `${exportData.length} naskah lewat deadline berhasil diunduh.`, 'success');
+}
+
+
+function downloadDoubleNaskahExcel() {
+  if (typeof XLSX === 'undefined') {
+    Swal.fire('Gagal', 'Library Excel belum siap.', 'error');
+    return;
+  }
+  
+  Swal.fire({ title: 'Menganalisis Naskah...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+  
+  gas.withSuccessHandler((res) => {
+    const data = res?.data || [];
+    const active = data.filter((n) => (n.statusProses === 'Siap Proses' || !n.statusProses || n.source === 'migrasi') && !(typeof isNaskahCancelled === 'function' && isNaskahCancelled(n)));
+    
+    function getSimilarity(s1, s2) {
+      s1 = String(s1 || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      s2 = String(s2 || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (!s1 || !s2) return 0;
+      if (s1 === s2) return 1;
+      if (s1.includes(s2) || s2.includes(s1)) return 0.9;
+      
+      const longer = s1.length > s2.length ? s1 : s2;
+      const shorter = s1.length > s2.length ? s2 : s1;
+      const longerLength = longer.length;
+      
+      const costs = new Array();
+      for (let i = 0; i <= longer.length; i++) {
+        let lastValue = i;
+        for (let j = 0; j <= shorter.length; j++) {
+          if (i == 0) {
+            costs[j] = j;
+          } else if (j > 0) {
+            let newValue = costs[j - 1];
+            if (longer.charAt(i - 1) !== shorter.charAt(j - 1)) {
+              newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+            }
+            costs[j - 1] = lastValue;
+            lastValue = newValue;
+          }
+        }
+        if (i > 0) costs[shorter.length] = lastValue;
+      }
+      return (longerLength - costs[shorter.length]) / parseFloat(longerLength);
+    }
+    
+    const duplicates = [];
+    const checked = new Set();
+    
+    for (let i = 0; i < active.length; i++) {
+      if (checked.has(active[i].id)) continue;
+      
+      const currentGroup = [active[i]];
+      for (let j = i + 1; j < active.length; j++) {
+        if (checked.has(active[j].id)) continue;
+        
+        const simJudul = getSimilarity(active[i].judul, active[j].judul);
+        const simPenulis = getSimilarity(active[i].penulis, active[j].penulis);
+        
+        if (simJudul > 0.8 && simPenulis > 0.8) {
+          currentGroup.push(active[j]);
+          checked.add(active[j].id);
+        }
+      }
+      
+      if (currentGroup.length > 1) {
+        checked.add(active[i].id);
+        currentGroup.forEach(n => duplicates.push(n));
+      }
+    }
+    
+    if (duplicates.length === 0) {
+      Swal.fire('Tidak Ditemukan', 'Sistem tidak menemukan indikasi naskah ganda yang memiliki kemiripan tinggi pada judul dan nama penulis.', 'info');
+      return;
+    }
+    
+    const exportData = duplicates.map(n => ({
+      'Kode Tracking': n.trackingCode || '-',
+      'Judul Naskah': n.judul || '-',
+      'Nama Penulis': n.penulis || '-',
+      'Riwayat Klaim KPI': [
+         n.adminKpiClaimed ? 'Admin: ' + n.adminKpiClaimed : '',
+         n.cssKpiClaimed ? 'CSS: ' + n.cssKpiClaimed : '',
+         n.statusEditorUpdatedAt ? 'Editor: Selesai' : '',
+         n.statusLayouterUpdatedAt ? 'Layouter: Selesai' : ''
+      ].filter(Boolean).join(' | ') || 'Belum ada klaim KPI'
+    }));
+    
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    ws['!cols'] = [{ wch: 22 }, { wch: 45 }, { wch: 25 }, { wch: 40 }];
+    
+    XLSX.utils.book_append_sheet(wb, ws, 'Indikasi Naskah Double');
+    XLSX.writeFile(wb, 'Laporan_Naskah_Double_' + new Date().toISOString().split('T')[0] + '.xlsx');
+    
+    Swal.fire('Berhasil', `Ditemukan ${exportData.length} baris naskah yang terindikasi double dan berhasil diunduh.`, 'success');
+  }).withFailureHandler((error) => {
+    Swal.fire('Gagal', 'Terjadi kesalahan saat mengambil data: ' + String(error), 'error');
+  }).getNaskahData();
+}
+
+
+[
+'loadNaskahMigrasi',
+'naskahArchiveEscape',
+'archiveCancelledNaskahUi',
+'loadNaskahArchive',
+'normalizeLegacyPaymentStatus',
+'populateMigrationNaskahFormUsers',
+'downloadTemplateNaskahMigrasi',
+'normalizeImportDate',
+'normalizeMigrationProofValue',
+'importNaskahMigrasiExcel',
+'fillMigrationTimelineOptions',
+'ensureMigrationPhoneField',
+'openFormNaskahMigrasi',
+'handleSaveNaskahMigrasi',
+'toggleMigrationProofreading',
+'downloadDeadlineNaskahExcel',
+'downloadDoubleNaskahExcel'].
+forEach((name) => {
+  try {
+    const fn = eval(name);
+    if (typeof fn === 'function') window[name] = fn;
+  } catch (error) {}
+});
+</script>
