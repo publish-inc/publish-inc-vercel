@@ -11,6 +11,13 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let alive = true;
 
+    const timer = setTimeout(() => {
+      if (alive) {
+        setLoading(false);
+        setUser((curr) => (curr === null ? false : curr));
+      }
+    }, 4000);
+
     api.get("/auth/me")
       .then((res) => {
         if (alive) setUser(res.data);
@@ -21,10 +28,12 @@ export const AuthProvider = ({ children }) => {
       })
       .finally(() => {
         if (alive) setLoading(false);
+        clearTimeout(timer);
       });
 
     return () => {
       alive = false;
+      clearTimeout(timer);
     };
   }, []);
 
