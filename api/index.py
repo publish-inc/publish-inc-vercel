@@ -521,7 +521,7 @@ class GoogleDriveClient:
             timeout=120,
         )
         if response.status_code >= 400:
-            raise HTTPException(status_code=400, detail=f"Gagal upload ke Google Drive: {response.text}")
+            raise RuntimeError(f"Gagal upload ke Google Drive: {response.text}")
         uploaded = response.json()
         file_id = uploaded["id"]
         return {
